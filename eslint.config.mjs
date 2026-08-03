@@ -2,6 +2,7 @@ import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
 import noPhysicalRtlProperties from "./eslint-rules/no-physical-rtl-properties.mjs";
+import noDefaultExport from "./eslint-rules/no-default-export.mjs";
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -11,6 +12,7 @@ const eslintConfig = defineConfig([
       local: {
         rules: {
           "no-physical-rtl-properties": noPhysicalRtlProperties,
+          "no-default-export": noDefaultExport,
         },
       },
     },
@@ -19,6 +21,31 @@ const eslintConfig = defineConfig([
       "@typescript-eslint/no-explicit-any": "error",
       // AGENTS.md §7 — Hebrew-first/RTL app; physical left/right CSS breaks RTL.
       "local/no-physical-rtl-properties": "error",
+    },
+  },
+  {
+    // AGENTS.md §6 — no debug console.log, no empty catch, no default
+    // exports — scoped to application code under src/.
+    files: ["src/**/*.{ts,tsx}"],
+    rules: {
+      "no-console": "error",
+      "no-empty": "error",
+      "local/no-default-export": "error",
+    },
+  },
+  {
+    // Next.js special files that require a default export.
+    files: [
+      "src/app/**/page.{ts,tsx}",
+      "src/app/**/layout.{ts,tsx}",
+      "src/app/**/route.{ts,tsx}",
+      "src/app/**/error.{ts,tsx}",
+      "src/app/**/loading.{ts,tsx}",
+      "src/app/**/not-found.{ts,tsx}",
+      "src/middleware.{ts,tsx}",
+    ],
+    rules: {
+      "local/no-default-export": "off",
     },
   },
   // Override default ignores of eslint-config-next.

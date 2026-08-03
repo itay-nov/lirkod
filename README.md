@@ -25,3 +25,17 @@ npm run test:e2e     # playwright (e2e) — starts the dev server automatically
 ```
 
 `npm run test:e2e` uses Chromium, installed via `npx playwright install chromium`.
+
+## Ports across worktrees
+
+AGENTS.md §12 uses one git worktree per task, so several dev servers can be
+running on this machine at once. Each worktree must use its own `PORT` —
+never rely on the shared default of 3000, or Playwright in one worktree may
+silently attach to a dev server started by another branch's task instead of
+its own.
+
+```bash
+PORT=3001 npm run dev
+PORT=3001 npm run test:e2e
+```
+

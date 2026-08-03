@@ -39,6 +39,9 @@ Hard rules:
    The layout must remain usable at 200% browser text size — verify this before
    claiming a screen is done.
 5. **Minimum tap target 48×48 CSS px. Minimum body text 18px.** Not 14px, not 16px.
+   18px is a floor, not a literal CSS value — express it as `1.125rem` (relative to a
+   16px root), never a hardcoded `px` font-size. A `px` value overrides the user's
+   browser font-size setting, which violates rule 4 above.
 6. **Contrast ratio ≥ 4.5:1** for all text. Never convey state by color alone (a
    cancelled dance says "בוטל", not just red).
 7. **No hover-only affordances, no long-press-only actions, no swipe-only navigation.**
@@ -99,6 +102,7 @@ supabase/
 tests/
 docs/
   decisions/           ADRs — one markdown file per architectural decision
+eslint-rules/          Local custom ESLint rules (no plugin package for these exists)
 ```
 
 Never create a new top-level directory without asking.
@@ -126,16 +130,21 @@ same commit as the migration.
 
 - TypeScript `strict`. **`any` is forbidden** — use `unknown` and narrow it. If you
   genuinely cannot type something, add `// TODO(types):` with an explanation.
-- No default exports except where Next.js requires them (pages, layouts).
+- No default exports in `src/`, except Next.js special files that require one (`page`,
+  `layout`, `route`, `error`, `loading`, `not-found`, `middleware`). Tooling config at
+  the repo root (`next.config.ts`, `eslint.config.mjs`, etc.) is outside this rule's
+  scope. Lint-enforced (`local/no-default-export`).
 - Server Components by default. Add `"use client"` only when you need state, effects, or
   browser APIs — and put the smallest possible subtree in the client component.
 - **Never fetch data inside a component.** Queries live in `src/lib/db/`, are typed, and
   are called from Server Components or Route Handlers.
 - Functions do one thing. If a function exceeds ~50 lines, split it.
 - Errors: never swallow. Either handle meaningfully or let it propagate to an error
-  boundary. `catch {}` with an empty body is a bug.
+  boundary. `catch {}` with an empty body is a bug. **Lint-enforced (`no-empty`) in
+  `src/`.**
 - Comments explain *why*, never *what*. Do not add comments that restate the code.
 - Do not leave commented-out code, debug `console.log`, or scaffolding files behind.
+  **No `console.log` (or other `console.*`) in `src/`. Lint-enforced (`no-console`).**
 
 ---
 
@@ -227,6 +236,9 @@ than a confident wrong answer.
 
 - One task = one branch = one git worktree. Never switch branches inside a worktree
   another agent may be using.
+- Each worktree uses its own `PORT`; never share port 3000. A shared port lets a dev
+  server or `npm run test:e2e` in one worktree silently attach to another branch's
+  running server.
 - Branch naming: `feat/<short-slug>`, `fix/<short-slug>`, `chore/<short-slug>`.
 - Conventional commits: `feat(map): filter dances by radius`.
 - Never commit directly to `main`. Never force-push a shared branch.
@@ -270,3 +282,16 @@ touches them.
 - Recurring dances: whether occurrences are materialized rows or computed from an RRULE.
 - Whether instructor analytics get their own dashboard surface or live inside the
   existing instructor screens.
+
+## graphify
+
+This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
+
+When the user types `/graphify`, use the installed graphify skill or instructions before doing anything else.
+
+Rules:
+- For codebase questions, first run `graphify query "<question>"` when graphify-out/graph.json exists. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
+- Dirty graphify-out/ files are expected after hooks or incremental updates; dirty graph files are not a reason to skip graphify. Only skip graphify if the task is about stale or incorrect graph output, or the user explicitly says not to use it.
+- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
+- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
+- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
