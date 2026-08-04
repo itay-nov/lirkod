@@ -57,6 +57,9 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     "playwright-report/**",
     "test-results/**",
+    // Scratch space the Supabase CLI writes on `supabase start` — generated,
+    // gitignored, and not ours to lint.
+    "supabase/.temp/**",
   ]),
 ]);
 
