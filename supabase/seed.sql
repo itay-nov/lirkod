@@ -130,3 +130,35 @@ insert into public.event_occurrences (id, event_id, starts_at, ends_at, status) 
     now() + interval '5 days' + interval '3 hours',
     'scheduled'
   );
+
+-- One moved and one cancelled occurrence -------------------------------------
+--
+-- Added so the three ring states on the hero screen can be checked against real
+-- rows instead of mock data. Both are deliberately placed where they cannot
+-- disturb tests/db/proximity.test.ts: each sits at (or moves to) the Tel Aviv
+-- venue, which that suite's 5km-from-Holon case already asserts is excluded, and
+-- both start later than the three scheduled rows above, so the "first result" and
+-- 60-day-horizon assertions are untouched.
+
+insert into public.event_occurrences (
+  id, event_id, starts_at, ends_at, status, override_venue_id, overridden_at
+) values (
+  'd0000000-0000-0000-0000-000000000004',
+  'c0000000-0000-0000-0000-000000000001',  -- the Holon series...
+  now() + interval '6 days',
+  now() + interval '6 days' + interval '3 hours',
+  'moved',
+  'b0000000-0000-0000-0000-000000000002',  -- ...moved to Tel Aviv for one night
+  now()
+);
+
+insert into public.event_occurrences (
+  id, event_id, starts_at, ends_at, status, cancellation_reason
+) values (
+  'd0000000-0000-0000-0000-000000000005',
+  'c0000000-0000-0000-0000-000000000002',
+  now() + interval '7 days',
+  now() + interval '7 days' + interval '3 hours',
+  'cancelled',
+  'תקלה במזגן באולם'
+);

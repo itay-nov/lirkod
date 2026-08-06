@@ -15,6 +15,17 @@ const heebo = localFont({
   display: "swap",
 });
 
+// Rubik carries the headings. It has a real Hebrew design (not a Latin face
+// with a fallback bolted on) and its heavy weights hold up at the large sizes
+// this audience needs. Vendored locally for the same reason as Heebo — the
+// build must never depend on a network fetch (docs/decisions/0001).
+const rubik = localFont({
+  src: "./fonts/Rubik-Variable.ttf",
+  variable: "--font-rubik",
+  weight: "300 900",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   title: he.common.appName,
 };
@@ -25,7 +36,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="he" dir="rtl" className={heebo.variable}>
+    <html lang="he" dir="rtl" className={`${heebo.variable} ${rubik.variable}`}>
       <body>{children}</body>
     </html>
   );
