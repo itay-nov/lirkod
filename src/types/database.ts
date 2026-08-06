@@ -205,6 +205,21 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      find_dances_near: {
+        Args: { p_lat: number; p_lng: number; p_radius_meters: number }
+        Returns: {
+          dance_types: string[]
+          instructor_display_name: string
+          occurrence_id: string
+          price_agorot: number
+          starts_at: string
+          status: Database["public"]["Enums"]["occurrence_status"]
+          venue_id: string
+          venue_lat: number
+          venue_lng: number
+          venue_name: string
+        }[]
+      }
       owns_event: { Args: { p_event_id: string }; Returns: boolean }
       owns_instructor: { Args: { p_instructor_id: string }; Returns: boolean }
     }
