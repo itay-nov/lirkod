@@ -14,10 +14,10 @@ by `ST_DWithin` against a caller-supplied point and radius.
 
 ## Decision
 
-`public.find_dances_near(p_lat, p_lng, p_radius_meters)`, a `language sql stable`
-function, called via `client.rpc(...)` from `src/lib/db/dances.ts`. It carries no
-`security definer` — it runs as the caller (`anon` from the public map), so it reaches
-exactly the rows RLS already allows that role to read, no more.
+`public.find_dances_near(p_lat, p_lng, p_radius_meters)`, a `stable` function called
+via `client.rpc(...)` from `src/lib/db/dances.ts`. It carries no `security definer` —
+it runs as the caller (`anon` from the public map), so it reaches exactly the rows RLS
+already allows that role to read, no more.
 
 ## Why not a view
 
@@ -40,3 +40,11 @@ performance-budgeted hero screen (§9, §2.9).
 - The function is unfiltered by `status` on purpose: a cancelled or moved night still
   has to reach an anonymous visitor with its status intact, so the map can render the
   required "בוטל"/"הועבר" label instead of silently vanishing (§10).
+- Being callable by `anon` with no auth means it is also callable by anyone, at any
+  rate, with any input — being a thin invoker RPC over RLS is not itself a bound on
+  abuse. Migration `0003_bound_find_dances_near.sql` adds that: a clamped radius, a
+  60-day horizon, a 200-row limit, and rejection of invalid lat/lng/radius. The
+  function moved from `language sql` to `language plpgsql` there, because expressing
+  that validation needs `raise`, which a SQL-language function body cannot do. The
+  reasoning for each clamp-vs-reject choice lives in that migration's header comment,
+  not repeated here.

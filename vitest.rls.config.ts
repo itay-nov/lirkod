@@ -7,6 +7,12 @@ import { defineConfig } from "vitest/config";
 //
 // tests/db/** lives here too, not because it tests RLS policies, but because it
 // needs the same live stack — including the seed data loaded by `db reset`.
+// `db:start` alone is NOT enough for tests/db/**: those assert against rows from
+// supabase/seed.sql, which is only (re)loaded by `npm run db:reset`. Run
+// `npm run db:reset` before `npm run test:rls` if you haven't recently, or if tests
+// in tests/db/** start failing — the seeded occurrences' starts_at values are only a
+// few days in the future, so a failure days after the last reset is stale seed data
+// aging past `now()`, not a regression.
 export default defineConfig({
   test: {
     environment: "node",

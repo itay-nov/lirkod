@@ -39,7 +39,7 @@ npm run lint         # eslint
 npm run typecheck    # tsc --noEmit
 npm test             # vitest (unit) — hermetic, no database needed
 npm run test:e2e     # playwright (e2e) — starts the dev server automatically
-npm run test:rls     # RLS policy tests — needs the local stack running
+npm run test:rls     # RLS + domain-query tests — needs the local stack freshly reset
 npm run db:start     # start the local Supabase stack
 npm run db:stop      # stop it
 npm run db:reset     # drop, recreate, and re-apply every migration
@@ -59,6 +59,12 @@ cancel another instructor's dance.
 After any schema change: write a **new** migration (never edit an applied one),
 then `npm run db:reset && npm run db:types && npm run test:rls`, and commit the
 regenerated types alongside the migration.
+
+`tests/db/**` (e.g. the proximity query tests) assert against rows from
+`supabase/seed.sql`, not fixtures they create themselves — so they need a **recent**
+`npm run db:reset`, not just a running stack. Seeded occurrences are only a few days
+in the future; if one of these tests starts failing and nothing relevant changed,
+reset first before assuming it's a real regression.
 
 ## Ports across worktrees
 
