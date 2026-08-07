@@ -34,7 +34,11 @@ export default async function HomePage() {
   );
 
   return (
-    <main className="flex min-h-dvh flex-col">
+    // min-h-full, not min-h-dvh, and a div rather than a <main>: the shell in
+    // layout.tsx owns both the viewport height and the <main> landmark now, and
+    // a nested <main> is invalid while a second dvh box would overflow the
+    // scroll container it sits in by exactly the height of the header and bar.
+    <div className="flex min-h-full flex-col">
       {/*
         The map area is deliberately empty, not decorated with sample pins. A pin's
         position on a map is data — placing fake ones would put wrong geography on
@@ -67,6 +71,6 @@ export default async function HomePage() {
           </DanceRingScroller>
         )}
       </section>
-    </main>
+    </div>
   );
 }

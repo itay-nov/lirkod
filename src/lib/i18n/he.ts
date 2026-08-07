@@ -8,6 +8,12 @@
 export const he = {
   common: {
     appName: "לרקוד",
+    /**
+     * Says the screen is unfinished in plain words. A blank screen reads as a
+     * bug to this audience (AGENTS.md §2) — an empty route still has to say
+     * something.
+     */
+    screenNotReady: "המסך הזה עדיין בבנייה.",
   },
   home: {
     heading: "הרקדות קרובות",
@@ -22,6 +28,23 @@ export const he = {
     /** The map itself is a later task; this labels the area it will occupy. */
     placeholderRegionLabel: "אזור המפה",
     placeholder: "המפה תוצג כאן",
+  },
+  nav: {
+    /** Names the <nav> landmark, so a screen reader can jump straight to it. */
+    label: "ניווט ראשי",
+    map: "מפה",
+    schedule: "לוח",
+    favorites: "מועדפים",
+    profile: "שלי",
+  },
+  schedule: {
+    heading: "לוח הרקדות",
+  },
+  favorites: {
+    heading: "מועדפים",
+  },
+  profile: {
+    heading: "שלי",
   },
   dance: {
     status: {
