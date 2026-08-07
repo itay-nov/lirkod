@@ -14,6 +14,9 @@ export const he = {
     /** Shown when the proximity query comes back empty — not an error state. */
     empty: "לא נמצאו הרקדות באזור הזה בימים הקרובים.",
     listLabel: "רשימת ההרקדות הקרובות",
+    /** The explicit prev/next controls alongside the scrollable ring list (AGENTS.md §2.7). */
+    prevLabel: "הרקדות קודמות",
+    nextLabel: "הרקדות נוספות",
   },
   map: {
     /** The map itself is a later task; this labels the area it will occupy. */

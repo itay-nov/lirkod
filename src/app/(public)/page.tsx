@@ -1,4 +1,5 @@
 import { DanceRing } from "@/components/DanceRing";
+import { DanceRingScroller } from "@/components/DanceRingScroller";
 import { anonClient } from "@/lib/db/client";
 import { findDancesNear } from "@/lib/db/dances";
 import { he } from "@/lib/i18n/he";
@@ -53,19 +54,17 @@ export default async function HomePage() {
         {dances.length === 0 ? (
           <p className="px-4 pt-4">{he.home.empty}</p>
         ) : (
-          <ul
-            aria-label={he.home.listLabel}
-            // pb-2 is not decoration: overflow-x-auto clips overflow on BOTH
-            // axes, and without it the focused ring's 4px outline is sliced off
-            // at the bottom of the scroller.
-            className="flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 pb-2 pt-4"
+          <DanceRingScroller
+            listLabel={he.home.listLabel}
+            prevLabel={he.home.prevLabel}
+            nextLabel={he.home.nextLabel}
           >
             {dances.map((dance) => (
               <li key={dance.occurrenceId} className="flex">
                 <DanceRing dance={dance} />
               </li>
             ))}
-          </ul>
+          </DanceRingScroller>
         )}
       </section>
     </main>
