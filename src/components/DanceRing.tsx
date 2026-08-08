@@ -1,51 +1,7 @@
-import type { NearbyDance, OccurrenceStatus } from "@/lib/db/dances";
+import { appearanceFor } from "@/components/danceStatusAppearance";
+import type { NearbyDance } from "@/lib/db/dances";
 import { formatStartTime, formatStartWeekday } from "@/lib/domain/occurrenceTime";
 import { he } from "@/lib/i18n/he";
-
-interface RingAppearance {
-  /** Ring stroke: solid / dashed / muted — never the ONLY carrier of status. */
-  ringClassName: string;
-  /** The word a dancer reads. `null` for a normal dance, which needs no label. */
-  statusLabel: string | null;
-  statusBadgeClassName: string;
-  timeClassName: string;
-}
-
-/**
- * A real `switch` on the database enum, not a lookup keyed by a class name:
- * TypeScript's exhaustiveness check is what guarantees a fourth
- * `occurrence_status` cannot be added without this file failing to compile —
- * which is exactly the failure mode AGENTS.md §10 calls the product's most
- * important moment (a moved or cancelled dance rendering as if it were normal).
- */
-function appearanceFor(status: OccurrenceStatus): RingAppearance {
-  switch (status) {
-    case "scheduled":
-      return {
-        ringClassName: "border-solid border-accent",
-        statusLabel: null,
-        statusBadgeClassName: "",
-        timeClassName: "",
-      };
-    case "moved":
-      return {
-        ringClassName: "border-dashed border-secondary",
-        statusLabel: he.dance.status.moved,
-        // Gold fails contrast as a text colour but passes as a fill with ink on
-        // top (6.5:1) — see the token table in globals.css.
-        statusBadgeClassName: "bg-highlight text-ink",
-        timeClassName: "",
-      };
-    case "cancelled":
-      return {
-        ringClassName: "border-solid border-muted",
-        statusLabel: he.dance.status.cancelled,
-        statusBadgeClassName: "bg-ink text-surface",
-        // A second non-colour cue on top of the muted ring and the word "בוטל".
-        timeClassName: "line-through decoration-2",
-      };
-  }
-}
 
 /**
  * One dance occurrence, drawn as a ring rather than a card.

@@ -2,17 +2,12 @@ import { DanceRing } from "@/components/DanceRing";
 import { DanceRingScroller } from "@/components/DanceRingScroller";
 import { anonClient } from "@/lib/db/client";
 import { findDancesNear } from "@/lib/db/dances";
+import {
+  DEFAULT_LAT,
+  DEFAULT_LNG,
+  DEFAULT_RADIUS_METERS,
+} from "@/lib/domain/defaultRegion";
 import { he } from "@/lib/i18n/he";
-
-/**
- * A fixed point in central Tel Aviv (Rabin Square) and a radius that covers Gush
- * Dan. Real geolocation is a later task, and AGENTS.md §9 is explicit that the
- * first render must never wait on a permission prompt — so the default region is
- * rendered first, unconditionally, and refined later once permission is granted.
- */
-const DEFAULT_LAT = 32.0809;
-const DEFAULT_LNG = 34.7806;
-const DEFAULT_RADIUS_METERS = 15_000;
 
 /**
  * Never prerendered at build time. A cancellation or a venue change is the

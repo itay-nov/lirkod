@@ -38,6 +38,14 @@ export const he = {
   },
   schedule: {
     heading: "לוח הרקדות",
+    /**
+     * "בחודשיים הקרובים" is not a rounded-up figure — find_dances_near looks 60
+     * days ahead and no further (migration 0003), so promising more here would
+     * describe a query we do not run.
+     */
+    empty: "לא נמצאו הרקדות באזור הזה בחודשיים הקרובים.",
+    /** Names one day's list, so the days are distinguishable when tabbing between them. */
+    dayListLabel: (day: string): string => `הרקדות ב${day}`,
   },
   /** Now a section inside /profile, not its own route or tab — see docs/decisions/0008. */
   favorites: {

@@ -16,9 +16,9 @@ import { he } from "@/lib/i18n/he";
  * property AGENTS.md §2.4 actually asks for.
  *
  * Deliberately NOT `export const dynamic` — this layout wraps three routes and
- * would drag the two static ones into per-request rendering with it. The map
- * route declares `force-dynamic` on its own page, so it alone stays dynamic
- * (docs/decisions/0006) while /schedule and /profile prerender.
+ * would drag the static one into per-request rendering with it. The map and the
+ * schedule each declare `force-dynamic` on their own page, because both read
+ * live occurrence rows (docs/decisions/0006); /profile still prerenders.
  */
 export default function PublicLayout({
   children,
