@@ -34,22 +34,44 @@ function dance(status: OccurrenceStatus): NearbyDance {
 }
 
 describe("DanceRow", () => {
-  it("is a real button, so it is keyboard reachable (AGENTS.md §2.7)", () => {
-    render(<DanceRow dance={dance("scheduled")} />);
-    expect(screen.getByRole("button")).toBeInTheDocument();
+  it("is not interactive while there is nowhere to go", () => {
+    // Same reasoning as the ring's equivalent test, and it has to be asserted
+    // separately: the two are meant to change together, so a row turned back
+    // into a bare button while the ring stayed inert would be exactly the drift
+    // these mirrored suites exist to catch.
+    const { container } = render(<DanceRow dance={dance("scheduled")} />);
+
+    expect(screen.queryByRole("button")).toBeNull();
+    expect(screen.queryByRole("link")).toBeNull();
+    expect(container.querySelector("button, a, [tabindex], [role]")).toBeNull();
+  });
+
+  it("leaves its text to be read in place, with no aria-label to override it", () => {
+    const { container } = render(<DanceRow dance={dance("cancelled")} />);
+
+    expect(container.querySelector("[aria-label]")).toBeNull();
   });
 
   it("shows the start time in Asia/Jerusalem, not UTC (AGENTS.md §7)", () => {
-    render(<DanceRow dance={dance("scheduled")} />);
-    expect(screen.getByRole("button")).toHaveTextContent("20:30");
+    const { container } = render(<DanceRow dance={dance("scheduled")} />);
+    expect(container).toHaveTextContent("20:30");
+  });
+
+  it("names the venue and the instructor in visible text", () => {
+    // Not the weekday: the schedule groups rows under a day heading and labels
+    // each day's list with it, so repeating it on every row would make a screen
+    // reader say the day once per dance.
+    const { container } = render(<DanceRow dance={dance("scheduled")} />);
+
+    expect(container).toHaveTextContent("היכל התרבות חולון");
+    expect(container).toHaveTextContent("רונית מרקידה");
   });
 
   it("gives a scheduled dance no status word — there is nothing to warn about", () => {
-    render(<DanceRow dance={dance("scheduled")} />);
-    const button = screen.getByRole("button");
+    const { container } = render(<DanceRow dance={dance("scheduled")} />);
 
-    expect(button).not.toHaveTextContent(he.dance.status.moved);
-    expect(button).not.toHaveTextContent(he.dance.status.cancelled);
+    expect(container).not.toHaveTextContent(he.dance.status.moved);
+    expect(container).not.toHaveTextContent(he.dance.status.cancelled);
   });
 
   it.each([
@@ -58,33 +80,16 @@ describe("DanceRow", () => {
   ] as const)(
     "renders %s as a visible word, not colour alone (AGENTS.md §2.6)",
     (status, word) => {
-      render(<DanceRow dance={dance(status)} />);
-      expect(screen.getByRole("button")).toHaveTextContent(word);
+      const { container } = render(<DanceRow dance={dance(status)} />);
+      expect(container).toHaveTextContent(word);
     },
   );
-
-  it("puts time, venue, instructor and status in a single aria-label", () => {
-    render(<DanceRow dance={dance("cancelled")} />);
-    const label = screen.getByRole("button").getAttribute("aria-label") ?? "";
-
-    expect(label).toContain("20:30");
-    expect(label).toContain("היכל התרבות חולון");
-    expect(label).toContain("רונית מרקידה");
-    expect(label).toContain(he.dance.status.cancelled);
-  });
-
-  it("names the weekday too, for someone who tabs in past the day header", () => {
-    render(<DanceRow dance={dance("scheduled")} />);
-    const label = screen.getByRole("button").getAttribute("aria-label") ?? "";
-
-    expect(label).toContain("יום שני");
-  });
 
   it("aligns to the reading direction logically, never to a hardcoded side", () => {
     // text-right would look correct in this RTL app and silently break the
     // moment anything renders LTR (AGENTS.md §7).
     const { container } = render(<DanceRow dance={dance("scheduled")} />);
-    const className = container.querySelector("button")?.className ?? "";
+    const className = container.firstElementChild?.className ?? "";
 
     expect(className).toContain("text-start");
     expect(className).not.toMatch(/\btext-(left|right)\b/);

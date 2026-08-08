@@ -15,7 +15,19 @@ schemas = ["public", "graphql_public"]
 extra_search_path = ["public", "extensions"]
 # The maximum number of rows returns from a view, table, or stored procedure. Limits payload size
 # for accidental or malicious requests.
-max_rows = 1000
+#
+# 200, down from the CLI default of 1000, to match find_dances_near's own LIMIT
+# (migration 0003) — so the raw-table read path and the RPC cap out at the same
+# number instead of the raw one being five times looser. See docs/decisions/0010.
+#
+# This is PostgREST's db-max-rows, and it is ONE value for the whole connection,
+# not a per-role one: verified against this stack by setting `pgrst.db_max_rows`
+# on the `anon` role (ignored) and then on `authenticator` (honoured). So there is
+# no way to tighten `anon` alone here, and `service_role` reads through PostgREST
+# are capped at 200 too. That is a truncation, not an error — a future server-side
+# job that needs more must paginate with Range/`limit`, and this comment is the
+# only warning it will get.
+max_rows = 200
 # Controls whether new tables, views, sequences and functions created in the `public` schema by
 # `postgres` are reachable through the Data API roles (`anon`, `authenticated`, `service_role`)
 # without explicit GRANTs. When unset, new entities are NOT auto-exposed, matching the new cloud

@@ -1,16 +1,29 @@
 import { appearanceFor } from "@/components/danceStatusAppearance";
 import type { NearbyDance } from "@/lib/db/dances";
 import { formatStartTime, formatStartWeekday } from "@/lib/domain/occurrenceTime";
-import { he } from "@/lib/i18n/he";
 
 /**
  * One dance occurrence, drawn as a ring rather than a card.
  *
- * A real `<button>`: it is in the tab order, takes Enter/Space, and shows a
- * focus ring, none of which a `<div onClick>` gives for free (AGENTS.md §2.7).
- * It has no click handler yet — the dance detail route is the next task — but
- * the element is the right one from the start rather than a div to be swapped
- * later.
+ * Deliberately NOT interactive. It used to be a real `<button>` on the reasoning
+ * that the detail route was the next task and the right element should be there
+ * from the start — but there is still no such route and no click handler, so
+ * what shipped was a focusable, enabled control that does nothing. That is worse
+ * for this audience than a plain div: a keyboard or screen-reader user tabs to
+ * it, presses Enter, and nothing happens, with no way to tell whether the app is
+ * broken or slow (AGENTS.md §2). A non-interactive item at least reads as what
+ * it is. The `<li>` around it is what a screen reader announces, and the visible
+ * text — time, weekday, venue, instructor, status — is read in that order, which
+ * is why there is no aria-label here either: naming a role-less element is
+ * ignored by assistive tech.
+ *
+ * TODO(detail-route): when the dance detail screen lands at
+ * `src/app/(public)/dance/[occurrenceId]/page.tsx` (AGENTS.md §4 lists it as a
+ * public route), this becomes a `next/link` — a link, not a button, because it
+ * navigates — and gets its single whole-night accessible name back. The string
+ * that did that job was `he.dance.ringLabel`; it was removed with this change
+ * rather than left behind as dead i18n, and DanceRow needs the identical
+ * treatment at the same time.
  *
  * No `"use client"`: this renders on the server and ships no JavaScript, which
  * is what keeps the hero screen inside the §2.9 performance budget.
@@ -23,24 +36,12 @@ export function DanceRing({ dance }: { dance: NearbyDance }) {
   const weekday = formatStartWeekday(dance.startsAt);
 
   return (
-    <button
-      type="button"
-      // The visible text is split across several nodes, and a button announces
-      // as one thing. This label is that one thing: when, where, with whom, and
-      // whether the night is still on. It overrides the child text for naming
-      // purposes, so the children need no aria-hidden.
-      aria-label={he.dance.ringLabel({
-        weekday,
-        time,
-        venue: dance.venueName,
-        instructor: dance.instructorDisplayName,
-        status: statusLabel,
-      })}
+    <div
       // Width is set so ~2.5 rings fit a 375px screen: the half-visible third
       // ring is the cue that the list scrolls sideways, and this audience does
       // not go hunting for content it cannot see (AGENTS.md §2.7). It is in rem,
       // so it grows with the text rather than squeezing it at 200%.
-      className="flex w-32 shrink-0 snap-start flex-col items-center gap-2 rounded-2xl p-2 text-center focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-secondary"
+      className="flex w-32 shrink-0 snap-start flex-col items-center gap-2 rounded-2xl p-2 text-center"
     >
       <span
         className={`flex size-[4.5rem] items-center justify-center rounded-full border-4 ${ringClassName}`}
@@ -59,6 +60,6 @@ export function DanceRing({ dance }: { dance: NearbyDance }) {
           {statusLabel}
         </span>
       )}
-    </button>
+    </div>
   );
 }

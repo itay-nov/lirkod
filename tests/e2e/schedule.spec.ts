@@ -46,25 +46,39 @@ test("puts every dance row inside a day section, never loose on the page", async
   await expect(page.getByRole("listitem").first()).toBeVisible();
 
   const orphans = await page.evaluate(() =>
-    [...document.querySelectorAll("main li button")].filter(
-      (button) => button.closest("section")?.querySelector("h2") == null,
+    [...document.querySelectorAll("main li")].filter(
+      (row) => row.closest("section")?.querySelector("h2") == null,
     ).length,
   );
 
   expect(orphans).toBe(0);
 });
 
-test("renders dances as focusable buttons carrying the whole night in one label", async ({
+test("renders each dance with its night spelled out in visible text", async ({
   page,
 }) => {
   await page.goto("/schedule");
-  const rows = page.locator("main li").getByRole("button");
+  const rows = page.locator("main li");
 
   await expect(rows.first()).toBeVisible();
 
-  const label = await rows.first().getAttribute("aria-label");
-  expect(label).toMatch(/\d{2}:\d{2}/);
-  expect(label).toContain("הרקדה");
+  // The rows carry no aria-label any more — they are not controls — so the
+  // visible text is the whole of what gets announced.
+  const text = await rows.first().innerText();
+  expect(text).toMatch(/\d{2}:\d{2}/);
+  expect(text).toMatch(/\S/);
+});
+
+test("no dance row is a control while there is no detail route to reach", async ({
+  page,
+}) => {
+  await page.goto("/schedule");
+  const rows = page.locator("main li");
+
+  await expect(rows.first()).toBeVisible();
+  expect(await rows.getByRole("button").count()).toBe(0);
+  expect(await rows.getByRole("link").count()).toBe(0);
+  expect(await rows.locator("[tabindex], [aria-label]").count()).toBe(0);
 });
 
 test("states a moved or cancelled dance in words, not only in colour", async ({
@@ -78,19 +92,10 @@ test("states a moved or cancelled dance in words, not only in colour", async ({
   await expect(main.getByText(he.dance.status.cancelled).first()).toBeVisible();
 });
 
-test("every dance row clears the 48x48 minimum tap target (AGENTS.md §5)", async ({
-  page,
-}) => {
-  await page.goto("/schedule");
-  const rows = page.locator("main li").getByRole("button");
-
-  for (const row of await rows.all()) {
-    const box = await row.boundingBox();
-    expect(box).not.toBeNull();
-    expect(box?.width ?? 0).toBeGreaterThanOrEqual(48);
-    expect(box?.height ?? 0).toBeGreaterThanOrEqual(48);
-  }
-});
+// The 48x48 tap-target check that used to be here went with the rows' button
+// semantics: §5 sizes controls, and a row is no longer one. The rows are still
+// sized by their content and the ring inside them, which the 200% tests below
+// exercise.
 
 test("the page does not scroll horizontally at 200% text size (AGENTS.md §2.4)", async ({
   page,
@@ -137,36 +142,21 @@ test("shows venue names in full at 200% on a phone, not cut to an ellipsis", asy
   expect(overflows).toBe(false);
 });
 
-test("keyboard alone walks the rows in the order they are shown", async ({ page }) => {
+test("tabbing never lands inside a dance row", async ({ page }) => {
+  // This replaces a test that walked the rows with Tab and asserted they came
+  // in the order shown. That order is still correct — it is just the reading
+  // order now, not a tab order, because a row that takes focus and does nothing
+  // on Enter is a dead end for exactly the keyboard user it looked like it was
+  // serving. Sequential Tab, not a [tabindex] query: a button reintroduced
+  // inside a row shows up here and nowhere else.
   await page.goto("/schedule");
+  await expect(page.locator("main li").first()).toBeVisible();
 
-  const rows = page.locator("main li").getByRole("button");
-  const shown = await rows.evaluateAll((buttons) =>
-    buttons.map((button) => button.getAttribute("aria-label") ?? ""),
-  );
-  expect(shown.length).toBeGreaterThan(1);
-
-  const focusedRowLabel = () =>
-    page.evaluate(() => {
-      const active = document.activeElement;
-      return active?.tagName === "BUTTON" && active.closest("main li") !== null
-        ? (active.getAttribute("aria-label") ?? "")
-        : null;
-    });
-
-  // Tab past the dev server's own indicator and the tab bar's links (see the
-  // note in home.spec.ts) until focus lands on the first row.
-  for (let i = 0; i < 10 && (await focusedRowLabel()) === null; i++) {
+  for (let i = 0; i < 12; i++) {
     await page.keyboard.press("Tab");
+    const inRow = await page.evaluate(
+      () => document.activeElement?.closest("main li") !== null,
+    );
+    expect(inRow).toBe(false);
   }
-
-  const reached: string[] = [];
-  for (let i = 0; i < shown.length; i++) {
-    const label = await focusedRowLabel();
-    if (label === null) break;
-    reached.push(label);
-    await page.keyboard.press("Tab");
-  }
-
-  expect(reached).toEqual(shown);
 });

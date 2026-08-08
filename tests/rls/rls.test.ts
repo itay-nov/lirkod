@@ -251,6 +251,63 @@ describe("event_occurrences — the cancellation path (AGENTS.md §10)", () => {
     expect(error).not.toBeNull();
   });
 
+  describe("the anon read is time-bounded (migration 0005, docs/decisions/0010)", () => {
+    // Raw SELECT stays open to anon — §2.2 forbids gating reads — but the
+    // unbounded `using (true)` let one request take the whole future table,
+    // straight past find_dances_near's 60-day horizon. These pin the window.
+    //
+    // Filtered by id, not read from a full-table select: an assertion on a
+    // whole-table result would also pass if the row were merely pushed off the
+    // end by PostgREST's row cap, which is a different mechanism.
+    it.each([
+      ["beyond the 60-day horizon", () => fixtures.beyondHorizonOccurrenceId],
+      ["long past", () => fixtures.longPastOccurrenceId],
+    ])("hides an occurrence %s from an anonymous visitor", async (_label, id) => {
+      const { data, error } = await anon
+        .from("event_occurrences")
+        .select("id")
+        .eq("id", id());
+
+      // Filtered out by policy, not refused: anon holds the SELECT privilege, so
+      // this is the RLS layer and it comes back empty rather than 42501.
+      expect(error).toBeNull();
+      expect(data).toEqual([]);
+
+      // The row is really there — this is the policy hiding it, not a broken fixture.
+      const { data: actual } = await service
+        .from("event_occurrences")
+        .select("id")
+        .eq("id", id())
+        .maybeSingle();
+      expect(actual?.id).toBe(id());
+    });
+
+    it("still shows an anonymous visitor a night inside the window", async () => {
+      const { data, error } = await anon
+        .from("event_occurrences")
+        .select("id")
+        .eq("id", fixtures.occurrenceAId);
+
+      expect(error).toBeNull();
+      expect(data).toEqual([{ id: fixtures.occurrenceAId }]);
+    });
+
+    it.each([
+      ["beyond the horizon", () => fixtures.beyondHorizonOccurrenceId],
+      ["long past", () => fixtures.longPastOccurrenceId],
+    ])("still shows a signed-in user an occurrence %s", async (_label, id) => {
+      // authenticated keeps the unbounded read: an instructor needs their own
+      // history, and reaching this role costs a phone-OTP sign-in.
+      const { data, error } = await dancer
+        .from("event_occurrences")
+        .select("id")
+        .eq("id", id());
+
+      expect(error).toBeNull();
+      expect(data).toEqual([{ id: id() }]);
+    });
+  });
+
   it("denies an anonymous cancellation, and the night stays scheduled", async () => {
     const { error } = await anon
       .from("event_occurrences")
@@ -542,6 +599,51 @@ describe("instructors — public identity, owner-only edit, verified is not self
       .insert({ profile_id: fixtures.profileAId, display_name: "לא שלי", bio: "not mine" });
 
     expect(error).not.toBeNull();
+  });
+
+  it("denies self-verifying on the way IN, not just on a later update (migration 0004)", async () => {
+    // The sibling test below proves this same insert succeeds without `verified`,
+    // so a failure here is the column being refused and nothing else.
+    //
+    // Rejected, not silently coerced to false: see the migration header. The
+    // assertion is on 42501 specifically because that is the privilege layer —
+    // `verified` is outside the column-level INSERT grant, so this never reaches
+    // RLS. Asserting "some error" would still pass if the grant were widened back
+    // and only the policy's WITH CHECK were left holding it.
+    const { error } = await dancer
+      .from("instructors")
+      .insert({
+        profile_id: fixtures.dancerProfileId,
+        display_name: "מרקיד מאושר בעצמו",
+        bio: "self-verified",
+        verified: true,
+      })
+      .select();
+
+    expect(error?.code).toBe("42501");
+
+    const { data: rows } = await service
+      .from("instructors")
+      .select("id")
+      .eq("profile_id", fixtures.dancerProfileId);
+    expect(rows).toEqual([]);
+  });
+
+  it("still lets that user create their own instructor row — it just arrives unverified", async () => {
+    const { data, error } = await dancer
+      .from("instructors")
+      .insert({
+        profile_id: fixtures.dancerProfileId,
+        display_name: "מרקידה חדשה",
+        bio: "רק התחלתי",
+      })
+      .select("id, verified")
+      .single();
+
+    expect(error).toBeNull();
+    expect(data?.verified).toBe(false);
+
+    if (data) await service.from("instructors").delete().eq("id", data.id);
   });
 
   it("lets an instructor edit their own bio", async () => {

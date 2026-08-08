@@ -13,6 +13,20 @@ import {
  */
 const FIXTURE_PREFIX = "rls-test-";
 
+/**
+ * Occurrence timestamps are relative to now, not fixed calendar dates.
+ *
+ * The anon SELECT policy on event_occurrences only reaches a window around the
+ * present (migration 0005 / docs/decisions/0010), so a fixture pinned to a
+ * literal date would drift out of that window and fail the anonymous-read tests
+ * months later, for no reason connected to any change.
+ */
+function daysFromNow(days: number, hourUtc: number): string {
+  const at = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+  at.setUTCHours(hourUtc, 0, 0, 0);
+  return at.toISOString();
+}
+
 export interface Fixtures {
   profileAId: string;
   profileBId: string;
@@ -26,6 +40,10 @@ export interface Fixtures {
   occurrenceAId: string;
   occurrenceBId: string;
   cancelledOccurrenceId: string;
+  /** Past the 60-day anon horizon — readable by a session, invisible to anon. */
+  beyondHorizonOccurrenceId: string;
+  /** Well behind the horizon's one-day grace, same deal. */
+  longPastOccurrenceId: string;
 }
 
 function unwrap<T>(result: { data: T | null; error: { message: string } | null }, what: string): T {
@@ -172,6 +190,14 @@ export async function setup(): Promise<Fixtures> {
   const eventBId = events.find((e) => e.instructor_id === instructorBId)?.id;
   if (!eventAId || !eventBId) throw new Error("event fixtures missing");
 
+  // Rows are keyed by starts_at rather than by (event_id, status), because more
+  // than one of them is now a scheduled night of event A.
+  const startsA = daysFromNow(3, 17);
+  const startsB = daysFromNow(5, 17);
+  const startsCancelled = daysFromNow(10, 17);
+  const startsBeyondHorizon = daysFromNow(90, 17);
+  const startsLongPast = daysFromNow(-30, 17);
+
   const occurrences = unwrap(
     await service
       .from("event_occurrences")
@@ -181,34 +207,56 @@ export async function setup(): Promise<Fixtures> {
       .insert([
         {
           event_id: eventAId,
-          starts_at: "2026-09-01T17:00:00Z",
-          ends_at: "2026-09-01T20:00:00Z",
+          starts_at: startsA,
+          ends_at: daysFromNow(3, 20),
           status: "scheduled",
         },
         {
           event_id: eventBId,
-          starts_at: "2026-09-03T17:00:00Z",
-          ends_at: "2026-09-03T20:00:00Z",
+          starts_at: startsB,
+          ends_at: daysFromNow(5, 20),
           status: "scheduled",
         },
         {
           event_id: eventAId,
-          starts_at: "2026-09-08T17:00:00Z",
-          ends_at: "2026-09-08T20:00:00Z",
+          starts_at: startsCancelled,
+          ends_at: daysFromNow(10, 20),
           status: "cancelled",
           cancellation_reason: "המרקיד חולה",
-          overridden_at: "2026-08-30T09:00:00Z",
+          overridden_at: new Date().toISOString(),
+        },
+        {
+          event_id: eventAId,
+          starts_at: startsBeyondHorizon,
+          ends_at: daysFromNow(90, 20),
+          status: "scheduled",
+        },
+        {
+          event_id: eventAId,
+          starts_at: startsLongPast,
+          ends_at: daysFromNow(-30, 20),
+          status: "scheduled",
         },
       ])
-      .select("id, event_id, status"),
+      .select("id, starts_at"),
     "event_occurrences",
   );
-  const occurrenceAId = occurrences.find(
-    (o) => o.event_id === eventAId && o.status === "scheduled",
-  )?.id;
-  const occurrenceBId = occurrences.find((o) => o.event_id === eventBId)?.id;
-  const cancelledOccurrenceId = occurrences.find((o) => o.status === "cancelled")?.id;
-  if (!occurrenceAId || !occurrenceBId || !cancelledOccurrenceId) {
+
+  const idAt = (startsAt: string): string | undefined =>
+    occurrences.find((o) => Date.parse(o.starts_at) === Date.parse(startsAt))?.id;
+
+  const occurrenceAId = idAt(startsA);
+  const occurrenceBId = idAt(startsB);
+  const cancelledOccurrenceId = idAt(startsCancelled);
+  const beyondHorizonOccurrenceId = idAt(startsBeyondHorizon);
+  const longPastOccurrenceId = idAt(startsLongPast);
+  if (
+    !occurrenceAId ||
+    !occurrenceBId ||
+    !cancelledOccurrenceId ||
+    !beyondHorizonOccurrenceId ||
+    !longPastOccurrenceId
+  ) {
     throw new Error("occurrence fixtures missing");
   }
 
@@ -225,5 +273,7 @@ export async function setup(): Promise<Fixtures> {
     occurrenceAId,
     occurrenceBId,
     cancelledOccurrenceId,
+    beyondHorizonOccurrenceId,
+    longPastOccurrenceId,
   };
 }

@@ -1,7 +1,6 @@
 import { appearanceFor } from "@/components/danceStatusAppearance";
 import type { NearbyDance } from "@/lib/db/dances";
-import { formatStartTime, formatStartWeekday } from "@/lib/domain/occurrenceTime";
-import { he } from "@/lib/i18n/he";
+import { formatStartTime } from "@/lib/domain/occurrenceTime";
 
 /**
  * One dance occurrence as a compact list row — the schedule's denser take on
@@ -14,9 +13,10 @@ import { he } from "@/lib/i18n/he";
  * the status logic lives in a module both import rather than being reimplemented
  * here — a dashed ring has to mean "הועבר" on every screen that draws one.
  *
- * Also a real `<button>`, for the same reason the ring is (AGENTS.md §2.7): it
- * is in the tab order, takes Enter/Space, and shows a focus ring. The dance
- * detail route is a later task, so it carries no click handler yet.
+ * Also non-interactive, for the same reason the ring is — see the comment on
+ * DanceRing, including where the detail route that turns both into links is
+ * meant to land. The two must change together; a row that navigates and a ring
+ * that does not would be two screens disagreeing about what a dance is.
  *
  * No `"use client"` — this renders on the server and ships no JavaScript.
  */
@@ -24,26 +24,19 @@ export function DanceRow({ dance }: { dance: NearbyDance }) {
   const { ringClassName, statusLabel, statusBadgeClassName, timeClassName } =
     appearanceFor(dance.status);
 
+  // No weekday here, unlike DanceRing: the row's day is the <h2> the schedule
+  // groups it under, and the surrounding <ul> is labelled with it too. It used
+  // to be repeated in this element's aria-label for someone who tabbed straight
+  // onto the row past the header — which is not reachable now that nothing here
+  // is a tab stop.
   const time = formatStartTime(dance.startsAt);
-  const weekday = formatStartWeekday(dance.startsAt);
 
   return (
-    <button
-      type="button"
-      // The same single label the ring uses, weekday included even though the
-      // day header above already says it: a screen reader user arriving here by
-      // tabbing lands on the button without ever meeting the header.
-      aria-label={he.dance.ringLabel({
-        weekday,
-        time,
-        venue: dance.venueName,
-        instructor: dance.instructorDisplayName,
-        status: statusLabel,
-      })}
+    <div
       // w-full and text-start, not text-right: the row must fill the list and
       // align to the reading direction, which is a logical property so it
       // follows dir="rtl" rather than hardcoding a side (AGENTS.md §7).
-      className="flex w-full items-center gap-3 rounded-2xl p-2 text-start focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-secondary"
+      className="flex w-full items-center gap-3 rounded-2xl p-2 text-start"
     >
       <span
         // shrink-0 so the ring keeps its shape when a long venue name pushes
@@ -79,6 +72,6 @@ export function DanceRow({ dance }: { dance: NearbyDance }) {
           {statusLabel}
         </span>
       )}
-    </button>
+    </div>
   );
 }

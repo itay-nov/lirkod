@@ -14,8 +14,17 @@
 -- runs as plain SQL during `db reset`. instance_id is the all-zero UUID GoTrue uses
 -- for a local/single-tenant stack. This user is never signed in through OTP here — it
 -- only needs to exist to satisfy profiles.id's foreign key.
+--
+-- The four empty-string token columns are not padding. They have no column default,
+-- and GoTrue scans them into non-nullable Go strings — one NULL row makes
+-- `GET /admin/users` fail for the WHOLE table with "converting NULL to string is
+-- unsupported". That breaks tests/rls/fixtures.ts's teardown, which finds its test
+-- users through listUsers: teardown silently deleted nothing, and the next
+-- `npm run test:rls` died on "Phone number already registered by another user".
+-- The remaining token columns already default to ''.
 insert into auth.users (
   instance_id, id, aud, role, phone, phone_confirmed_at,
+  confirmation_token, recovery_token, email_change_token_new, email_change,
   raw_app_meta_data, raw_user_meta_data, created_at, updated_at
 ) values (
   '00000000-0000-0000-0000-000000000000',
@@ -24,6 +33,7 @@ insert into auth.users (
   'authenticated',
   '+972500000100',
   now(),
+  '', '', '', '',
   '{"provider":"phone","providers":["phone"]}',
   '{}',
   now(),

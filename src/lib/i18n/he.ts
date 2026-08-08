@@ -59,26 +59,11 @@ export const he = {
       moved: "הועבר",
       cancelled: "בוטל",
     },
-    /**
-     * One string with the whole context, because a screen reader announces the
-     * button's label alone — the venue and status must not be separate nodes it
-     * might read out of order or not at all.
-     */
-    ringLabel: ({
-      weekday,
-      time,
-      venue,
-      instructor,
-      status,
-    }: {
-      weekday: string;
-      time: string;
-      venue: string;
-      instructor: string;
-      status: string | null;
-    }): string =>
-      `הרקדה ב${weekday} בשעה ${time}, ${venue}, עם ${instructor}${
-        status === null ? "" : `. ${status}`
-      }`,
+    // `ringLabel` lived here: one string carrying the whole night, because a
+    // button announces as a single thing and the venue and status must not be
+    // separate nodes read out of order. DanceRing and DanceRow are no longer
+    // buttons and an aria-label on a role-less element is ignored, so the string
+    // had no consumer. It comes back when the dance detail route makes them
+    // links — see the TODO in DanceRing.tsx.
   },
 } as const;

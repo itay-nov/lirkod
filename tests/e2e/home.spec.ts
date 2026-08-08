@@ -16,20 +16,37 @@ test("shows the nearby-dances heading", async ({ page }) => {
   ).toBeVisible();
 });
 
-test("renders seeded dances as focusable buttons, not click-handling divs", async ({
+test("renders seeded dances, each spelling out its night in visible text", async ({
   page,
 }) => {
   await page.goto("/");
-  const rings = page.getByRole("list", { name: he.home.listLabel }).getByRole("button");
+  const rings = page.getByRole("list", { name: he.home.listLabel }).getByRole("listitem");
 
   await expect(rings.first()).toBeVisible();
   expect(await rings.count()).toBeGreaterThan(0);
 
-  // Each button's accessible name must carry the whole night, because that is
-  // all a screen reader announces for it.
-  const label = await rings.first().getAttribute("aria-label");
-  expect(label).toMatch(/\d{2}:\d{2}/);
-  expect(label).toContain("הרקדה");
+  // No aria-label carries the night as one string any more (the rings are not
+  // controls), so the visible text is all a screen reader gets — assert it has
+  // the time and a venue rather than an empty ring.
+  const text = await rings.first().innerText();
+  expect(text).toMatch(/\d{2}:\d{2}/);
+  expect(text).toMatch(/\S/);
+});
+
+test("no dance ring is a control while there is no detail route to reach", async ({
+  page,
+}) => {
+  // The regression this exists for: the rings shipped as enabled <button>s with
+  // no handler, so tabbing to one and pressing Enter did nothing at all.
+  await page.goto("/");
+  const list = page.getByRole("list", { name: he.home.listLabel });
+
+  await expect(list.getByRole("listitem").first()).toBeVisible();
+  expect(await list.getByRole("button").count()).toBe(0);
+  expect(await list.getByRole("link").count()).toBe(0);
+  expect(
+    await list.locator("[tabindex], [aria-label]").count(),
+  ).toBe(0);
 });
 
 test("states a moved or cancelled dance in words, not only in colour", async ({
@@ -42,47 +59,24 @@ test("states a moved or cancelled dance in words, not only in colour", async ({
   await expect(list.getByText(he.dance.status.cancelled)).toBeVisible();
 });
 
-test("every dance ring clears the 48x48 minimum tap target (AGENTS.md §5)", async ({
-  page,
-}) => {
-  await page.goto("/");
-  const rings = page.getByRole("list", { name: he.home.listLabel }).getByRole("button");
+// The 48x48 tap-target check that used to live here went with the rings' button
+// semantics — §5 is a rule about controls, and a ring is no longer one. The
+// controls it still applies to on this screen are prev/next, asserted below.
 
-  for (const ring of await rings.all()) {
-    const box = await ring.boundingBox();
-    expect(box).not.toBeNull();
-    expect(box?.width ?? 0).toBeGreaterThanOrEqual(48);
-    expect(box?.height ?? 0).toBeGreaterThanOrEqual(48);
-  }
-});
-
-test("a keyboard-focused ring gets a visible outline", async ({ page }) => {
+test("tabbing never lands inside the ring list", async ({ page }) => {
   await page.goto("/");
 
-  // Tabbed, not .focus(): the style is behind :focus-visible, which programmatic
-  // focus does not satisfy. Asserting on outlineWidth alone is not enough either
-  // — Chromium reports the UA's 1.5px even when outline-style is `none`.
-  //
-  // The loop is because this suite runs against `npm run dev`, whose dev-tools
-  // indicator sits in the tab order ahead of the page's own content.
-  const inList = () =>
-    page.evaluate(
-      () => document.activeElement?.closest("ul") !== null &&
-        document.activeElement?.tagName === "BUTTON",
-    );
-
-  for (let i = 0; i < 6 && !(await inList()); i++) {
+  // Sequential Tab, not a query for [tabindex]: a div with a stray tabindex, or
+  // a button reintroduced inside a ring, would both show up here and nowhere
+  // else. The loop bound is generous because this suite runs against
+  // `npm run dev`, whose dev-tools indicator sits in the tab order too.
+  for (let i = 0; i < 12; i++) {
     await page.keyboard.press("Tab");
+    const inList = await page.evaluate(
+      () => document.activeElement?.closest("#dance-ring-list") !== null,
+    );
+    expect(inList).toBe(false);
   }
-  expect(await inList()).toBe(true);
-
-  const outline = await page.evaluate(() => {
-    const style = getComputedStyle(document.activeElement as Element);
-    return { style: style.outlineStyle, width: parseFloat(style.outlineWidth) };
-  });
-
-  expect(outline.style).not.toBe("none");
-  expect(outline.width).toBeGreaterThanOrEqual(2);
 });
 
 test("body font-size is set in rem, so it scales with the root font-size", async ({
@@ -157,6 +151,33 @@ test.describe("dance ring prev/next controls", () => {
     expect(await list.evaluate((el) => el.scrollLeft)).not.toBe(before);
 
     await expect(page.getByRole("button", { name: he.home.prevLabel })).toBeEnabled();
+  });
+
+  test("a keyboard-focused scroll control gets a visible outline", async ({ page }) => {
+    await page.goto("/");
+
+    // Tabbed, not .focus(): the style is behind :focus-visible, which
+    // programmatic focus does not satisfy. Asserting on outlineWidth alone is
+    // not enough either — Chromium reports the UA's 1.5px even when
+    // outline-style is `none`. This moved off the rings when they stopped being
+    // controls; "next" is the one enabled control on the list at phone width.
+    const nextIsFocused = () =>
+      page.evaluate(
+        (label) => document.activeElement?.getAttribute("aria-label") === label,
+        he.home.nextLabel,
+      );
+    for (let i = 0; i < 6 && !(await nextIsFocused()); i++) {
+      await page.keyboard.press("Tab");
+    }
+    expect(await nextIsFocused()).toBe(true);
+
+    const outline = await page.evaluate(() => {
+      const style = getComputedStyle(document.activeElement as Element);
+      return { style: style.outlineStyle, width: parseFloat(style.outlineWidth) };
+    });
+
+    expect(outline.style).not.toBe("none");
+    expect(outline.width).toBeGreaterThanOrEqual(2);
   });
 
   test("both controls clear the 48x48 minimum tap target (AGENTS.md §5)", async ({

@@ -20,8 +20,8 @@ const STARTS_AT = "2025-06-02T17:30:00.000Z";
 
 // Testing Library only registers its own afterEach cleanup when Vitest runs with
 // `globals: true`, which vitest.config.ts deliberately does not. Without this,
-// every render piles into the same document and getByRole("button") throws
-// "found multiple elements" from the second test onwards.
+// every render piles into the same document and queries match across renders
+// from the second test onwards.
 afterEach(cleanup);
 
 function dance(status: OccurrenceStatus): NearbyDance {
@@ -40,22 +40,45 @@ function dance(status: OccurrenceStatus): NearbyDance {
 }
 
 describe("DanceRing", () => {
-  it("is a real button, so it is keyboard reachable (AGENTS.md §2.7)", () => {
-    render(<DanceRing dance={dance("scheduled")} />);
-    expect(screen.getByRole("button")).toBeInTheDocument();
+  it("is not interactive while there is nowhere to go", () => {
+    // It used to be a `<button>` with no handler: focusable, enabled, and inert
+    // on Enter. Until the dance detail route exists there must be no control
+    // here at all — see the TODO in DanceRing.tsx.
+    const { container } = render(<DanceRing dance={dance("scheduled")} />);
+
+    expect(screen.queryByRole("button")).toBeNull();
+    expect(screen.queryByRole("link")).toBeNull();
+    expect(container.querySelector("button, a, [tabindex], [role]")).toBeNull();
+  });
+
+  it("leaves its text to be read in place, with no aria-label to override it", () => {
+    // A name on a role-less element is ignored by assistive tech, so an
+    // aria-label left behind here would be a label nobody hears.
+    const { container } = render(<DanceRing dance={dance("cancelled")} />);
+
+    expect(container.querySelector("[aria-label]")).toBeNull();
   });
 
   it("shows the start time in Asia/Jerusalem, not UTC (AGENTS.md §7)", () => {
-    render(<DanceRing dance={dance("scheduled")} />);
-    expect(screen.getByRole("button")).toHaveTextContent("20:30");
+    const { container } = render(<DanceRing dance={dance("scheduled")} />);
+    expect(container).toHaveTextContent("20:30");
+  });
+
+  it("names the venue, the instructor and the weekday in visible text", () => {
+    // With no aria-label carrying the night as one string, the visible text is
+    // the whole of what a screen reader gets — so it has to be all there.
+    const { container } = render(<DanceRing dance={dance("scheduled")} />);
+
+    expect(container).toHaveTextContent("היכל התרבות חולון");
+    expect(container).toHaveTextContent("רונית מרקידה");
+    expect(container).toHaveTextContent("יום שני");
   });
 
   it("gives a scheduled dance no status word — there is nothing to warn about", () => {
-    render(<DanceRing dance={dance("scheduled")} />);
-    const button = screen.getByRole("button");
+    const { container } = render(<DanceRing dance={dance("scheduled")} />);
 
-    expect(button).not.toHaveTextContent(he.dance.status.moved);
-    expect(button).not.toHaveTextContent(he.dance.status.cancelled);
+    expect(container).not.toHaveTextContent(he.dance.status.moved);
+    expect(container).not.toHaveTextContent(he.dance.status.cancelled);
   });
 
   it.each([
@@ -64,29 +87,10 @@ describe("DanceRing", () => {
   ] as const)(
     "renders %s as a visible word, not colour alone (AGENTS.md §2.6)",
     (status, word) => {
-      render(<DanceRing dance={dance(status)} />);
-      expect(screen.getByRole("button")).toHaveTextContent(word);
+      const { container } = render(<DanceRing dance={dance(status)} />);
+      expect(container).toHaveTextContent(word);
     },
   );
-
-  it("puts time, venue, instructor and status in a single aria-label", () => {
-    render(<DanceRing dance={dance("cancelled")} />);
-    const label = screen.getByRole("button").getAttribute("aria-label") ?? "";
-
-    expect(label).toContain("20:30");
-    expect(label).toContain("היכל התרבות חולון");
-    expect(label).toContain("רונית מרקידה");
-    expect(label).toContain(he.dance.status.cancelled);
-  });
-
-  it("omits the status clause from the aria-label of a scheduled dance", () => {
-    render(<DanceRing dance={dance("scheduled")} />);
-    const label = screen.getByRole("button").getAttribute("aria-label") ?? "";
-
-    expect(label).toContain("20:30");
-    expect(label).not.toContain(he.dance.status.cancelled);
-    expect(label).not.toContain(he.dance.status.moved);
-  });
 
   it("distinguishes the three statuses by stroke as well as by word", () => {
     const strokeOf = (status: OccurrenceStatus): string => {
