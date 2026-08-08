@@ -64,9 +64,10 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     "playwright-report/**",
     "test-results/**",
-    // Scratch space the Supabase CLI writes on `supabase start` — generated,
-    // gitignored, and not ours to lint.
-    "supabase/.temp/**",
+    // Isolate worktrees: nothing in another task's isolated working directory
+    // should ever be scanned from the main repo, regardless of what build tool
+    // or CLI (supabase, next, vitest, playwright, …) puts what there.
+    ".claude/worktrees/**",
   ]),
 ]);
 
