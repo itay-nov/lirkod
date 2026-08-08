@@ -12,7 +12,7 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "test:rls": "vitest run --config vitest.rls.config.ts",
-    "db:start": "supabase start",
+    "db:start": "bash scripts/db-start.sh",
     "db:stop": "supabase stop",
     "db:reset": "supabase db reset",
     "db:types": "supabase gen types typescript --local --schema public > src/types/database.ts"
