@@ -4,7 +4,9 @@ A platform for the Israeli folk-dancing (ריקודי עם) community. See `AGEN
 the full product context, constraints, and coding standards — read it before making
 changes.
 
-The schema for the core read path exists (migration `0001`). No map or UI integration yet.
+The schema for the core read path exists (migrations `0001`–`0003`), and the home
+screen renders real nearby dances as ring buttons. The map itself is still a flat
+placeholder — Google Maps is not wired up yet.
 
 ## Setup
 
@@ -47,6 +49,12 @@ npm run db:types     # regenerate src/types/database.ts
 ```
 
 `npm run test:e2e` uses Chromium, installed via `npx playwright install chromium`.
+
+`npm run dev` and `npm run test:e2e` both need `.env.local` and a running, recently
+reset local stack: the home page is a Server Component that queries `find_dances_near`,
+and its e2e assertions read the seeded moved/cancelled occurrences. `npm run build`
+does **not** need a database — the home route is never prerendered
+(docs/decisions/0006).
 
 ## Database
 
