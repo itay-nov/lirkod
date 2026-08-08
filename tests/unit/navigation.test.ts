@@ -9,7 +9,6 @@ describe("isActiveTab", () => {
   it("marks a tab active on its own route", () => {
     expect(isActiveTab("/", "/")).toBe(true);
     expect(isActiveTab("/schedule", "/schedule")).toBe(true);
-    expect(isActiveTab("/favorites", "/favorites")).toBe(true);
     expect(isActiveTab("/profile", "/profile")).toBe(true);
   });
 
@@ -17,12 +16,11 @@ describe("isActiveTab", () => {
     // The bug a naive startsWith("/") check would produce: every path begins
     // with "/", so the map tab would claim to be the current page everywhere.
     expect(isActiveTab("/schedule", "/")).toBe(false);
-    expect(isActiveTab("/favorites", "/")).toBe(false);
     expect(isActiveTab("/profile", "/")).toBe(false);
   });
 
-  it("keeps exactly one tab active for any of the four routes", () => {
-    const hrefs = ["/", "/schedule", "/favorites", "/profile"];
+  it("keeps exactly one tab active for any of the three routes", () => {
+    const hrefs = ["/", "/schedule", "/profile"];
 
     for (const pathname of hrefs) {
       const activeCount = hrefs.filter((href) => isActiveTab(pathname, href)).length;
@@ -32,7 +30,10 @@ describe("isActiveTab", () => {
 
   it("keeps the parent tab active inside its own subtree", () => {
     expect(isActiveTab("/schedule/2026-03-01", "/schedule")).toBe(true);
-    expect(isActiveTab("/favorites/edit", "/favorites")).toBe(true);
+    // /profile/favorites is a plausible future URL shape for the merged
+    // favorites section (docs/decisions/0008) — the profile tab should still
+    // read as current if that ever becomes a real sub-route.
+    expect(isActiveTab("/profile/favorites", "/profile")).toBe(true);
   });
 
   it("does not match a sibling route that merely shares a prefix", () => {

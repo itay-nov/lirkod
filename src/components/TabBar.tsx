@@ -7,14 +7,13 @@ import { isActiveTab } from "@/lib/domain/navigation";
 export interface TabBarLabels {
   map: string;
   schedule: string;
-  favorites: string;
   profile: string;
 }
 
 /**
  * Stroke icons inlined rather than pulled from an icon package: the project has
  * no icon dependency, and AGENTS.md §13 says not to add one for something the
- * stack already does. None of the four implies a direction, so unlike the
+ * stack already does. None of the three implies a direction, so unlike the
  * scroller's chevrons there is nothing here to mirror for RTL (§7).
  */
 const TABS: ReadonlyArray<{
@@ -41,13 +40,6 @@ const TABS: ReadonlyArray<{
     ],
   },
   {
-    key: "favorites",
-    href: "/favorites",
-    iconPaths: [
-      "M19.5 12.572l-7.5 7.428l-7.5 -7.428a5 5 0 1 1 7.5 -6.566a5 5 0 1 1 7.5 6.572z",
-    ],
-  },
-  {
     key: "profile",
     href: "/profile",
     iconPaths: [
@@ -58,9 +50,14 @@ const TABS: ReadonlyArray<{
 ];
 
 /**
- * Bottom navigation. Four real routes, reached with `next/link` — not client
+ * Bottom navigation. Three real routes, reached with `next/link` — not client
  * state pretending to be navigation — so the URL, browser back/forward, refresh,
  * and a link pasted into WhatsApp all behave (AGENTS.md §2.1).
+ *
+ * Favorites was a fourth tab and route in the first pass of this shell; it is
+ * now a section inside /profile instead of its own destination (see the comment
+ * in that page for why), which is also why a three-item bar no longer wraps a
+ * label at 200% text on a 375px phone the way four did.
  *
  * The only client boundary in the shell, and only because the active tab has to
  * follow the real path. Everything above it stays server-rendered; the labels

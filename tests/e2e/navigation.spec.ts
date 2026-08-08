@@ -14,7 +14,6 @@ test.use({ viewport: { width: 375, height: 812 } });
 const TABS = [
   { label: he.nav.map, path: "/", heading: he.home.heading },
   { label: he.nav.schedule, path: "/schedule", heading: he.schedule.heading },
-  { label: he.nav.favorites, path: "/favorites", heading: he.favorites.heading },
   { label: he.nav.profile, path: "/profile", heading: he.profile.heading },
 ];
 
@@ -43,8 +42,8 @@ test("browser back and forward walk the history the tabs built", async ({ page }
   await page.goto("/");
   await tabLink(page, he.nav.schedule).click();
   await expect(page).toHaveURL(/\/schedule$/);
-  await tabLink(page, he.nav.favorites).click();
-  await expect(page).toHaveURL(/\/favorites$/);
+  await tabLink(page, he.nav.profile).click();
+  await expect(page).toHaveURL(/\/profile$/);
 
   await page.goBack();
   await expect(page).toHaveURL(/\/schedule$/);
@@ -79,14 +78,31 @@ test("a direct visit to a tab route works, not just a click from inside the app"
 }) => {
   // Deep links matter here: AGENTS.md §2.1 expects a link pasted into WhatsApp
   // to land somewhere real without an app shell having booted first.
-  await page.goto("/favorites");
-  await expect(page.getByRole("heading", { name: he.favorites.heading })).toBeVisible();
+  await page.goto("/profile");
+  await expect(page.getByRole("heading", { name: he.profile.heading })).toBeVisible();
   await expect(
     page.getByRole("navigation", { name: he.nav.label }).locator('a[aria-current="page"]'),
-  ).toHaveAccessibleName(he.nav.favorites);
+  ).toHaveAccessibleName(he.nav.profile);
 });
 
-test("keyboard-only: plain Tab reaches all four tabs, each with a visible focus ring", async ({
+test("profile carries the merged favorites section, labeled, alongside its own content", async ({
+  page,
+}) => {
+  // Favorites used to be its own route/tab; it is now a labeled section inside
+  // /profile (docs/decisions/0008). Both headings must be real, in-document
+  // headings — not the same text repeated, which would make them indistinguishable
+  // to a screen reader user tabbing through headings.
+  await page.goto("/profile");
+
+  await expect(
+    page.getByRole("heading", { level: 1, name: he.profile.heading }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { level: 2, name: he.favorites.heading }),
+  ).toBeVisible();
+});
+
+test("keyboard-only: plain Tab reaches all three tabs, each with a visible focus ring", async ({
   page,
 }) => {
   // /schedule rather than / because the map screen's ring scroller owns the
@@ -130,12 +146,12 @@ test("keyboard-only: Enter on a tabbed-to tab navigates", async ({ page }) => {
         ? document.activeElement.getAttribute("href")
         : null,
     );
-    if (href === "/favorites") break;
+    if (href === "/profile") break;
   }
 
   await page.keyboard.press("Enter");
-  await expect(page).toHaveURL(/\/favorites$/);
-  await expect(page.getByRole("heading", { name: he.favorites.heading })).toBeVisible();
+  await expect(page).toHaveURL(/\/profile$/);
+  await expect(page.getByRole("heading", { name: he.profile.heading })).toBeVisible();
 });
 
 test("every tab clears the 48x48 minimum tap target (AGENTS.md §5)", async ({
@@ -193,6 +209,15 @@ test("at 200% text size the tab bar still fits its labels and stays on screen", 
       clipped: labels.some(
         (el) => el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1,
       ),
+      // A Range over the text node reports one ClientRect per visual line, so
+      // this is a direct measurement of "did the label wrap" — not a proxy
+      // like box height, which a wrapped-but-not-clipped label (the actual bug
+      // with four tabs, per docs/decisions/0007) would pass undetected.
+      wrapped: labels.some((el) => {
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        return range.getClientRects().length > 1;
+      }),
       navHeightRatio: rect.height / window.innerHeight,
     };
   });
@@ -200,6 +225,10 @@ test("at 200% text size the tab bar still fits its labels and stays on screen", 
   expect(report).not.toBeNull();
   expect(report?.withinViewport).toBe(true);
   expect(report?.clipped).toBe(false);
+  // This is the assertion that matters for this fix specifically: with four
+  // tabs "מועדפים" wrapped mid-word onto a second line even though nothing was
+  // clipped, which is why `clipped` alone was not sufficient to catch it.
+  expect(report?.wrapped).toBe(false);
   // A bar eating more than a third of a phone screen would be a usability
   // failure even though nothing is technically clipped.
   expect(report?.navHeightRatio ?? 1).toBeLessThan(0.34);

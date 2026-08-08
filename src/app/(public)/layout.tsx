@@ -15,10 +15,10 @@ import { he } from "@/lib/i18n/he";
  * regions are siblings that cannot overlap at any text size, which is the
  * property AGENTS.md §2.4 actually asks for.
  *
- * Deliberately NOT `export const dynamic` — this layout wraps four routes and
- * would drag the three static ones into per-request rendering with it. The map
+ * Deliberately NOT `export const dynamic` — this layout wraps three routes and
+ * would drag the two static ones into per-request rendering with it. The map
  * route declares `force-dynamic` on its own page, so it alone stays dynamic
- * (docs/decisions/0006) while /schedule, /favorites and /profile prerender.
+ * (docs/decisions/0006) while /schedule and /profile prerender.
  */
 export default function PublicLayout({
   children,
@@ -32,7 +32,6 @@ export default function PublicLayout({
         labels={{
           map: he.nav.map,
           schedule: he.nav.schedule,
-          favorites: he.nav.favorites,
           profile: he.nav.profile,
         }}
       />

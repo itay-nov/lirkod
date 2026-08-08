@@ -34,12 +34,12 @@ export const he = {
     label: "ניווט ראשי",
     map: "מפה",
     schedule: "לוח",
-    favorites: "מועדפים",
     profile: "שלי",
   },
   schedule: {
     heading: "לוח הרקדות",
   },
+  /** Now a section inside /profile, not its own route or tab — see docs/decisions/0008. */
   favorites: {
     heading: "מועדפים",
   },
