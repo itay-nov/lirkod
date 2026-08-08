@@ -48,3 +48,7 @@ next-env.d.ts
 
 # graphify
 /graphify-out/
+
+# claude code — per-worktree checkouts and per-machine settings, not source
+.claude/worktrees/
+.claude/settings.local.json
