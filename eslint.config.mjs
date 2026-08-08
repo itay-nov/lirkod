@@ -51,7 +51,14 @@ const eslintConfig = defineConfig([
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:
-    ".next/**",
+    //
+    // "**/", not a bare ".next/**": in ESLint flat config, an ignores pattern
+    // with no "**/" prefix is anchored to the config root, so it only ever
+    // matched a .next sitting directly there. Any nested checkout — e.g. a
+    // sibling git worktree under .claude/worktrees/ with its own .next from a
+    // dev/build run — fell straight through it and got linted as source,
+    // compiled JS bundles included (18k+ bogus problems, confirmed live).
+    "**/.next/**",
     "out/**",
     "build/**",
     "next-env.d.ts",
