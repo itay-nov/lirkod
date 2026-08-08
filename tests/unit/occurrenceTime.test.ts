@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { formatStartTime, formatStartWeekday } from "@/lib/domain/occurrenceTime";
+import {
+  formatDayHeading,
+  formatStartTime,
+  formatStartWeekday,
+  jerusalemDayKey,
+} from "@/lib/domain/occurrenceTime";
 
 /**
  * Runs in the default "node" environment (no jsdom docblock), which is the point:
@@ -33,5 +38,31 @@ describe("occurrence time formatting (AGENTS.md §7)", () => {
   it("throws on an unparseable timestamp rather than rendering 'Invalid Date'", () => {
     expect(() => formatStartTime("not a timestamp")).toThrow();
     expect(() => formatStartWeekday("")).toThrow();
+    expect(() => jerusalemDayKey("not a timestamp")).toThrow();
+    expect(() => formatDayHeading("")).toThrow();
+  });
+
+  it("keys a day as ISO-ordered YYYY-MM-DD, zero-padded", () => {
+    // The zero padding is the assertion that matters: an unpadded "2025-6-2"
+    // still groups correctly but sorts and compares wrongly the moment anything
+    // downstream treats the key as ordered text.
+    expect(jerusalemDayKey("2025-06-02T05:00:00.000Z")).toBe("2025-06-02");
+  });
+
+  it("takes the day key from the Israeli calendar date, not the UTC one", () => {
+    // 22:30Z on the 1st is 01:30 on the 2nd in Jerusalem.
+    expect(jerusalemDayKey("2025-06-01T22:30:00.000Z")).toBe("2025-06-02");
+  });
+
+  it("heads a day with the weekday and the date, in Hebrew", () => {
+    const heading = formatDayHeading("2025-06-02T17:30:00.000Z");
+
+    expect(heading).toContain("יום שני");
+    expect(heading).toContain("2");
+    expect(heading).toContain("ביוני");
+  });
+
+  it("heads the Israeli day, so a late-night dance is not filed under yesterday", () => {
+    expect(formatDayHeading("2025-06-01T22:30:00.000Z")).toContain("יום שני");
   });
 });

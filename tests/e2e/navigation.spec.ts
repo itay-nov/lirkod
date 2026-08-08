@@ -105,10 +105,14 @@ test("profile carries the merged favorites section, labeled, alongside its own c
 test("keyboard-only: plain Tab reaches all three tabs, each with a visible focus ring", async ({
   page,
 }) => {
-  // /schedule rather than / because the map screen's ring scroller owns the
-  // first several stops; here the tab bar is the only focusable thing, so this
-  // asserts the bar's own order.
-  await page.goto("/schedule");
+  // /profile rather than / or /schedule: this test needs a screen where the tab
+  // bar is the only focusable thing, so that a plain Tab from the first press
+  // asserts the bar's own order rather than skipping past page content to find
+  // it. The map's ring scroller owns the first several stops, and /schedule now
+  // lists focusable dance rows — /profile is the one placeholder screen left.
+  // When it gains a sign-in control, this needs the skip-ahead loop the
+  // Enter-navigates test below already uses.
+  await page.goto("/profile");
 
   const reached: Array<{ href: string | null; outlineStyle: string; outlineWidth: number }> =
     [];
