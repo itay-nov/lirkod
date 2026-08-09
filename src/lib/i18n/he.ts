@@ -25,9 +25,43 @@ export const he = {
     nextLabel: "הרקדות נוספות",
   },
   map: {
-    /** The map itself is a later task; this labels the area it will occupy. */
-    placeholderRegionLabel: "אזור המפה",
-    placeholder: "המפה תוצג כאן",
+    /** Names the map region, so a screen reader user can skip it or jump to it. */
+    regionLabel: "מפת ההרקדות",
+    /**
+     * The map arrives after first paint (docs/decisions/0011), so this is what
+     * stands in until it does. An empty box reads as a broken app to this
+     * audience — the same reason `common.screenNotReady` exists.
+     */
+    loading: "המפה נטענת…",
+    /**
+     * Shown when the map cannot load at all — no key, no network, a blocked
+     * script. Says where the dances still are, because they are all listed
+     * below and nothing is actually lost.
+     */
+    unavailable: "לא הצלחנו להציג את המפה. כל ההרקדות מופיעות ברשימה שמתחת.",
+    /** The explicit, visible control that asks for location. Never asked silently (AGENTS.md §9). */
+    locate: "הצגת הרקדות לידי",
+    locating: "מאתרים את המיקום שלך…",
+    located: "המפה מציגה הרקדות ליד המיקום שלך.",
+    /**
+     * Covers refusal, an unavailable sensor, and a browser with no geolocation
+     * at all. One message on purpose: they differ only in a cause the dancer
+     * cannot act on, and all three leave the screen in the same working state.
+     */
+    locateFailed: "לא הצלחנו לאתר אותך. המפה ממשיכה להציג את אזור גוש דן.",
+    preview: {
+      /** Names the panel that opens when a pin is chosen. */
+      label: "פרטי ההרקדה שנבחרה",
+      close: "סגירת הפרטים",
+      /** Sits where the panel will be, so the map is not a control with no visible result. */
+      hint: "בחרו סימון על המפה כדי לראות פרטים ולנווט.",
+      /**
+       * Waze first — it is what this audience drives with in Israel (§9). Both
+       * name the venue, so the link makes sense read on its own out of context.
+       */
+      waze: (venue: string): string => `ניווט ל${venue} עם ווייז`,
+      googleMaps: (venue: string): string => `ניווט ל${venue} עם גוגל מפות`,
+    },
   },
   nav: {
     /** Names the <nav> landmark, so a screen reader can jump straight to it. */
@@ -59,11 +93,32 @@ export const he = {
       moved: "הועבר",
       cancelled: "בוטל",
     },
-    // `ringLabel` lived here: one string carrying the whole night, because a
-    // button announces as a single thing and the venue and status must not be
-    // separate nodes read out of order. DanceRing and DanceRow are no longer
-    // buttons and an aria-label on a role-less element is ignored, so the string
-    // had no consumer. It comes back when the dance detail route makes them
-    // links — see the TODO in DanceRing.tsx.
+    withInstructor: (instructor: string): string => `עם ${instructor}`,
+    /**
+     * This is `ringLabel` returning under a name that says where it is used.
+     * It was removed when DanceRing and DanceRow stopped being controls — a
+     * name on a role-less element is ignored by assistive tech, so it had no
+     * consumer. A map pin IS a control (it is focusable and it opens the
+     * preview), and a marker announces as one thing, so the whole night has to
+     * arrive in one string again: when, where, with whom, and whether it is
+     * still on. The status clause is what keeps a cancelled pin from sounding
+     * identical to a normal one (AGENTS.md §2.6).
+     */
+    mapPinLabel: ({
+      weekday,
+      time,
+      venue,
+      instructor,
+      status,
+    }: {
+      weekday: string;
+      time: string;
+      venue: string;
+      instructor: string;
+      status: string | null;
+    }): string =>
+      `הרקדה ב${weekday} בשעה ${time}, ${venue}, עם ${instructor}${
+        status === null ? "" : `. ${status}`
+      }`,
   },
 } as const;

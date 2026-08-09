@@ -49,3 +49,20 @@ body {
      still applies (§2.4). Never a px value here. */
   font-size: 1.125rem;
 }
+
+/*
+ * A dance pin's focus ring.
+ *
+ * Google's advanced markers are real custom elements living in our document,
+ * so a keyboard user tabbing onto one is focusing an element we can style —
+ * and must, because the map's own default ring is a thin light outline that
+ * disappears over pale tiles. Written here rather than in DanceMap because the
+ * element is created by the Maps library, not by our JSX, so there is no
+ * className to hang it on. Matches the 4px secondary outline every other
+ * control in the app uses.
+ */
+gmp-advanced-marker:focus-visible {
+  border-radius: 9999px;
+  outline: 4px solid var(--color-secondary);
+  outline-offset: 2px;
+}

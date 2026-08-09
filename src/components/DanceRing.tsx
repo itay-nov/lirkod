@@ -20,10 +20,10 @@ import { formatStartTime, formatStartWeekday } from "@/lib/domain/occurrenceTime
  * TODO(detail-route): when the dance detail screen lands at
  * `src/app/(public)/dance/[occurrenceId]/page.tsx` (AGENTS.md §4 lists it as a
  * public route), this becomes a `next/link` — a link, not a button, because it
- * navigates — and gets its single whole-night accessible name back. The string
- * that did that job was `he.dance.ringLabel`; it was removed with this change
- * rather than left behind as dead i18n, and DanceRow needs the identical
- * treatment at the same time.
+ * navigates — and gets its single whole-night accessible name back. That string
+ * is `he.dance.mapPinLabel`, which the map's pins already use for exactly this
+ * reason; it is named for its consumer, so give it a neutral name rather than a
+ * second copy. DanceRow needs the identical treatment at the same time.
  *
  * No `"use client"`: this renders on the server and ships no JavaScript, which
  * is what keeps the hero screen inside the §2.9 performance budget.
