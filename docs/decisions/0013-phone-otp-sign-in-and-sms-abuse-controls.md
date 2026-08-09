@@ -81,10 +81,54 @@ The consequence to know about: `/profile` used to prerender and no longer does,
 because reading the session cookie opts it out of static rendering. The note in
 `(public)/layout.tsx` was updated to match.
 
+### The response that carries a rotated session must not be cacheable
+
+`setAll`'s second argument is a set of no-store headers, and `sessionRefresh.ts`
+copies every one of them onto the response. This is not bookkeeping. A refresh
+response carries `Set-Cookie` with a freshly rotated session; without those
+headers the response carried no `Cache-Control` at all (measured, not assumed),
+which leaves a CDN or reverse proxy in front of the app free to store it and hand
+one dancer's session cookie to whoever asks for `/profile` next.
+
+The `headers` argument really is supplied by the installed version — checked in
+`node_modules/@supabase/ssr` 0.12.4 rather than taken from the docs, because a
+parameter the runtime does not pass would be `undefined` and the loop would throw
+on a real refresh. `tests/rls/sessionRefresh.test.ts` forces an expired access
+token through a real GoTrue and asserts both the rotation and the headers;
+removing the loop makes it fail.
+
 ## Decision 3 — the SMS-abuse controls, and where each one is enforced
 
 Three layers, chosen so that the strongest one is the one an attacker cannot
 route around.
+
+### First, though: the email provider is off — `[auth.email] enable_signup`
+
+None of the SMS controls below matter if there is a second door. AGENTS.md §2.3
+says phone OTP only, and this repo built only a phone screen — but *we* do not
+serve the auth endpoints, GoTrue does, and it was serving the email provider the
+whole time. Anyone holding the anon key out of our JavaScript bundle could POST
+`/auth/v1/signup` with an email and a password and be handed a session whose role
+is `authenticated` — the exact role every RLS policy in migration 0001 trusts —
+without ever proving they hold a phone. Confirmed against the running stack: the
+signup returned `role: "authenticated"` for a made-up address.
+
+**The captcha was not protecting this.** It sits on `/signup` and `/token` too,
+and that is what made the hole look closed on a first pass. But a captcha proves a
+human is present, not that the human is entitled to a session; the same signup
+with a solved token went straight through. A bot check is not an authorization
+check, and it is worth being explicit about that here because the two are easy to
+confuse when both return 400.
+
+`enable_signup = false` under `[auth.email]` maps to
+`GOTRUE_EXTERNAL_EMAIL_ENABLED`, which gates the whole provider rather than just
+the signup route. Verified after the change: signup, password grant, email OTP,
+magic link and password recovery all return `email_provider_disabled`, and phone
+OTP is untouched. `tests/rls/authControls.test.ts` asserts every one of those, so
+it cannot quietly come back.
+
+No email identities existed to clean up — the only pre-existing user was the
+phone-only fixture from `seed.sql`.
 
 ### CAPTCHA on `/auth/v1/otp` — `[auth.captcha]`
 
@@ -139,6 +183,12 @@ rather than instead of them.
 
 ## What is NOT closed by this, and must be done in the hosted project
 
+- **Turn the email provider off there too.** This is the highest-priority item in
+  this list. `supabase/config.toml` configures the local stack only, so the hosted
+  project is still serving email/password signup and the `authenticated` role that
+  comes with it until someone switches it off by hand. Dashboard: Authentication →
+  Sign In / Providers → Email → off. Nothing in this repo can do it, and no test
+  here can detect that it has not been done.
 - **A real Turnstile key pair.** The committed secret is Cloudflare's published
   always-passes test value: it verifies *every* token. `supabase config push`
   would send it to the linked project and silently turn the captcha into a no-op

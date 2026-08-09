@@ -2,13 +2,21 @@ import { describe, expect, it } from "vitest";
 import { retryAfterSeconds, signInErrorKind } from "@/lib/domain/signInError";
 
 describe("signInErrorKind", () => {
-  it("collapses every 'you asked too soon' shape onto one message", () => {
-    // These differ only in which limit tripped — the per-number cooldown, the
-    // per-IP one, or the project's hourly SMS budget — and a dancer can act on
-    // none of that distinction. See docs/decisions/0013.
+  it("collapses the real rate limits onto one message", () => {
+    // These differ only in which limit tripped — the per-number cooldown or the
+    // per-IP one — and a dancer can act on none of that distinction. Both are
+    // fixed by waiting. See docs/decisions/0013.
     expect(signInErrorKind("over_sms_send_rate_limit")).toBe("tooSoon");
     expect(signInErrorKind("over_request_rate_limit")).toBe("tooSoon");
-    expect(signInErrorKind("sms_send_failed")).toBe("tooSoon");
+  });
+
+  it("does not call a failed send a rate limit", () => {
+    // The regression: `sms_send_failed` is a delivery or provider-configuration
+    // failure, and it used to map to `tooSoon` — telling the dancer to wait a
+    // moment for an SMS that was never going to arrive. Waiting is not the fix,
+    // so it must not borrow the cooldown's words.
+    expect(signInErrorKind("sms_send_failed")).toBe("sendFailed");
+    expect(signInErrorKind("sms_send_failed")).not.toBe("tooSoon");
   });
 
   it("keeps a failed challenge separate — it is retryable, and differently", () => {

@@ -264,7 +264,29 @@ secret = "1x0000000000000000000000000000000AA"
 
 [auth.email]
 # Allow/disallow new user signups via email to your project.
-enable_signup = true
+#
+# OFF, and this is a security control rather than a preference. Phone OTP is the only
+# auth this product has (AGENTS.md §2.3) — but "we did not build an email screen" is not
+# the same as "there is no email path". GoTrue serves the provider, not our UI, so while
+# this was true anyone holding the anon key out of our JavaScript bundle could POST
+# /auth/v1/signup with an email and a password and be handed a session whose role is
+# `authenticated` — the exact role every RLS policy in migration 0001 trusts — without
+# ever proving they hold a phone. Confirmed against the running stack before this change:
+# the signup returned role "authenticated" for intruder@example.com.
+#
+# The captcha is NOT what closes this. It sits on /signup and /token too, but a captcha
+# proves a human is present, not that the human is entitled to a session — anyone willing
+# to solve one walked straight through. Verified: the same signup with a solved token
+# succeeded.
+#
+# This key maps to GOTRUE_EXTERNAL_EMAIL_ENABLED, which gates the whole email provider
+# rather than just the signup route: password grant, magic link and email OTP all refuse
+# with `email_provider_disabled` once it is false. Confirmed on the running stack, and
+# asserted by tests/rls/authControls.test.ts so it cannot quietly come back.
+#
+# MUST ALSO BE SET IN THE HOSTED PROJECT — this file configures the local stack only.
+# Dashboard: Authentication → Sign In / Providers → Email → off.
+enable_signup = false
 # If enabled, a user will be required to confirm any email change on both the old, and new email
 # addresses. If disabled, only the new email is required to confirm.
 double_confirm_changes = true
@@ -346,6 +368,8 @@ max_frequency = "60s"
 # tests/rls/authControls.test.ts — the captcha and cooldown assertions, which
 # deliberately trip the limit and so must not share a number with anything else.
 972500000005 = "123456"
+# tests/rls/sessionRefresh.test.ts — needs a real session to expire and renew.
+972500000006 = "123456"
 
 # Configure logged in session timeouts.
 # [auth.sessions]

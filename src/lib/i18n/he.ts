@@ -134,6 +134,14 @@ export const he = {
       tooSoonIn: (seconds: number): string =>
         `כבר שלחנו קוד למספר הזה. אפשר לנסות שוב בעוד ${seconds} שניות.`,
       /**
+       * The SMS could not be sent at all. Deliberately does NOT say "wait a
+       * moment and try again" — that is the cooldown's wording, and repeating it
+       * here would send a dancer to wait for a message that is not coming. It
+       * names the number as the one thing they can actually check, and otherwise
+       * says the problem is ours.
+       */
+      sendFailed: "לא הצלחנו לשלוח את ההודעה. כדאי לבדוק שהמספר נכון ולנסות שוב מאוחר יותר.",
+      /**
        * The challenge failed or its token went stale. Deliberately does not use
        * the word "קפצ׳ה" — it explains what to do, not what broke.
        */

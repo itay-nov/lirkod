@@ -24,6 +24,22 @@ import type { Database } from "@/types/database";
  * request reading the stale value; writing only to the request never reaches the
  * browser. `@supabase/ssr` hands both to us in one `setAll` for exactly this
  * reason.
+ *
+ * `setAll`'s second argument is the no-store header set, and it is not optional
+ * bookkeeping. A refresh response carries `Set-Cookie` with a freshly rotated
+ * session; Next's own default of `no-cache, must-revalidate` still permits a
+ * shared cache to STORE it, so a CDN or reverse proxy in front of this app could
+ * hand one dancer's session cookie to the next person to ask for /profile. The
+ * three headers the library supplies (`Cache-Control: private, no-cache,
+ * no-store, must-revalidate, max-age=0`, `Expires: 0`, `Pragma: no-cache`) are
+ * what forbid that.
+ *
+ * Every supplied header is copied rather than a hardcoded list of three, so this
+ * keeps working if the library adds a fourth. The argument really is passed by
+ * the installed version — checked in `node_modules/@supabase/ssr` 0.12.4 rather
+ * than taken from the docs, because a parameter the runtime does not supply would
+ * silently be `undefined` here and the loop would throw on a real refresh. It is
+ * `{}` on the non-auth write paths, which the loop handles by doing nothing.
  */
 export async function refreshSession(request: NextRequest): Promise<NextResponse> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -41,13 +57,18 @@ export async function refreshSession(request: NextRequest): Promise<NextResponse
       getAll() {
         return request.cookies.getAll();
       },
-      setAll(cookiesToSet) {
+      setAll(cookiesToSet, headers) {
         for (const { name, value } of cookiesToSet) {
           request.cookies.set(name, value);
         }
         response = NextResponse.next({ request });
         for (const { name, value, options } of cookiesToSet) {
           response.cookies.set(name, value, options);
+        }
+        // AFTER the reassignment above, never before: that line builds a brand new
+        // response and would discard anything already set on the old one.
+        for (const [name, value] of Object.entries(headers)) {
+          response.headers.set(name, value);
         }
       },
     },

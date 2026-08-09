@@ -11,8 +11,20 @@
  */
 
 export type SignInErrorKind =
-  /** Asked for a code again too soon, or the project's hourly SMS budget is spent. */
+  /** Asked for a code again too soon. A wait fixes it. */
   | "tooSoon"
+  /**
+   * The SMS could not be sent: a provider outage, a misconfigured provider, an
+   * unroutable number.
+   *
+   * Deliberately NOT folded into `tooSoon`. They look similar — no code arrived
+   * either way — but the advice is opposite. "Wait a moment and try again" is
+   * true of a cooldown and false of a provider failure, where waiting changes
+   * nothing and trying again just fails again. Telling a 50+ dancer to wait for
+   * something that will never arrive is how they conclude the app is broken and
+   * stop, which is the outcome AGENTS.md §2 exists to prevent.
+   */
+  | "sendFailed"
   /** The captcha token was missing, stale, or refused. Ask for a fresh one. */
   | "captcha"
   /**
@@ -32,12 +44,15 @@ export type SignInErrorKind =
   | "unknown";
 
 /**
- * `over_sms_send_rate_limit` is the per-number cooldown ([auth.sms] max_frequency)
- * and `over_request_rate_limit` is the per-IP one; `sms_send_failed` is what the
- * project-wide hourly ceiling surfaces as. All three mean the same thing to the
- * person holding the phone — wait, then try again — so they get one message
- * rather than three that differ only in a cause nobody outside this repo can act
- * on.
+ * `tooSoon` is only for the codes that really are rate limits:
+ * `over_sms_send_rate_limit` is the per-number cooldown ([auth.sms]
+ * max_frequency) and `over_request_rate_limit` is the per-IP one. They differ
+ * only in a cause nobody outside this repo can act on, and both are fixed by
+ * waiting, so they share one message.
+ *
+ * `sms_send_failed` is NOT one of them and used to be listed here. It is a
+ * delivery or provider-configuration failure, where waiting is not the fix and
+ * saying so is a lie — see the note on `sendFailed` above.
  */
 /**
  * A Map, not an object literal. `KINDS["constructor"]` on a literal resolves up
@@ -49,7 +64,9 @@ const KINDS = new Map<string, SignInErrorKind>([
   ["over_sms_send_rate_limit", "tooSoon"],
   ["over_request_rate_limit", "tooSoon"],
   ["over_email_send_rate_limit", "tooSoon"],
-  ["sms_send_failed", "tooSoon"],
+  // A delivery/config failure, not a rate limit. It used to map to `tooSoon`,
+  // which told the dancer to wait for an SMS that was never going to arrive.
+  ["sms_send_failed", "sendFailed"],
   ["captcha_failed", "captcha"],
   ["otp_expired", "badCode"],
   ["invalid_credentials", "badCode"],

@@ -124,6 +124,92 @@ describe("the per-number send-frequency limit ([auth.sms] max_frequency)", () =>
   });
 });
 
+describe("the email provider is off — phone OTP is the only way in (AGENTS.md §2.3)", () => {
+  /**
+   * The hole this closes: "we did not build an email screen" is not the same as
+   * "there is no email path". GoTrue serves the provider, not our UI. While
+   * `[auth.email] enable_signup` was true, anyone holding the anon key out of our
+   * JavaScript bundle could POST /auth/v1/signup with an email and a password and
+   * receive a session whose role is `authenticated` — the role every RLS policy in
+   * migration 0001 trusts — without ever proving they hold a phone. Confirmed
+   * against this stack before the fix.
+   *
+   * The captcha is not what stops it: it sits on these endpoints too, but it
+   * proves a human is present, not that the human is entitled to a session. Every
+   * request below therefore carries a solved token, so a pass here means the
+   * provider itself is off and not that the challenge happened to catch it.
+   */
+  async function auth(
+    path: string,
+    body: Record<string, unknown>,
+  ): Promise<{ status: number; code: string }> {
+    const { apiUrl, anonKey } = localStack();
+    const response = await fetch(`${apiUrl}/auth/v1/${path}`, {
+      method: "POST",
+      headers: { apikey: anonKey, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...body,
+        gotrue_meta_security: { captcha_token: CAPTCHA_TOKEN },
+      }),
+    });
+    const payload: unknown = await response.json().catch(() => ({}));
+    const code = (payload as { error_code?: unknown }).error_code;
+    return { status: response.status, code: typeof code === "string" ? code : "" };
+  }
+
+  const EMAIL = "intruder@example.com";
+  const PASSWORD = "correct-horse-battery";
+
+  it("advertises the email provider as disabled", async () => {
+    const { apiUrl, anonKey } = localStack();
+    const response = await fetch(`${apiUrl}/auth/v1/settings`, {
+      headers: { apikey: anonKey },
+    });
+    const settings = (await response.json()) as { external: Record<string, boolean> };
+
+    expect(settings.external.email).toBe(false);
+    // Phone stays on, or this test would pass for the wrong reason — with all
+    // authentication broken rather than only the email half.
+    expect(settings.external.phone).toBe(true);
+  });
+
+  const EMAIL_PATHS: ReadonlyArray<{
+    what: string;
+    path: string;
+    body: Record<string, unknown>;
+  }> = [
+    { what: "email + password signup", path: "signup", body: { email: EMAIL, password: PASSWORD } },
+    {
+      what: "password grant",
+      path: "token?grant_type=password",
+      body: { email: EMAIL, password: PASSWORD },
+    },
+    { what: "email OTP", path: "otp", body: { email: EMAIL } },
+    { what: "magic link", path: "magiclink", body: { email: EMAIL } },
+    { what: "password recovery", path: "recover", body: { email: EMAIL } },
+  ];
+
+  it.each(EMAIL_PATHS)("refuses $what as provider-disabled", async ({ path, body }) => {
+    const { status, code } = await auth(path, body);
+
+    // `email_provider_disabled` specifically, not `invalid_credentials`: the
+    // latter would mean the path is live and merely rejected these particular
+    // credentials, which is the finding rather than the fix.
+    expect(code).toBe("email_provider_disabled");
+    expect(status).toBeGreaterThanOrEqual(400);
+  });
+
+  it("leaves no email identity behind for any of it", async () => {
+    const { apiUrl, serviceRoleKey } = localStack();
+    const response = await fetch(`${apiUrl}/auth/v1/admin/users?per_page=200`, {
+      headers: { apikey: serviceRoleKey, Authorization: `Bearer ${serviceRoleKey}` },
+    });
+    const body = (await response.json()) as { users?: Array<{ email?: string }> };
+
+    expect((body.users ?? []).filter((user) => user.email)).toHaveLength(0);
+  });
+});
+
 describe("the anon key alone still cannot read a profile", () => {
   it("returns no rows to a caller with no session", async () => {
     // A sanity check that the new auth surface did not quietly widen anything:
