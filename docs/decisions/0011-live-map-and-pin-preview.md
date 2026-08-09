@@ -147,4 +147,11 @@ ordinary case in one path.
   panel deliberately carries only what a dancer needs to decide whether to go and how to
   get there; price, dance types and everything else were left out rather than guessed at.
 - Nothing rate-limits the map's API usage. The key's referrer restriction is the only
-  control today, and it is configuration rather than code.
+  control today, and it is configuration rather than code. (The *proximity query* has
+  since gained a partial per-IP limit on its route —
+  [0012](./0012-partial-rate-limiting-on-the-near-route.md) — which does not cover
+  Google's API at all.)
+- `DanceMap` does not own the dances it draws. `NearbyDances` does, and hands the same
+  array to the map and to the ring list, because a located result that reached only one
+  of them left the two describing different regions. The map is a renderer here, not a
+  store.

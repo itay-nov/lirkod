@@ -103,10 +103,15 @@ function mapDance(overrides: Partial<MapDance> = {}): MapDance {
     lat: 32.0114,
     lng: 34.7736,
     venueName: "היכל התרבות חולון",
+    time: "20:30",
+    weekday: "יום שני",
     timeText: "יום שני, 20:30",
+    instructorName: "רונית מרקידה",
     instructorText: "עם רונית מרקידה",
     status: "scheduled",
     statusLabel: null,
+    ringClassName: "border-solid border-accent",
+    timeClassName: "",
     statusBadgeClassName: "",
     pinLabel: "הרקדה ביום שני בשעה 20:30, היכל התרבות חולון, עם רונית מרקידה",
     wazeUrl: "https://www.waze.com/ul?ll=32.011400%2C34.773600&navigate=yes",
@@ -117,7 +122,9 @@ function mapDance(overrides: Partial<MapDance> = {}): MapDance {
   };
 }
 
-function renderMap(props: { apiKey?: string; dances?: MapDance[] } = {}) {
+function renderMap(
+  props: { apiKey?: string; dances?: MapDance[]; onLocated?: () => void } = {},
+) {
   return render(
     <DanceMap
       dances={props.dances ?? [mapDance()]}
@@ -126,6 +133,7 @@ function renderMap(props: { apiKey?: string; dances?: MapDance[] } = {}) {
       center={{ lat: 32.0809, lng: 34.7806 }}
       locatedRadiusMeters={10_000}
       labels={LABELS}
+      onLocated={props.onLocated ?? (() => undefined)}
     />,
   );
 }

@@ -199,6 +199,41 @@ test("re-centres and re-queries once location is granted", async ({ page, contex
   await expect(pins(page).first()).toBeAttached();
 });
 
+test("the ring list follows the map after a locate, rather than staying behind", async ({
+  page,
+  context,
+}) => {
+  // The regression: the located result reached the map's pins and stopped
+  // there, leaving the list below still rendering the server's default region.
+  // Asserted as agreement between the two views rather than as each of them
+  // rendering something, because each rendering something was already true
+  // while they disagreed.
+  await context.grantPermissions(["geolocation"]);
+  await context.setGeolocation({ latitude: 32.0114, longitude: 34.7736 });
+
+  await page.goto("/");
+  await waitForPins(page);
+  await page.getByRole("button", { name: he.map.locate }).click();
+  await expect(page.getByText(he.map.located)).toBeVisible();
+
+  const list = page.getByRole("list", { name: he.home.listLabel });
+  await expect(list).toBeVisible();
+
+  const rowCount = await list.getByRole("listitem").count();
+  expect(await pins(page).count()).toBe(rowCount);
+
+  // Every venue named on a pin is named in the list, and vice versa. The
+  // venue is read out of the pin's own accessible name, which is built from
+  // the same row the list renders.
+  const listText = (await list.innerText()).replace(/\s+/g, " ");
+  for (const pin of await pins(page).all()) {
+    const title = (await pin.getAttribute("title")) ?? "";
+    const venue = title.split(",")[1]?.trim() ?? "";
+    expect(venue, "a pin title should carry its venue").not.toBe("");
+    expect(listText).toContain(venue);
+  }
+});
+
 test("the page does not scroll horizontally at 200% text size (AGENTS.md §2.4)", async ({
   page,
 }) => {

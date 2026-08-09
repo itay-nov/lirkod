@@ -2,8 +2,9 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { DanceRing } from "@/components/DanceRing";
-import type { NearbyDance, OccurrenceStatus } from "@/lib/db/dances";
+import type { OccurrenceStatus } from "@/lib/db/dances";
 import { he } from "@/lib/i18n/he";
+import { toMapDance, type MapDance } from "@/lib/maps/mapDance";
 
 /**
  * Replaces tests/unit/home.test.tsx, which rendered the home page to prove the
@@ -24,8 +25,14 @@ const STARTS_AT = "2025-06-02T17:30:00.000Z";
 // from the second test onwards.
 afterEach(cleanup);
 
-function dance(status: OccurrenceStatus): NearbyDance {
-  return {
+/**
+ * Built through `toMapDance` rather than as a hand-written `MapDance` literal.
+ * The ring renders the server's view model now, and running the real converter
+ * keeps these tests asserting the whole path — a timezone bug in the formatter
+ * still fails the "20:30" assertion below, which a hardcoded string would hide.
+ */
+function dance(status: OccurrenceStatus): MapDance {
+  return toMapDance({
     occurrenceId: "d0000000-0000-0000-0000-000000000001",
     startsAt: STARTS_AT,
     status,
@@ -36,7 +43,7 @@ function dance(status: OccurrenceStatus): NearbyDance {
     instructorDisplayName: "רונית מרקידה",
     danceTypes: ["ריקודי עם"],
     priceAgorot: 3000,
-  };
+  });
 }
 
 describe("DanceRing", () => {

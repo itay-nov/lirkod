@@ -98,12 +98,13 @@ function pinElement(dance: MapDance, selected: boolean): HTMLElement {
  * it, so a missing key or a blocked script must not take the screen down.
  */
 export function DanceMap({
-  dances: initialDances,
+  dances,
   apiKey,
   mapId,
-  center: initialCenter,
+  center,
   locatedRadiusMeters,
   labels,
+  onLocated,
 }: {
   dances: MapDance[];
   apiKey: string;
@@ -111,6 +112,14 @@ export function DanceMap({
   center: { lat: number; lng: number };
   locatedRadiusMeters: number;
   labels: DanceMapLabels;
+  /**
+   * Hands a successful "near me" result to the owner rather than keeping it.
+   * The map used to hold these in its own state, and the ring list below it
+   * went on rendering the server's default region — two views of one screen
+   * describing two different places. `NearbyDances` owns the array now; this
+   * component only draws what it is given.
+   */
+  onLocated: (dances: MapDance[], center: { lat: number; lng: number }) => void;
 }) {
   // Derived at first render rather than corrected by an effect: a build with no
   // key knows it has no map before it paints, so the honest message is in the
@@ -121,8 +130,6 @@ export function DanceMap({
   // Separate from `phase`: the API being downloaded and the map being built are
   // two different moments, and markers can only be placed after the second.
   const [mapReady, setMapReady] = useState(false);
-  const [dances, setDances] = useState(initialDances);
-  const [center, setCenter] = useState(initialCenter);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [locateState, setLocateState] = useState<LocateState>("idle");
 
@@ -135,7 +142,7 @@ export function DanceMap({
   // so the constructor's centre is only what shows for that first instant —
   // reading it from a ref keeps it out of the map effect's dependencies, where
   // it would otherwise mean "rebuild the map when the user is located".
-  const initialCenterRef = useRef(initialCenter);
+  const initialCenterRef = useRef(center);
 
   // ---- load ---------------------------------------------------------------
 
@@ -341,9 +348,11 @@ export function DanceMap({
             return (payload as { dances: MapDance[] }).dances;
           })
           .then((nearby) => {
+            // Cleared before the new array arrives: the chosen pin almost
+            // certainly is not in it, and a preview panel describing a dance
+            // that is no longer on the map is worse than no panel.
             setSelectedId(null);
-            setCenter(point);
-            setDances(nearby);
+            onLocated(nearby, point);
             setLocateState("located");
           })
           .catch(() => setLocateState("failed"));
@@ -354,7 +363,7 @@ export function DanceMap({
       () => setLocateState("failed"),
       { enableHighAccuracy: false, timeout: GEOLOCATION_TIMEOUT_MS, maximumAge: 60_000 },
     );
-  }, [locateState, locatedRadiusMeters]);
+  }, [locateState, locatedRadiusMeters, onLocated]);
 
   const locateMessage =
     locateState === "locating"

@@ -1,6 +1,4 @@
-import { DanceMap } from "@/components/DanceMap";
-import { DanceRing } from "@/components/DanceRing";
-import { DanceRingScroller } from "@/components/DanceRingScroller";
+import { NearbyDances } from "@/components/NearbyDances";
 import { anonClient } from "@/lib/db/client";
 import { findDancesNear } from "@/lib/db/dances";
 import {
@@ -32,60 +30,40 @@ export default async function HomePage() {
   );
 
   return (
-    // min-h-full, not min-h-dvh, and a div rather than a <main>: the shell in
-    // layout.tsx owns both the viewport height and the <main> landmark now, and
-    // a nested <main> is invalid while a second dvh box would overflow the
-    // scroll container it sits in by exactly the height of the header and bar.
-    <div className="flex min-h-full flex-col">
-      {/*
-        The same query result the rings below render, drawn as pins. One read,
-        two views — the map must never be able to disagree with the list under
-        it about what is on tonight.
-
-        Display strings are resolved here, on the server, so the client
-        component ships no i18n dictionary and no date formatter (§2.9). Both
-        env values are read as literal property accesses because that is the
-        only form Next inlines at build time.
-      */}
-      <DanceMap
-        dances={toMapDances(dances)}
-        apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? ""}
-        mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID ?? "DEMO_MAP_ID"}
-        center={{ lat: DEFAULT_LAT, lng: DEFAULT_LNG }}
-        locatedRadiusMeters={LOCATED_RADIUS_METERS}
-        labels={{
-          regionLabel: he.map.regionLabel,
-          loading: he.map.loading,
-          unavailable: he.map.unavailable,
-          locate: he.map.locate,
-          locating: he.map.locating,
-          located: he.map.located,
-          locateFailed: he.map.locateFailed,
-          previewLabel: he.map.preview.label,
-          previewClose: he.map.preview.close,
-          previewHint: he.map.preview.hint,
-        }}
-      />
-
-      <section className="mt-3 rounded-t-3xl bg-surface pb-8 pt-5 shadow-[0_-2px_12px_rgba(43,36,32,0.15)]">
-        <h1 className="px-4 font-display text-3xl font-black">{he.home.heading}</h1>
-
-        {dances.length === 0 ? (
-          <p className="px-4 pt-4">{he.home.empty}</p>
-        ) : (
-          <DanceRingScroller
-            listLabel={he.home.listLabel}
-            prevLabel={he.home.prevLabel}
-            nextLabel={he.home.nextLabel}
-          >
-            {dances.map((dance) => (
-              <li key={dance.occurrenceId} className="flex">
-                <DanceRing dance={dance} />
-              </li>
-            ))}
-          </DanceRingScroller>
-        )}
-      </section>
-    </div>
+    // One query result, handed to one owner that draws it twice — as pins and
+    // as rings. The map must never be able to disagree with the list under it
+    // about what is on tonight, and after "near me" it used to: see the note on
+    // NearbyDances.
+    //
+    // Display strings are resolved here, on the server, so the client ships no
+    // i18n dictionary and no date formatter (§2.9). Both env values are read as
+    // literal property accesses because that is the only form Next inlines at
+    // build time.
+    <NearbyDances
+      initialDances={toMapDances(dances)}
+      initialCenter={{ lat: DEFAULT_LAT, lng: DEFAULT_LNG }}
+      apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? ""}
+      mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID ?? "DEMO_MAP_ID"}
+      locatedRadiusMeters={LOCATED_RADIUS_METERS}
+      mapLabels={{
+        regionLabel: he.map.regionLabel,
+        loading: he.map.loading,
+        unavailable: he.map.unavailable,
+        locate: he.map.locate,
+        locating: he.map.locating,
+        located: he.map.located,
+        locateFailed: he.map.locateFailed,
+        previewLabel: he.map.preview.label,
+        previewClose: he.map.preview.close,
+        previewHint: he.map.preview.hint,
+      }}
+      labels={{
+        heading: he.home.heading,
+        empty: he.home.empty,
+        listLabel: he.home.listLabel,
+        prevLabel: he.home.prevLabel,
+        nextLabel: he.home.nextLabel,
+      }}
+    />
   );
 }

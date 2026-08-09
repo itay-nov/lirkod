@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { anonClient } from "@/lib/db/client";
 import { findDancesNear } from "@/lib/db/dances";
+import { createRateLimiter } from "@/lib/domain/rateLimit";
 import { toMapDances, type MapDance } from "@/lib/maps/mapDance";
 
 /**
@@ -26,6 +27,11 @@ import { toMapDances, type MapDance } from "@/lib/maps/mapDance";
  * 60-day horizon, 200 rows). This handler is a thin, equally-bounded path to
  * the same function, not a privileged one — it uses the anon key, not
  * `service_role`.
+ *
+ * That same sentence is why the per-IP limit below is a partial measure rather
+ * than a fix: a caller who wants the data unthrottled skips this route and
+ * calls the RPC directly with the anon key out of the JavaScript bundle. See
+ * docs/decisions/0012 for what is and is not closed.
  */
 
 interface NearRequest {
@@ -36,6 +42,33 @@ interface NearRequest {
 
 /** Wider than any radius the UI sends; find_dances_near clamps to 50km regardless. */
 const MAX_RADIUS_METERS = 50_000;
+
+/**
+ * Ten presses of "הצגת הרקדות לידי" a minute is far more than any dancer does
+ * and far less than a script wants. Generous on purpose: a whole building
+ * behind one NAT address shares this budget, and refusing a real person the
+ * feature is a worse failure here than serving a scraper a few extra rows.
+ *
+ * **This does not resolve the finding it was written for.** It is one process's
+ * memory, so it bounds one instance; and the same query is reachable straight
+ * from Supabase REST with the public anon key, which never passes through here
+ * at all. docs/decisions/0012 states what remains open — read it before
+ * treating this endpoint as protected.
+ */
+const limiter = createRateLimiter({ limit: 10, windowMs: 60_000 });
+
+/**
+ * Vercel sets `x-forwarded-for`; the leftmost entry is the client. Behind that
+ * proxy it is trustworthy, and anywhere else it is a header the caller writes —
+ * which is one of the reasons 0012 calls this partial. A request with no
+ * forwarding header at all shares a single bucket rather than bypassing the
+ * limit, so a missing header is a worse experience, not a free pass.
+ */
+function callerKey(request: Request): string {
+  const forwarded = request.headers.get("x-forwarded-for");
+  const first = forwarded?.split(",")[0]?.trim();
+  return first || request.headers.get("x-real-ip") || "unknown";
+}
 
 function readFiniteNumber(body: Record<string, unknown>, key: string): number | null {
   const value = body[key];
@@ -59,6 +92,19 @@ function parseRequest(payload: unknown): NearRequest | null {
 }
 
 export async function POST(request: Request): Promise<NextResponse<{ dances: MapDance[] } | { error: string }>> {
+  // Before parsing and well before touching Postgres: the cheapest rejection
+  // should also be the first, or the limit is only limiting the response.
+  const decision = limiter.check(callerKey(request));
+  if (!decision.allowed) {
+    return NextResponse.json(
+      { error: "rate_limited" },
+      {
+        status: 429,
+        headers: { "retry-after": String(decision.retryAfterSeconds) },
+      },
+    );
+  }
+
   let payload: unknown;
   try {
     payload = await request.json();
