@@ -92,3 +92,6 @@ not what the review flagged.
   fails months later for reasons unrelated to any change.
 - Rate limiting is still not addressed anywhere. Bounding a response is not bounding
   how many responses a caller can ask for, and nothing in this repo limits that yet.
+  *(Since superseded in part by [0012](./0012-partial-rate-limiting-on-the-near-route.md):
+  one route, one process, and explicitly not a bound on the data — the direct RPC path
+  this ADR describes is exactly what stays unlimited.)*

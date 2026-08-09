@@ -5,6 +5,7 @@ import { DanceRing } from "@/components/DanceRing";
 import { DanceRow } from "@/components/DanceRow";
 import type { NearbyDance, OccurrenceStatus } from "@/lib/db/dances";
 import { he } from "@/lib/i18n/he";
+import { toMapDance } from "@/lib/maps/mapDance";
 
 /**
  * The schedule's compact row. These mirror tests/unit/DanceRing.test.tsx on
@@ -107,8 +108,11 @@ describe("DanceRow", () => {
       // Not a restatement of the switch: this compares the two components
       // against each other, so a change made to one and not the other fails
       // here rather than shipping as two screens that disagree.
+      // The row still takes a NearbyDance and resolves its own appearance; the
+      // ring takes the server-built view model. Both routes end at the same
+      // `appearanceFor` call, and this is what proves they still agree.
       const rowStroke = strokeOf(<DanceRow dance={dance(status)} />);
-      const ringStroke = strokeOf(<DanceRing dance={dance(status)} />);
+      const ringStroke = strokeOf(<DanceRing dance={toMapDance(dance(status))} />);
 
       expect(rowStroke).not.toBe("");
       for (const token of ["border-solid", "border-dashed", "border-accent", "border-secondary", "border-muted"]) {

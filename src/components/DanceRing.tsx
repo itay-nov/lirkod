@@ -1,6 +1,4 @@
-import { appearanceFor } from "@/components/danceStatusAppearance";
-import type { NearbyDance } from "@/lib/db/dances";
-import { formatStartTime, formatStartWeekday } from "@/lib/domain/occurrenceTime";
+import type { MapDance } from "@/lib/maps/mapDance";
 
 /**
  * One dance occurrence, drawn as a ring rather than a card.
@@ -20,20 +18,21 @@ import { formatStartTime, formatStartWeekday } from "@/lib/domain/occurrenceTime
  * TODO(detail-route): when the dance detail screen lands at
  * `src/app/(public)/dance/[occurrenceId]/page.tsx` (AGENTS.md §4 lists it as a
  * public route), this becomes a `next/link` — a link, not a button, because it
- * navigates — and gets its single whole-night accessible name back. The string
- * that did that job was `he.dance.ringLabel`; it was removed with this change
- * rather than left behind as dead i18n, and DanceRow needs the identical
- * treatment at the same time.
+ * navigates — and gets its single whole-night accessible name back. That string
+ * is `he.dance.mapPinLabel`, which the map's pins already use for exactly this
+ * reason; it is named for its consumer, so give it a neutral name rather than a
+ * second copy. DanceRow needs the identical treatment at the same time.
  *
- * No `"use client"`: this renders on the server and ships no JavaScript, which
- * is what keeps the hero screen inside the §2.9 performance budget.
+ * Renders `MapDance` — the same server-built view model the pins are drawn
+ * from — rather than formatting a `NearbyDance` itself. That is what lets the
+ * list follow a dancer who presses "הצגת הרקדות לידי": `NearbyDances` holds one
+ * array of these and hands it to both views, so the rings cannot describe a
+ * different region from the pins above them. It also means this component
+ * renders strings and nothing else, so being pulled into the client bundle by
+ * that owner costs no dictionary, no `Intl` setup and no status logic (§2.9).
  */
-export function DanceRing({ dance }: { dance: NearbyDance }) {
-  const { ringClassName, statusLabel, statusBadgeClassName, timeClassName } =
-    appearanceFor(dance.status);
-
-  const time = formatStartTime(dance.startsAt);
-  const weekday = formatStartWeekday(dance.startsAt);
+export function DanceRing({ dance }: { dance: MapDance }) {
+  const { ringClassName, statusLabel, statusBadgeClassName, timeClassName } = dance;
 
   return (
     <div
@@ -46,13 +45,13 @@ export function DanceRing({ dance }: { dance: NearbyDance }) {
       <span
         className={`flex size-[4.5rem] items-center justify-center rounded-full border-4 ${ringClassName}`}
       >
-        <span className={`font-display font-extrabold ${timeClassName}`}>{time}</span>
+        <span className={`font-display font-extrabold ${timeClassName}`}>{dance.time}</span>
       </span>
 
       <span className="flex flex-col gap-1">
-        <span className="font-semibold">{weekday}</span>
+        <span className="font-semibold">{dance.weekday}</span>
         <span>{dance.venueName}</span>
-        <span className="text-secondary">{dance.instructorDisplayName}</span>
+        <span className="text-secondary">{dance.instructorName}</span>
       </span>
 
       {statusLabel !== null && (

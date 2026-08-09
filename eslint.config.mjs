@@ -68,6 +68,16 @@ const eslintConfig = defineConfig([
     // should ever be scanned from the main repo, regardless of what build tool
     // or CLI (supabase, next, vitest, playwright, …) puts what there.
     ".claude/worktrees/**",
+    // Scratch space the Supabase CLI writes on `supabase start` — generated,
+    // gitignored, and not ours to lint. Needed in ADDITION to the pattern
+    // above: that one excludes *other* worktrees' scratch space when linting
+    // from the main repo checkout, but it does not match THIS worktree's own
+    // `supabase/.temp/**`, which sits directly under its root rather than
+    // nested inside a `.claude/worktrees/**` path relative to itself. Dropped
+    // once already (accidentally, alongside the fix that added the pattern
+    // above) and confirmed to reintroduce ~150 bogus problems from a Deno
+    // runtime bundle the moment `supabase start` has run in this checkout.
+    "supabase/.temp/**",
   ]),
 ]);
 
