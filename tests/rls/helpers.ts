@@ -79,10 +79,22 @@ export function serviceClient(): Client {
   return client(localStack().serviceRoleKey);
 }
 
+/**
+ * Any non-empty string. `[auth.captcha]` runs against Cloudflare's published
+ * "always passes" test secret locally (docs/decisions/0013), so the value is
+ * never inspected — but the field must be there, because GoTrue rejects a
+ * tokenless `/otp` before it looks at anything else. That rejection is the
+ * control working, and `authControls.test.ts` asserts it.
+ */
+const TEST_CAPTCHA_TOKEN = "local-test-captcha-token";
+
 export async function signInAs(phone: string): Promise<Client> {
   const signedIn = anonClient();
 
-  const { error: otpError } = await signedIn.auth.signInWithOtp({ phone });
+  const { error: otpError } = await signedIn.auth.signInWithOtp({
+    phone,
+    options: { captchaToken: TEST_CAPTCHA_TOKEN },
+  });
   if (otpError) throw otpError;
 
   const { error: verifyError } = await signedIn.auth.verifyOtp({

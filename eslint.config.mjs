@@ -42,7 +42,8 @@ const eslintConfig = defineConfig([
       "src/app/**/error.{ts,tsx}",
       "src/app/**/loading.{ts,tsx}",
       "src/app/**/not-found.{ts,tsx}",
-      "src/middleware.{ts,tsx}",
+      // Renamed from `middleware` in Next 16; the old name still builds but warns.
+      "src/proxy.{ts,tsx}",
     ],
     rules: {
       "local/no-default-export": "off",

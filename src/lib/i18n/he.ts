@@ -87,6 +87,79 @@ export const he = {
   },
   profile: {
     heading: "שלי",
+    /** The signed-in state. Says who you are, in the words a dancer gave us. */
+    signedInAs: (phone: string): string => `מחוברים עם המספר ${phone}`,
+    signOut: "יציאה מהחשבון",
+    signingOut: "יוצאים…",
+  },
+  /**
+   * Phone OTP is the only way into this product (AGENTS.md §2.3), so these
+   * strings are the whole of what a dancer is told about identity. Two steps,
+   * one instruction each, no jargon: not "אימות", not "קוד חד-פעמי", not "OTP".
+   */
+  signIn: {
+    heading: "כניסה",
+    /**
+     * Says why an account is wanted at all, before asking for anything. A dancer
+     * reaching /profile from a WhatsApp link has not been told yet, and §2.2 is
+     * explicit that reading never needs an account — so this page has to justify
+     * itself rather than assume.
+     */
+    intro: "כדי לשמור הרקדות מועדפות ולנהל הרקדות משלכם, צריך להתחבר עם מספר טלפון.",
+    phoneLabel: "מספר טלפון נייד",
+    /** A shape to copy, not a value that gets submitted. */
+    phonePlaceholder: "050-1234567",
+    sendCode: "שליחת קוד",
+    sending: "שולחים קוד…",
+    /** Confirms where the code went, so a typo is caught before waiting for it. */
+    codeSentTo: (phone: string): string => `שלחנו קוד בהודעה אל ${phone}.`,
+    codeLabel: "הקוד שקיבלתם בהודעה",
+    submitCode: "כניסה",
+    verifying: "בודקים…",
+    /** Back to step one. Visible and tappable — never a browser-back-only path (§2.7). */
+    changePhone: "שינוי מספר הטלפון",
+    resend: "שליחת קוד חדש",
+    errors: {
+      /** Covers empty, landline, and foreign numbers — one fix for all three. */
+      invalidPhone: "המספר אינו נראה כמו מספר טלפון נייד ישראלי. לדוגמה: 050-1234567.",
+      invalidCode: "צריך להקליד את שש הספרות שקיבלתם בהודעה.",
+      /**
+       * Covers a wrong code and an expired one together, because GoTrue answers
+       * both identically — see the note on `badCode` in
+       * `src/lib/domain/signInError.ts`. Saying "פג תוקף" to someone who simply
+       * mistyped would send them to ask for a new code they do not need.
+       */
+      badCode: "הקוד אינו נכון או שפג תוקפו. אפשר לבדוק שוב את ההודעה או לבקש קוד חדש.",
+      tooSoon: "כבר שלחנו קוד למספר הזה. אפשר לנסות שוב בעוד רגע.",
+      tooSoonIn: (seconds: number): string =>
+        `כבר שלחנו קוד למספר הזה. אפשר לנסות שוב בעוד ${seconds} שניות.`,
+      /**
+       * The challenge failed or its token went stale. Deliberately does not use
+       * the word "קפצ׳ה" — it explains what to do, not what broke.
+       */
+      captcha: "בדיקת האבטחה לא הושלמה. אפשר לנסות שוב.",
+      /** Anything with no specific words. Never shows a raw provider message. */
+      unknown: "משהו השתבש. אפשר לנסות שוב.",
+      /**
+       * The challenge script itself could not load — a blocked host, an
+       * extension, no network. Sign-in genuinely cannot proceed, and saying so is
+       * better than a button that fails silently every time it is pressed.
+       */
+      securityCheckUnavailable:
+        "לא הצלחנו לטעון את בדיקת האבטחה, ולכן אי אפשר להתחבר כרגע. אפשר לנסות שוב מאוחר יותר.",
+      /**
+       * NEXT_PUBLIC_TURNSTILE_SITE_KEY is missing, so there is nothing to render
+       * and no token to send. A developer's mistake, not a dancer's — but a
+       * dancer is who reads it, so it says what it means for them.
+       */
+      notConfigured: "הכניסה אינה זמינה כרגע.",
+    },
+    /**
+     * Names the challenge for a screen reader. Turnstile usually resolves with
+     * nothing to do, but when it does ask for something, an unlabelled iframe in
+     * the middle of a form is not navigable.
+     */
+    securityCheckLabel: "בדיקת אבטחה",
   },
   dance: {
     status: {
