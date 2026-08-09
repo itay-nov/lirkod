@@ -210,6 +210,15 @@ password_requirements = ""
 # Number of emails that can be sent per hour. Requires auth.email.smtp to be enabled.
 email_sent = 2
 # Number of SMS messages that can be sent per hour. Requires auth.sms to be enabled.
+#
+# PROJECT-WIDE, not per number — the absolute ceiling on our SMS bill for an hour, and
+# the backstop behind [auth.sms] max_frequency and [auth.captcha]. Left at the CLI
+# default because 30/hour is the right shape for a local stack that sends nothing.
+#
+# It is the wrong number for production: 30 sign-ins an hour across ALL dancers would
+# throttle a real launch night. Whoever raises it in the hosted project is raising the
+# spend ceiling — do it with the per-number limit and the captcha already in place, not
+# instead of them. Dashboard: Authentication → Rate Limits.
 sms_sent = 30
 # Number of anonymous sign-ins that can be made per hour per IP address. Requires enable_anonymous_sign_ins = true.
 anonymous_users = 30
@@ -223,14 +232,61 @@ token_verifications = 30
 web3 = 30
 
 # Configure one of the supported captcha providers: `hcaptcha`, `turnstile`.
-# [auth.captcha]
-# enabled = true
-# provider = "hcaptcha"
-# secret = ""
+#
+# ON, because phone OTP is the only auth this product has (AGENTS.md §2.3) and every
+# `/auth/v1/otp` call is a request to spend money on an SMS. GoTrue enforces this
+# itself, on the endpoint — unlike the in-process limiter on the near route
+# (docs/decisions/0012), it is NOT bypassable by skipping our UI and calling Supabase
+# REST with the public anon key out of the JavaScript bundle. That is the whole reason
+# the control lives here rather than in a route handler. See docs/decisions/0013.
+#
+# Turnstile over hCaptcha: managed mode usually resolves with no puzzle and no
+# checkbox, and this audience is 50+ and low-tech-literacy (AGENTS.md §2). Friction on
+# the sole auth path costs us exactly the sign-ins we can least afford to lose.
+# "usually" is not "always" — Turnstile may still surface an interactive challenge for
+# traffic it scores as suspicious. That is the control working, not a bug.
+#
+# The captcha covers `/otp` (send me a code) and NOT `/verify` (here is my code) —
+# verified against this stack, and it is the split we want: the SMS spend happens on
+# the first one. The second is held down by [auth.rate_limit] token_verifications.
+[auth.captcha]
+enabled = true
+provider = "turnstile"
+# Cloudflare's published "always passes" TEST secret, local stack only.
+#
+# DANGER: `supabase config push` would send this value to the linked hosted project
+# and silently turn the captcha into a no-op there — every token would verify, on the
+# one endpoint that spends money. The hosted project needs a REAL Turnstile secret set
+# in the Supabase dashboard (Authentication → Attack Protection). Same reasoning as the
+# stub Twilio credentials below: a placeholder for a service that is never really
+# contacted locally, not a secret.
+secret = "1x0000000000000000000000000000000AA"
 
 [auth.email]
 # Allow/disallow new user signups via email to your project.
-enable_signup = true
+#
+# OFF, and this is a security control rather than a preference. Phone OTP is the only
+# auth this product has (AGENTS.md §2.3) — but "we did not build an email screen" is not
+# the same as "there is no email path". GoTrue serves the provider, not our UI, so while
+# this was true anyone holding the anon key out of our JavaScript bundle could POST
+# /auth/v1/signup with an email and a password and be handed a session whose role is
+# `authenticated` — the exact role every RLS policy in migration 0001 trusts — without
+# ever proving they hold a phone. Confirmed against the running stack before this change:
+# the signup returned role "authenticated" for intruder@example.com.
+#
+# The captcha is NOT what closes this. It sits on /signup and /token too, but a captcha
+# proves a human is present, not that the human is entitled to a session — anyone willing
+# to solve one walked straight through. Verified: the same signup with a solved token
+# succeeded.
+#
+# This key maps to GOTRUE_EXTERNAL_EMAIL_ENABLED, which gates the whole email provider
+# rather than just the signup route: password grant, magic link and email OTP all refuse
+# with `email_provider_disabled` once it is false. Confirmed on the running stack, and
+# asserted by tests/rls/authControls.test.ts so it cannot quietly come back.
+#
+# MUST ALSO BE SET IN THE HOSTED PROJECT — this file configures the local stack only.
+# Dashboard: Authentication → Sign In / Providers → Email → off.
+enable_signup = false
 # If enabled, a user will be required to confirm any email change on both the old, and new email
 # addresses. If disabled, only the new email is required to confirm.
 double_confirm_changes = true
@@ -275,16 +331,45 @@ enable_confirmations = false
 # Template for sending OTP to users
 template = "Your code is {{ .Code }}"
 # Controls the minimum amount of time that must pass before sending another sms otp.
-max_frequency = "5s"
+#
+# THE per-number send-frequency limit, and the one control that directly bounds what a
+# single phone number can cost us: GoTrue keys it on the user's last send, so it caps
+# one number at 60 SMS/hour rather than the ~720/hour that "5s" allowed. Raised from
+# the CLI default for that reason (docs/decisions/0013). It maps to
+# GOTRUE_SMS_MAX_FREQUENCY — confirmed by reading the running auth container's
+# environment, not assumed from the key name.
+#
+# It applies to numbers in [auth.sms.test_otp] too, even though no provider is ever
+# contacted for them — also confirmed against this stack. The RLS suite is unaffected
+# because tests/rls/fixtures.ts deletes and recreates its auth users each run, which
+# resets the counter; tests/e2e/signIn.spec.ts does the same for its own number, and
+# says so. If you add a test that signs the same number in twice inside a minute, that
+# is the 429 you will get.
+#
+# 60s matches what Supabase applies per-user on the hosted side by default, so local
+# behaviour and deployed behaviour agree.
+max_frequency = "60s"
 
 # Use pre-defined map of phone number to OTP for testing.
-# Fixed numbers for the RLS suite (tests/rls). This lets the tests sign in through the
-# real phone-OTP path instead of introducing an email/password flow the product does
-# not have (AGENTS.md §2.3). Local stack only — never reachable in a deployed project.
+# Fixed numbers for the RLS suite (tests/rls) and the sign-in e2e spec. This lets the
+# tests sign in through the real phone-OTP path instead of introducing an email/password
+# flow the product does not have (AGENTS.md §2.3). Local stack only — never reachable in
+# a deployed project.
+#
+# One number per consumer, never shared: [auth.sms] max_frequency is keyed on the
+# number, so two suites reusing one would throttle each other for reasons having
+# nothing to do with what they assert.
 [auth.sms.test_otp]
 972500000001 = "123456"
 972500000002 = "123456"
 972500000003 = "123456"
+# tests/e2e/signIn.spec.ts — the browser round trip, not the RLS suite.
+972500000004 = "123456"
+# tests/rls/authControls.test.ts — the captcha and cooldown assertions, which
+# deliberately trip the limit and so must not share a number with anything else.
+972500000005 = "123456"
+# tests/rls/sessionRefresh.test.ts — needs a real session to expire and renew.
+972500000006 = "123456"
 
 # Configure logged in session timeouts.
 # [auth.sessions]

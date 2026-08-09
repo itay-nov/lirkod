@@ -15,10 +15,12 @@ import { he } from "@/lib/i18n/he";
  * regions are siblings that cannot overlap at any text size, which is the
  * property AGENTS.md §2.4 actually asks for.
  *
- * Deliberately NOT `export const dynamic` — this layout wraps three routes and
- * would drag the static one into per-request rendering with it. The map and the
- * schedule each declare `force-dynamic` on their own page, because both read
- * live occurrence rows (docs/decisions/0006); /profile still prerenders.
+ * Deliberately NOT `export const dynamic` — a layout-wide declaration would make
+ * every route under it per-request by fiat, including any future one that has no
+ * reason to be. Each page decides for itself: the map and the schedule declare
+ * `force-dynamic` because they read live occurrence rows (docs/decisions/0006),
+ * and /profile became dynamic on its own the moment it started reading the session
+ * cookie (docs/decisions/0013) — it used to prerender.
  */
 export default function PublicLayout({
   children,

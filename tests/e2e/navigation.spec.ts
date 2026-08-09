@@ -105,30 +105,45 @@ test("profile carries the merged favorites section, labeled, alongside its own c
 test("keyboard-only: plain Tab reaches all three tabs, each with a visible focus ring", async ({
   page,
 }) => {
-  // /profile rather than /: this test needs a screen where the tab bar is the
-  // only focusable thing, so that a plain Tab from the first press asserts the
-  // bar's own order rather than skipping past page content to find it. The
-  // map's ring scroller owns the first two stops. (/schedule would also do now
-  // that its rows are not focusable, but /profile is the one screen guaranteed
-  // to stay that way.) When it gains a sign-in control, this needs the
-  // skip-ahead loop the Enter-navigates test below already uses.
+  // /profile rather than /: this test is about the bar's own tab ORDER, so it
+  // needs a screen whose content does not interleave with it. The map's ring
+  // scroller owns the first two stops there. /profile no longer has nothing
+  // above the bar either — it grew the phone-OTP sign-in form
+  // (docs/decisions/0013), whose field and buttons come first — which is exactly
+  // the case the previous version of this comment said would need the skip-ahead
+  // loop the Enter-navigates test below uses. So: tab forward until the first tab
+  // link is reached, then assert the remaining stops follow it in order.
   await page.goto("/profile");
 
-  const reached: Array<{ href: string | null; outlineStyle: string; outlineWidth: number }> =
-    [];
-  for (let i = 0; i < TABS.length; i++) {
-    await page.keyboard.press("Tab");
-    reached.push(
-      await page.evaluate(() => {
-        const el = document.activeElement;
-        const style = getComputedStyle(el as Element);
-        return {
-          href: el?.tagName === "A" ? el.getAttribute("href") : null,
-          outlineStyle: style.outlineStyle,
-          outlineWidth: parseFloat(style.outlineWidth),
-        };
-      }),
+  const focusedHref = () =>
+    page.evaluate(() =>
+      document.activeElement?.tagName === "A"
+        ? document.activeElement.getAttribute("href")
+        : null,
     );
+
+  const firstTab = TABS[0]?.path;
+  for (let i = 0; i < 15 && (await focusedHref()) !== firstTab; i++) {
+    await page.keyboard.press("Tab");
+  }
+  expect(await focusedHref()).toBe(firstTab);
+
+  const readStop = () =>
+    page.evaluate(() => {
+      const el = document.activeElement;
+      const style = getComputedStyle(el as Element);
+      return {
+        href: el?.tagName === "A" ? el.getAttribute("href") : null,
+        outlineStyle: style.outlineStyle,
+        outlineWidth: parseFloat(style.outlineWidth),
+      };
+    });
+
+  const reached: Array<{ href: string | null; outlineStyle: string; outlineWidth: number }> =
+    [await readStop()];
+  for (let i = 1; i < TABS.length; i++) {
+    await page.keyboard.press("Tab");
+    reached.push(await readStop());
   }
 
   // Sequential Tab, not .focus(): a tabindex={-1} or a div-with-onClick would

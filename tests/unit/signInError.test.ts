@@ -1,0 +1,80 @@
+import { describe, expect, it } from "vitest";
+import { retryAfterSeconds, signInErrorKind } from "@/lib/domain/signInError";
+
+describe("signInErrorKind", () => {
+  it("collapses the real rate limits onto one message", () => {
+    // These differ only in which limit tripped — the per-number cooldown or the
+    // per-IP one — and a dancer can act on none of that distinction. Both are
+    // fixed by waiting. See docs/decisions/0013.
+    expect(signInErrorKind("over_sms_send_rate_limit")).toBe("tooSoon");
+    expect(signInErrorKind("over_request_rate_limit")).toBe("tooSoon");
+  });
+
+  it("does not call a failed send a rate limit", () => {
+    // The regression: `sms_send_failed` is a delivery or provider-configuration
+    // failure, and it used to map to `tooSoon` — telling the dancer to wait a
+    // moment for an SMS that was never going to arrive. Waiting is not the fix,
+    // so it must not borrow the cooldown's words.
+    expect(signInErrorKind("sms_send_failed")).toBe("sendFailed");
+    expect(signInErrorKind("sms_send_failed")).not.toBe("tooSoon");
+  });
+
+  it("does not call an email cooldown an SMS/IP rate limit either", () => {
+    // Email sign-in is disabled for this product (AGENTS.md §2.3,
+    // docs/decisions/0013), so GoTrue should never actually emit this code here
+    // — but the mapping must not claim it as one of the two real cooldowns if it
+    // ever did, which is why it is deliberately absent from the lookup rather
+    // than grouped with `tooSoon`.
+    expect(signInErrorKind("over_email_send_rate_limit")).toBe("unknown");
+    expect(signInErrorKind("over_email_send_rate_limit")).not.toBe("tooSoon");
+  });
+
+  it("keeps a failed challenge separate — it is retryable, and differently", () => {
+    expect(signInErrorKind("captcha_failed")).toBe("captcha");
+  });
+
+  it("does not pretend to tell a wrong code apart from an expired one", () => {
+    // GoTrue answers both — and a code for a number that never asked — with
+    // otp_expired / "Token has expired or is invalid" (verified against the local
+    // stack). One kind, because inventing a third message would mean telling a
+    // dancer who mistyped that their code expired.
+    expect(signInErrorKind("otp_expired")).toBe("badCode");
+    expect(signInErrorKind("invalid_credentials")).toBe("badCode");
+  });
+
+  it("falls back to 'unknown' rather than leaking a provider string", () => {
+    expect(signInErrorKind(undefined)).toBe("unknown");
+    expect(signInErrorKind("something_gotrue_added_last_tuesday")).toBe("unknown");
+  });
+
+  it("does not treat an inherited Object property as a known code", () => {
+    // The lookup is a plain object literal, so "constructor" and "toString"
+    // would otherwise resolve to something truthy and be returned as a kind.
+    expect(signInErrorKind("constructor")).toBe("unknown");
+    expect(signInErrorKind("toString")).toBe("unknown");
+  });
+});
+
+describe("retryAfterSeconds", () => {
+  it("reads the wait out of GoTrue's cooldown message", () => {
+    expect(
+      retryAfterSeconds("For security purposes, you can only request this after 47 seconds."),
+    ).toBe(47);
+  });
+
+  it("handles the singular", () => {
+    expect(
+      retryAfterSeconds("For security purposes, you can only request this after 1 second."),
+    ).toBe(1);
+  });
+
+  it("gives up quietly when the wording is not what it expects", () => {
+    // Deliberate: this is the one place that parses English prose from GoTrue,
+    // so an upstream rewording must cost us the number and nothing else — the
+    // caller already has a message that works without it.
+    expect(retryAfterSeconds("Please wait a while")).toBeNull();
+    expect(retryAfterSeconds(undefined)).toBeNull();
+    expect(retryAfterSeconds("")).toBeNull();
+    expect(retryAfterSeconds("after 0 seconds")).toBeNull();
+  });
+});
