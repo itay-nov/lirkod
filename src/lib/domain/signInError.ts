@@ -50,9 +50,15 @@ export type SignInErrorKind =
  * only in a cause nobody outside this repo can act on, and both are fixed by
  * waiting, so they share one message.
  *
- * `sms_send_failed` is NOT one of them and used to be listed here. It is a
- * delivery or provider-configuration failure, where waiting is not the fix and
- * saying so is a lie — see the note on `sendFailed` above.
+ * Two codes are deliberately NOT in that list:
+ *   - `sms_send_failed` is a delivery or provider-configuration failure, where
+ *     waiting is not the fix and saying so is a lie — see the note on
+ *     `sendFailed` above.
+ *   - `over_email_send_rate_limit` is an email-auth cooldown. Email sign-in is
+ *     disabled for this product (AGENTS.md §2.3, docs/decisions/0013), so GoTrue
+ *     should never emit it here — but claiming it as an SMS/IP cooldown if it
+ *     ever did would be its own small lie. Left unmapped, so it falls through
+ *     to `unknown`.
  */
 /**
  * A Map, not an object literal. `KINDS["constructor"]` on a literal resolves up
@@ -63,7 +69,6 @@ export type SignInErrorKind =
 const KINDS = new Map<string, SignInErrorKind>([
   ["over_sms_send_rate_limit", "tooSoon"],
   ["over_request_rate_limit", "tooSoon"],
-  ["over_email_send_rate_limit", "tooSoon"],
   // A delivery/config failure, not a rate limit. It used to map to `tooSoon`,
   // which told the dancer to wait for an SMS that was never going to arrive.
   ["sms_send_failed", "sendFailed"],

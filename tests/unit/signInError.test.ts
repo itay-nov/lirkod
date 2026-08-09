@@ -19,6 +19,16 @@ describe("signInErrorKind", () => {
     expect(signInErrorKind("sms_send_failed")).not.toBe("tooSoon");
   });
 
+  it("does not call an email cooldown an SMS/IP rate limit either", () => {
+    // Email sign-in is disabled for this product (AGENTS.md §2.3,
+    // docs/decisions/0013), so GoTrue should never actually emit this code here
+    // — but the mapping must not claim it as one of the two real cooldowns if it
+    // ever did, which is why it is deliberately absent from the lookup rather
+    // than grouped with `tooSoon`.
+    expect(signInErrorKind("over_email_send_rate_limit")).toBe("unknown");
+    expect(signInErrorKind("over_email_send_rate_limit")).not.toBe("tooSoon");
+  });
+
   it("keeps a failed challenge separate — it is retryable, and differently", () => {
     expect(signInErrorKind("captcha_failed")).toBe("captcha");
   });
