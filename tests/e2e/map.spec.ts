@@ -22,6 +22,25 @@ import { he } from "../../src/lib/i18n/he";
 
 const MAP_READY_TIMEOUT_MS = 20_000;
 
+/**
+ * A point genuinely outside the default region, for the locate tests below.
+ *
+ * `supabase/seed.sql` puts three venues at deliberate distances from Holon:
+ * Holon itself, Tel Aviv (~8.5km away), and Eilat (~270km away) — Eilat was
+ * seeded specifically to be the "clearly outside" case for the proximity
+ * query (see tests/db/proximity.test.ts). The default map region is centred
+ * on Tel Aviv with a 15km radius, so Holon and Tel Aviv are BOTH inside it —
+ * geolocating to either one returns the same two venues the default render
+ * already shows. A locate test built on that cannot tell "wired correctly"
+ * from "onLocated silently ignored and the default result is still on
+ * screen"; both look identical. Eilat, ~270km from Tel Aviv, is outside even
+ * the unlocated 15km radius, so a pin or a row naming it is only explainable
+ * by the located query having actually run.
+ */
+const EILAT = { lat: 29.5581, lng: 34.9482 };
+const EILAT_VENUE = "מועדון הפיס אילת";
+const DEFAULT_REGION_VENUES = ["היכל התרבות חולון", "בית ציוני אמריקה"];
+
 /** The advanced markers the map renders, once the library has attached them. */
 function pins(page: Page) {
   return page.locator("gmp-advanced-marker");
@@ -184,9 +203,8 @@ test("never asks for location until the visible control is pressed (AGENTS.md §
 });
 
 test("re-centres and re-queries once location is granted", async ({ page, context }) => {
-  // Holon, where the seed puts a venue.
   await context.grantPermissions(["geolocation"]);
-  await context.setGeolocation({ latitude: 32.0114, longitude: 34.7736 });
+  await context.setGeolocation({ latitude: EILAT.lat, longitude: EILAT.lng });
 
   await page.goto("/");
   await waitForPins(page);
@@ -196,7 +214,19 @@ test("re-centres and re-queries once location is granted", async ({ page, contex
   // The visible confirmation, in words — a re-centred map alone would leave a
   // dancer guessing whether anything happened.
   await expect(page.getByText(he.map.located)).toBeVisible();
-  await expect(pins(page).first()).toBeAttached();
+
+  // Not just "some pin is attached" — that was already true before the click
+  // and would stay true if the locate silently did nothing. This is the
+  // positive check: the query actually ran, and the result is the Eilat
+  // venue specifically, not the default region's.
+  await waitForPins(page);
+  const titles = await Promise.all(
+    (await pins(page).all()).map((pin) => pin.getAttribute("title")),
+  );
+  expect(titles.some((title) => title?.includes(EILAT_VENUE))).toBe(true);
+  for (const defaultVenue of DEFAULT_REGION_VENUES) {
+    expect(titles.some((title) => title?.includes(defaultVenue))).toBe(false);
+  }
 });
 
 test("the ring list follows the map after a locate, rather than staying behind", async ({
@@ -205,11 +235,17 @@ test("the ring list follows the map after a locate, rather than staying behind",
 }) => {
   // The regression: the located result reached the map's pins and stopped
   // there, leaving the list below still rendering the server's default region.
-  // Asserted as agreement between the two views rather than as each of them
-  // rendering something, because each rendering something was already true
-  // while they disagreed.
+  //
+  // Geolocating to Eilat rather than to Holon or Tel Aviv is what makes this
+  // test able to catch that: both of the latter sit inside the default 15km
+  // region too, so a locate that silently did nothing would leave the list
+  // (and the pins) showing the same venues either way — the assertions below
+  // would pass on a no-op. Eilat is ~270km out, so the Eilat venue appearing,
+  // and the default-region venues disappearing, are both only explainable by
+  // the located query having actually run and its result having actually
+  // reached the list.
   await context.grantPermissions(["geolocation"]);
-  await context.setGeolocation({ latitude: 32.0114, longitude: 34.7736 });
+  await context.setGeolocation({ latitude: EILAT.lat, longitude: EILAT.lng });
 
   await page.goto("/");
   await waitForPins(page);
@@ -218,14 +254,32 @@ test("the ring list follows the map after a locate, rather than staying behind",
 
   const list = page.getByRole("list", { name: he.home.listLabel });
   await expect(list).toBeVisible();
+  await expect(list).toContainText(EILAT_VENUE);
+
+  // The list settling is not proof the map's markers have too — they redraw
+  // from a separate effect — so wait for a pin naming Eilat specifically
+  // rather than trusting whatever count happens to be there yet.
+  await expect
+    .poll(async () => {
+      const titles = await Promise.all(
+        (await pins(page).all()).map((pin) => pin.getAttribute("title")),
+      );
+      return titles.some((title) => title?.includes(EILAT_VENUE));
+    })
+    .toBe(true);
 
   const rowCount = await list.getByRole("listitem").count();
   expect(await pins(page).count()).toBe(rowCount);
 
-  // Every venue named on a pin is named in the list, and vice versa. The
+  const listText = (await list.innerText()).replace(/\s+/g, " ");
+  for (const defaultVenue of DEFAULT_REGION_VENUES) {
+    expect(listText).not.toContain(defaultVenue);
+  }
+
+  // Every venue named on a pin is named in the list, and vice versa — the two
+  // views agree, not just each individually showing the Eilat venue. The
   // venue is read out of the pin's own accessible name, which is built from
   // the same row the list renders.
-  const listText = (await list.innerText()).replace(/\s+/g, " ");
   for (const pin of await pins(page).all()) {
     const title = (await pin.getAttribute("title")) ?? "";
     const venue = title.split(",")[1]?.trim() ?? "";
