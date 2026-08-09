@@ -370,6 +370,12 @@ max_frequency = "60s"
 972500000005 = "123456"
 # tests/rls/sessionRefresh.test.ts — needs a real session to expire and renew.
 972500000006 = "123456"
+# tests/rls/publishDance.test.ts — the instructor who publishes, and the signed-in
+# stranger who must not be able to touch what they published.
+972500000007 = "123456"
+972500000008 = "123456"
+# tests/e2e/publishDance.spec.ts — the browser walk through the same path.
+972500000009 = "123456"
 
 # Configure logged in session timeouts.
 # [auth.sessions]

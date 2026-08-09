@@ -91,6 +91,68 @@ export const he = {
     signedInAs: (phone: string): string => `מחוברים עם המספר ${phone}`,
     signOut: "יציאה מהחשבון",
     signingOut: "יוצאים…",
+    /** Greets by the name the dancer chose, once there is a profile row. */
+    greeting: (name: string): string => `שלום, ${name}`,
+  },
+  /**
+   * Setting a name — the step between signing in and being able to publish.
+   * `profiles.display_name` is NOT NULL, so nothing else can happen first.
+   *
+   * Worded as an introduction, not as a form to complete: "איך קוראים לכם" is
+   * what a person at the door would ask, and this audience should not meet the
+   * word "פרופיל" before it has done anything for them (AGENTS.md §2.8).
+   */
+  profileName: {
+    heading: "איך קוראים לכם?",
+    intro: "השם הזה פרטי ומשמש אותנו כדי לפנות אליכם. הוא לא מוצג לרוקדים אחרים.",
+    label: "השם שלכם",
+    save: "שמירה",
+    saving: "שומרים…",
+    errors: {
+      missing: "צריך להקליד שם.",
+      tooLong: "השם ארוך מדי. עד 80 תווים.",
+      failed: "לא הצלחנו לשמור את השם. אפשר לנסות שוב.",
+    },
+  },
+  /**
+   * Publishing one night. The vocabulary is the community's (§2.8): "הרקדה",
+   * never "אירוע"; "מרקיד/ה", never "מארגן".
+   */
+  publishDance: {
+    heading: "פרסום הרקדה",
+    intro: "ההרקדה תופיע במפה ובלוח לכל הרוקדים.",
+    venueLabel: "מקום ההרקדה",
+    /** Names the filter box above the list of halls, so it is not a mystery field. */
+    venueSearchLabel: "חיפוש מקום",
+    venueSearchPlaceholder: "אפשר להקליד חלק מהשם או מהכתובת",
+    venueEmpty: "לא נמצא מקום שמתאים לחיפוש.",
+    /**
+     * The public name, asked for only on a first publish. Says plainly that it
+     * is the one thing here other people see — the private/public identity split
+     * is docs/decisions/0004, and it is not something to leave a person to infer.
+     */
+    instructorNameLabel: "השם שיוצג לרוקדים ליד ההרקדה",
+    instructorNameHint: "זה השם הפומבי שלכם כמרקידים. אפשר לשנות אותו.",
+    dateLabel: "תאריך",
+    startTimeLabel: "שעת התחלה",
+    endTimeLabel: "שעת סיום",
+    /** Reassurance for the ordinary evening that ends after midnight. */
+    endsNextDayHint: "הרקדה שמסתיימת אחרי חצות — אפשר להקליד את שעת הסיום כרגיל.",
+    submit: "פרסום ההרקדה",
+    submitting: "מפרסמים…",
+    published: "ההרקדה פורסמה ומופיעה עכשיו במפה ובלוח.",
+    errors: {
+      venueId: "צריך לבחור את המקום שבו תתקיים ההרקדה.",
+      date: "צריך לבחור תאריך תקין.",
+      startTime: "צריך לבחור שעת התחלה תקינה.",
+      /**
+       * Covers a missing end time, an unparseable one, and one that makes the
+       * night longer than twelve hours — which in practice means the two times
+       * were typed the wrong way round.
+       */
+      endTime: "צריך לבחור שעת סיום תקינה, אחרי שעת ההתחלה.",
+      failed: "לא הצלחנו לפרסם את ההרקדה. אפשר לנסות שוב.",
+    },
   },
   /**
    * Phone OTP is the only way into this product (AGENTS.md §2.3), so these
