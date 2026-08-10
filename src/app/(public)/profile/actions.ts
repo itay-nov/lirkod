@@ -10,7 +10,9 @@ import {
   findOwnProfile,
   registerAsInstructor,
 } from "@/lib/db/publisher";
+import { findOrCreateVenue, type VenueOption } from "@/lib/db/venues";
 import { buildNewDance, type NewDanceField } from "@/lib/domain/newDance";
+import { buildNewVenue, type NewVenueInput } from "@/lib/domain/newVenue";
 
 /**
  * The two writes behind /profile: set your name, and publish a dance.
@@ -129,4 +131,45 @@ export async function publishDanceAction(
   revalidatePath("/schedule");
 
   return { ok: true };
+}
+
+export type AddVenueResult =
+  | { ok: true; venue: VenueOption }
+  | { ok: false; reason: "signedOut" | "invalid" | "failed" };
+
+/**
+ * Records the hall an instructor picked out of Google Places, or hands back the
+ * one already recorded for that place.
+ *
+ * A separate write from publishing, deliberately (docs/decisions/0015). Folding
+ * it into `publish_dance` would mean a dance and a venue succeeding or failing
+ * together, and a venue that outlives an abandoned publish is not a leak — it is
+ * a real hall somebody confirmed exists, which is the whole point of collecting
+ * clean venue data.
+ *
+ * Being signed in is the only authorisation: venues are shared, not owned, so
+ * there is nothing here to check ownership against. The database says the same
+ * thing — `venues_insert_authenticated` has no ownership clause, only
+ * `place_id is not null`.
+ *
+ * What this cannot do is verify the place. The Maps key is referrer-restricted,
+ * so the server cannot call Places itself; `buildNewVenue` constrains the payload
+ * instead, and the note there is honest about the difference.
+ */
+export async function addVenueAction(input: NewVenueInput): Promise<AddVenueResult> {
+  const user = await currentUser();
+  if (user === null) return { ok: false, reason: "signedOut" };
+
+  const built = buildNewVenue(input);
+  if ("problems" in built) return { ok: false, reason: "invalid" };
+
+  const client = await serverClient();
+  const venue = await findOrCreateVenue(client, built.command);
+
+  // The new hall has to show up in the picker's next search, which reads through
+  // the route handler rather than this render — but /profile itself is cached per
+  // request and would otherwise keep the pre-insert list.
+  revalidatePath("/profile");
+
+  return { ok: true, venue };
 }

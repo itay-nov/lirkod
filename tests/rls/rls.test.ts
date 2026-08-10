@@ -89,7 +89,12 @@ describe("venues — anonymous read is the product premise (AGENTS.md §2.1)", (
     expect(await venueNameById(fixtures.venue1Id)).toBeDefined();
   });
 
-  it("denies a venue insert even to a signed-in instructor — venues are curated server-side", async () => {
+  it("denies a venue insert that names no Google place", async () => {
+    // This used to read "venues are curated server-side", which stopped being
+    // true in 3.2b: a signed-in user may now add a venue (migration 0007,
+    // docs/decisions/0015). What is still refused — and what this now asserts —
+    // is an insert with no place_id, which is what keeps the table from becoming
+    // free text. tests/rls/venues.test.ts covers the write path that IS allowed.
     const { error } = await instructorA.from("venues").insert({
       name: "rls-test-instructor-made",
       address: "nowhere",

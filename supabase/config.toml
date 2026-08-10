@@ -376,6 +376,10 @@ max_frequency = "60s"
 972500000008 = "123456"
 # tests/e2e/publishDance.spec.ts — the browser walk through the same path.
 972500000009 = "123456"
+# tests/rls/venues.test.ts — the shared-venue write path.
+972500000010 = "123456"
+# tests/e2e/addVenue.spec.ts — the browser walk through Places.
+972500000011 = "123456"
 
 # Configure logged in session timeouts.
 # [auth.sessions]

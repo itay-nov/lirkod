@@ -128,9 +128,9 @@ beforeAll(async () => {
   publisherId = publisherUser.user.id;
   otherId = otherUser.user.id;
 
-  // Venues are curated server-side — `authenticated` has SELECT only — so this
-  // one is seeded with service_role, which is exactly the arrangement 3.2b will
-  // change and this suite documents.
+  // Seeded with service_role rather than through the 3.2b add-a-venue path: this
+  // suite is about publishing, and a fixture that depended on Google Places would
+  // make every test here fail whenever Places did.
   const { data: venue, error } = await service
     .from("venues")
     .insert({
@@ -512,7 +512,11 @@ describe("a signed-in user who is not an instructor", () => {
     expect(error).not.toBeNull();
   });
 
-  it("still cannot add a venue — those stay curated server-side until 3.2b", async () => {
+  it("cannot add a venue without naming a Google place", async () => {
+    // 3.2b opened this table to any signed-in user (migration 0007), so the old
+    // assertion — "venues stay curated server-side" — is no longer the rule. The
+    // remaining bar is place_id, and it is what stops a publisher inventing a
+    // hall out of free text. The allowed path lives in tests/rls/venues.test.ts.
     const { error } = await other.from("venues").insert({
       name: `${FIXTURE_PREFIX}not-allowed`,
       address: "רחוב האסור 1",
