@@ -78,18 +78,60 @@ The write would still have been refused — `dance_events_insert_own` checks
 in the query on both tables, and `tests/rls/publishDance.test.ts` pins the
 underlying behaviour so nobody removes the filter believing it redundant.
 
-## The two inserts are not atomic
+## Publishing is atomic, through one RPC
 
-Publishing writes a `dance_events` row and one `event_occurrences` row.
-PostgREST has no transaction across two calls, so a failed occurrence insert
-triggers a compensating delete of the event.
+Publishing writes a `dance_events` row and one `event_occurrences` row. Migration
+0006 does both inside `public.publish_dance`, so PostgREST wraps them in a single
+transaction and a failure on either rolls back both.
 
-A process that dies between the two calls still leaves an orphan. The honest
-description of the consequence: a `dance_events` row that no read path can reach,
-because every one of them joins through occurrences. Invisible rather than wrong.
-Making it genuinely atomic wants a `security invoker` function doing both inserts
-in one statement — the same shape as `find_dances_near` (0005) — which is a
-migration, and was out of scope here.
+### Correction — the first version of this ADR was wrong
+
+This section originally described the two-call version (insert, insert,
+compensating delete on failure) and dismissed the residual orphan as "a
+`dance_events` row that no read path can reach… invisible rather than wrong."
+
+**That was incorrect, and it was incorrect in the direction that matters.** The
+reasoning only considered *our* read paths, all of which join through
+occurrences. It ignored the fact that `anon` holds SELECT on `dance_events` and
+that `dance_events_select_public` is `using (true)` — so PostgREST serves the
+table directly at `/rest/v1/dance_events` to a caller with no account. Confirmed
+against the local stack: an event inserted on its own came straight back to an
+anonymous GET, with an empty occurrence list beside it.
+
+So a half-published dance was never invisible. It was a publicly readable row
+asserting that a named instructor runs a dance at a named venue, with no night
+attached and nothing to tell a reader that anything was missing. "No screen of
+ours renders it" is not the same as "nobody can read it", and on a table anon can
+select from, the second is the only claim worth making.
+
+### What the RPC does and does not do
+
+`publish_dance` is **SECURITY INVOKER**. It runs as the caller, so both inserts
+are still checked by the policies that already existed —
+`dance_events_insert_own` (`owns_instructor`) and `event_occurrences_insert_own`
+(`owns_event`). Nothing in the function re-implements an ownership rule; a second
+copy is a copy that can drift from the one protecting every other write path.
+
+A DEFINER version would have run as the table owner with RLS switched off around
+it, turning a convenience function into a hole through every ownership policy in
+the schema, callable by any signed-in user with an `instructor_id` of their
+choosing. The gap between the two keywords is the entire security design here.
+
+`owns_event()` has to see the event the previous statement just inserted, and it
+does: it is `stable`, so it reads the calling statement's snapshot, which in
+read-committed includes earlier commands in the same transaction. Verified rather
+than assumed — a publish that reaches step two at all is that proof, since the
+occurrence insert would otherwise fail its `WITH CHECK`.
+
+EXECUTE is granted to `authenticated` only. `CREATE FUNCTION` grants it to
+`PUBLIC` by default, so the migration revokes that first; `service_role` loses it
+along with everyone else, deliberately, because it bypasses RLS and would turn an
+invoker function into an unchecked one.
+
+Measured after the change: an occurrence that violates
+`event_occurrences_ends_after_starts` returns 23514 and leaves the
+`dance_events` count unchanged when read as `anon`. `anon` calling the function
+gets 42501, "permission denied for function publish_dance".
 
 ## Wall-clock time in, UTC out
 

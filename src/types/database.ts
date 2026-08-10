@@ -222,6 +222,18 @@ export type Database = {
       }
       owns_event: { Args: { p_event_id: string }; Returns: boolean }
       owns_instructor: { Args: { p_instructor_id: string }; Returns: boolean }
+      publish_dance: {
+        Args: {
+          p_ends_at: string
+          p_instructor_id: string
+          p_starts_at: string
+          p_venue_id: string
+        }
+        Returns: {
+          event_id: string
+          occurrence_id: string
+        }[]
+      }
     }
     Enums: {
       occurrence_status: "scheduled" | "cancelled" | "moved"
