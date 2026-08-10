@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   publishDanceAction,
@@ -8,6 +8,7 @@ import {
 } from "@/app/(public)/profile/actions";
 import type { VenueOption } from "@/lib/db/venues";
 import type { NewDanceField } from "@/lib/domain/newDance";
+import { VenuePicker } from "./VenuePicker";
 import { FIELD_CLASS, HINT_CLASS, LABEL_CLASS, PRIMARY_BUTTON_CLASS } from "./formStyles";
 import { he } from "@/lib/i18n/he";
 
@@ -20,28 +21,24 @@ import { he } from "@/lib/i18n/he";
  * fields "for later"). Price is out of scope for this phase; see the note in
  * `publishDance`.
  *
- * The venue is picked from `venues`, which is curated server-side — `authenticated`
- * holds SELECT on it and nothing more (migration 0001). Adding one is 3.2b.
+ * The venue comes from `VenuePicker`, which searches `venues` server-side and can
+ * add a hall from Google Places when it is missing (docs/decisions/0015). Adding a
+ * venue is its own write, deliberately separate from publishing.
  */
 
 /** Native date and time inputs on purpose — see the note on the fields below. */
 const DATE_TIME_FIELD_CLASS = `${FIELD_CLASS} [color-scheme:light]`;
 
-function matches(venue: VenueOption, query: string): boolean {
-  const needle = query.trim().toLowerCase();
-  if (needle === "") return true;
-  return (
-    venue.name.toLowerCase().includes(needle) ||
-    venue.address.toLowerCase().includes(needle)
-  );
-}
-
 export function CreateDanceForm({
   venues,
+  mapsApiKey,
   instructorName,
   needsInstructorName,
 }: {
+  /** The first page of halls, rendered server-side so the list is not empty on arrival. */
   venues: readonly VenueOption[];
+  /** Passed through to the Places field; null turns adding a venue off. */
+  mapsApiKey: string | null;
   /** Prefills the public name; the profile name when there is no instructor row yet. */
   instructorName: string;
   /** True on a first publish, when the מרקיד row is created alongside the dance. */
@@ -49,7 +46,6 @@ export function CreateDanceForm({
 }) {
   const router = useRouter();
 
-  const [venueQuery, setVenueQuery] = useState("");
   const [venueId, setVenueId] = useState("");
   const [publicName, setPublicName] = useState(instructorName);
   const [date, setDate] = useState("");
@@ -59,11 +55,6 @@ export function CreateDanceForm({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [published, setPublished] = useState(false);
-
-  const visibleVenues = useMemo(
-    () => venues.filter((venue) => matches(venue, venueQuery)),
-    [venues, venueQuery],
-  );
 
   function messageFor(result: PublishDanceResult): string {
     if (result.ok) return "";
@@ -100,7 +91,6 @@ export function CreateDanceForm({
 
       setPublished(true);
       setVenueId("");
-      setVenueQuery("");
       setDate("");
       setStartTime("");
       setEndTime("");
@@ -141,58 +131,12 @@ export function CreateDanceForm({
           </div>
         ) : null}
 
-        {/*
-          A filter box over radio buttons rather than a combobox. Every option
-          stays visible and reachable with Tab and the arrow keys using nothing
-          but native semantics — no `aria-expanded`, no listbox to get wrong, and
-          nothing that only works with a pointer (AGENTS.md §2.7).
-
-          This shape assumes `venues` stays small, which it does while adding one
-          is server-side only. When 3.2b makes venues self-service this needs to
-          become a bounded, server-filtered control — the same caveat as
-          `listVenues`.
-        */}
-        <fieldset>
-          <legend className={LABEL_CLASS}>{he.publishDance.venueLabel}</legend>
-
-          <label htmlFor="venue-search" className="block pb-2">
-            {he.publishDance.venueSearchLabel}
-          </label>
-          <input
-            id="venue-search"
-            type="search"
-            value={venueQuery}
-            onChange={(event) => setVenueQuery(event.target.value)}
-            placeholder={he.publishDance.venueSearchPlaceholder}
-            className={FIELD_CLASS}
-          />
-
-          {visibleVenues.length === 0 ? (
-            <p className="pt-3">{he.publishDance.venueEmpty}</p>
-          ) : (
-            <div className="flex flex-col gap-2 pt-3">
-              {visibleVenues.map((venue) => (
-                <label
-                  key={venue.id}
-                  className="flex min-h-12 items-start gap-3 rounded-lg border-2 border-muted/50 px-3 py-2 has-[:checked]:border-secondary has-[:focus-visible]:outline-4 has-[:focus-visible]:outline-secondary"
-                >
-                  <input
-                    type="radio"
-                    name="venueId"
-                    value={venue.id}
-                    checked={venueId === venue.id}
-                    onChange={() => setVenueId(venue.id)}
-                    className="mt-1 size-6 shrink-0 accent-[var(--color-secondary)]"
-                  />
-                  <span>
-                    <span className="block font-bold">{venue.name}</span>
-                    <span className="block text-secondary">{venue.address}</span>
-                  </span>
-                </label>
-              ))}
-            </div>
-          )}
-        </fieldset>
+        <VenuePicker
+          initialVenues={venues}
+          mapsApiKey={mapsApiKey}
+          venueId={venueId}
+          onVenueChange={setVenueId}
+        />
 
         {/*
           Native date and time inputs, not a custom picker. They bring the OS's

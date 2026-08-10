@@ -1,7 +1,7 @@
 import { serverClient } from "@/lib/auth/serverClient";
 import { currentUser } from "@/lib/auth/session";
 import { findOwnInstructor, findOwnProfile } from "@/lib/db/publisher";
-import { listVenues } from "@/lib/db/venues";
+import { searchVenues } from "@/lib/db/venues";
 import { CreateDanceForm } from "@/components/CreateDanceForm";
 import { PhoneSignIn } from "@/components/PhoneSignIn";
 import { ProfileNameForm } from "@/components/ProfileNameForm";
@@ -94,7 +94,8 @@ async function SignedIn({ userId, phone }: { userId: string; phone: string | nul
   // the path of someone who has just signed in and has nothing to publish yet.
   const [instructor, venues] = await Promise.all([
     findOwnInstructor(client, profile.id),
-    listVenues(client),
+    // The first page of halls; the picker searches server-side from here on.
+    searchVenues(client, ""),
   ]);
 
   return (
@@ -111,6 +112,7 @@ async function SignedIn({ userId, phone }: { userId: string; phone: string | nul
       */}
       <CreateDanceForm
         venues={venues}
+        mapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || null}
         instructorName={instructor?.displayName ?? profile.displayName}
         needsInstructorName={instructor === null}
       />

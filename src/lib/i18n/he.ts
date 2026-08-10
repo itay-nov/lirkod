@@ -126,6 +126,44 @@ export const he = {
     venueSearchLabel: "חיפוש מקום",
     venueSearchPlaceholder: "אפשר להקליד חלק מהשם או מהכתובת",
     venueEmpty: "לא נמצא מקום שמתאים לחיפוש.",
+    venueSearching: "מחפשים מקומות…",
+    /** Announced when results change, so the list is not a silent update. */
+    venueResultCount: (count: number): string =>
+      count === 1 ? "נמצא מקום אחד." : `נמצאו ${count} מקומות.`,
+    /**
+     * The way out when the hall is not on the list. Phrased as the question the
+     * instructor is already asking, not as a feature name (AGENTS.md §2.8).
+     */
+    addVenueToggle: "המקום לא ברשימה? הוספת מקום חדש",
+    addVenueCancel: "חזרה לרשימת המקומות",
+    addVenueHeading: "הוספת מקום חדש",
+    /**
+     * Says where the suggestions come from. This audience should know why a
+     * third party is suggesting addresses, and it is the honest description of
+     * what happens when they type.
+     */
+    addVenueIntro: "מחפשים את המקום בגוגל ובוחרים מהרשימה. כך הכתובת והמיקום במפה יהיו מדויקים.",
+    addVenueSearchLabel: "שם המקום או הכתובת",
+    addVenueSearchPlaceholder: "לדוגמה: בית ציוני אמריקה",
+    /** Names the suggestion list for a screen reader; it appears and disappears as you type. */
+    addVenueSuggestionsLabel: "הצעות מגוגל",
+    /**
+     * The alt text on Google's required attribution mark.
+     *
+     * The one place an English word is allowed to stand in a UI string
+     * (AGENTS.md §2.8): "Google" is a brand name and the attribution is a
+     * policy requirement, not a phrase we chose. Everything around it is Hebrew.
+     */
+    poweredByGoogle: "מופעל על ידי Google",
+    addVenueEmpty: "לא נמצאו הצעות. אפשר לנסות לכתוב אחרת.",
+    addVenueSaving: "מוסיפים את המקום…",
+    addVenueAdded: (name: string): string => `${name} נוסף ונבחר להרקדה.`,
+    addVenueErrors: {
+      /** The Places script could not load — sign-in still works, adding a venue does not. */
+      unavailable: "לא הצלחנו לטעון את חיפוש המקומות. אפשר לבחור מקום מהרשימה או לנסות שוב מאוחר יותר.",
+      /** Covers a rejected payload and a failed insert alike; both mean "try again". */
+      failed: "לא הצלחנו להוסיף את המקום. אפשר לנסות שוב.",
+    },
     /**
      * The public name, asked for only on a first publish. Says plainly that it
      * is the one thing here other people see — the private/public identity split

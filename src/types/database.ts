@@ -175,6 +175,7 @@ export type Database = {
           is_accessible: boolean | null
           location: unknown
           name: string
+          place_id: string | null
         }
         Insert: {
           address: string
@@ -186,6 +187,7 @@ export type Database = {
           is_accessible?: boolean | null
           location: unknown
           name: string
+          place_id?: string | null
         }
         Update: {
           address?: string
@@ -197,6 +199,7 @@ export type Database = {
           is_accessible?: boolean | null
           location?: unknown
           name?: string
+          place_id?: string | null
         }
         Relationships: []
       }
@@ -218,6 +221,20 @@ export type Database = {
           venue_lat: number
           venue_lng: number
           venue_name: string
+        }[]
+      }
+      find_or_create_venue: {
+        Args: {
+          p_address: string
+          p_lat: number
+          p_lng: number
+          p_name: string
+          p_place_id: string
+        }
+        Returns: {
+          address: string
+          id: string
+          name: string
         }[]
       }
       owns_event: { Args: { p_event_id: string }; Returns: boolean }

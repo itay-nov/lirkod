@@ -101,11 +101,102 @@ declare namespace google.maps {
     }
   }
 
+  /**
+   * The Places API (NEW) surface, which is a different set of classes from the
+   * ones most examples still show.
+   *
+   * Verified against the configured key before any of this was written: the
+   * legacy endpoints answer "You're calling a legacy API, which is not enabled
+   * for your project", and only the new ones respond. So there is deliberately
+   * no `AutocompleteService` or `PlacesService` declared here — those classes do
+   * exist on `google.maps.places` at runtime, and leaving them undeclared is
+   * what stops someone reaching for them and meeting REQUEST_DENIED in
+   * production instead of in review.
+   */
+  namespace places {
+    /**
+     * Groups the keystrokes and the one details lookup that follows them into a
+     * single billable unit. Opaque by design — it is only ever handed straight
+     * back to Google.
+     */
+    class AutocompleteSessionToken {
+      constructor();
+    }
+
+    interface AutocompleteRequest {
+      input: string;
+      /** ISO country codes. The new spelling of the legacy `componentRestrictions`. */
+      includedRegionCodes?: string[];
+      language?: string;
+      region?: string;
+      sessionToken?: AutocompleteSessionToken;
+    }
+
+    /** The rendered line, which Google also exposes split into emboldenable parts. */
+    interface FormattableText {
+      toString(): string;
+    }
+
+    interface PlacePrediction {
+      placeId: string;
+      text: FormattableText;
+      /**
+       * A `Place` Google has already tied to this autocomplete session.
+       *
+       * The reason it is declared, and the reason the code must use it: a
+       * `fetchFields` on this object carries the session token, while the same
+       * call on `new Place({ id })` does not — and Google then bills the details
+       * lookup, and every keystroke that preceded it, as separate requests.
+       */
+      toPlace(): Place;
+    }
+
+    interface AutocompleteSuggestionResult {
+      placePrediction: PlacePrediction | null;
+    }
+
+    class AutocompleteSuggestion {
+      static fetchAutocompleteSuggestions(
+        request: AutocompleteRequest,
+      ): Promise<{ suggestions: AutocompleteSuggestionResult[] }>;
+    }
+
+    interface PlaceOptions {
+      id: string;
+      requestedLanguage?: string;
+    }
+
+    /** A point with accessor methods rather than plain numbers, as Maps returns it. */
+    interface LatLng {
+      lat(): number;
+      lng(): number;
+    }
+
+    /**
+     * Every field arrives null until `fetchFields` has asked for it by name — the
+     * field mask is what Google prices a details call on, so the nullability here
+     * is a billing decision showing through the type.
+     */
+    class Place {
+      constructor(options: PlaceOptions);
+      id: string | null;
+      displayName: string | null;
+      formattedAddress: string | null;
+      location: LatLng | null;
+      fetchFields(request: { fields: string[] }): Promise<{ place: Place }>;
+    }
+  }
+
   function importLibrary(name: "core"): Promise<{ LatLngBounds: typeof LatLngBounds }>;
   function importLibrary(name: "maps"): Promise<{ Map: typeof Map }>;
   function importLibrary(
     name: "marker",
   ): Promise<{ AdvancedMarkerElement: typeof marker.AdvancedMarkerElement }>;
+  function importLibrary(name: "places"): Promise<{
+    AutocompleteSessionToken: typeof places.AutocompleteSessionToken;
+    AutocompleteSuggestion: typeof places.AutocompleteSuggestion;
+    Place: typeof places.Place;
+  }>;
 }
 
 interface Window {
