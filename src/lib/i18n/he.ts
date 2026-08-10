@@ -176,9 +176,27 @@ export const he = {
     endTimeLabel: "שעת סיום",
     /** Reassurance for the ordinary evening that ends after midnight. */
     endsNextDayHint: "הרקדה שמסתיימת אחרי חצות — אפשר להקליד את שעת הסיום כרגיל.",
+    /**
+     * The repeat choice. Three plain options and no weekday list: the day of the
+     * week comes from the date already chosen above, so asking for it again would
+     * be a second control that can contradict the first (AGENTS.md §2 — fewer
+     * steps, even when it means more work for us).
+     */
+    repeatLegend: "כל כמה זמן ההרקדה מתקיימת?",
+    repeatOnce: "פעם אחת בלבד",
+    repeatWeekly: "כל שבוע",
+    repeatBiweekly: "כל שבועיים",
+    /** Says out loud where the weekday came from, so nothing is left to be inferred. */
+    repeatHint: (weekday: string): string =>
+      `ההרקדה תחזור ב${weekday}, לפי התאריך שבחרתם.`,
+    untilDateLabel: "תאריך אחרון (אפשר להשאיר ריק)",
+    untilDateHint: "אם ההרקדה ממשיכה ללא תאריך סיום, אפשר להשאיר את השדה ריק.",
     submit: "פרסום ההרקדה",
     submitting: "מפרסמים…",
     published: "ההרקדה פורסמה ומופיעה עכשיו במפה ובלוח.",
+    /** The recurring counterpart, so the number of nights created is not a mystery. */
+    publishedSeries: (count: number): string =>
+      `ההרקדה פורסמה. ${count} תאריכים כבר מופיעים במפה ובלוח, וההמשך יתווסף מעצמו.`,
     errors: {
       venueId: "צריך לבחור את המקום שבו תתקיים ההרקדה.",
       date: "צריך לבחור תאריך תקין.",
@@ -189,6 +207,12 @@ export const he = {
        * were typed the wrong way round.
        */
       endTime: "צריך לבחור שעת סיום תקינה, אחרי שעת ההתחלה.",
+      untilDate: "התאריך האחרון צריך להיות תקין ולא לפני תאריך ההתחלה.",
+      /**
+       * Every night the series describes is already behind us. Says which two
+       * fields to look at, because those are the only two that can cause it.
+       */
+      noNights: "לא נמצאו תאריכים להרקדה הזאת. כדאי לבדוק את התאריך ואת התאריך האחרון.",
       failed: "לא הצלחנו לפרסם את ההרקדה. אפשר לנסות שוב.",
     },
   },

@@ -90,13 +90,23 @@ insert into public.venues (id, name, address, location, capacity, has_parking, i
 
 -- One dance per venue, varied dance types --------------------------------------
 
-insert into public.dance_events (id, instructor_id, venue_id, dance_types, recurrence_rule, price_agorot) values
+-- All three are one-off dances, and the occurrences below are written by hand.
+--
+-- They used to carry a decorative `recurrence_rule` string ("FREQ=WEEKLY;BYDAY=MO")
+-- that no code ever read. Since migration 0009 that column is generated from the
+-- recurrence_* columns and a rule means something — a series with a rule
+-- materialises nights — so the string had to become either a real recurrence or
+-- nothing. Nothing, on purpose: tests/db/proximity.test.ts asserts against these
+-- exact rows, and a seeded series whose row count changes with the calendar would
+-- make that suite's failures ambiguous. A recurring dance is created by the
+-- recurring publish path and by tests/db/occurrenceGenerator.test.ts, both of
+-- which make their own.
+insert into public.dance_events (id, instructor_id, venue_id, dance_types, price_agorot) values
   (
     'c0000000-0000-0000-0000-000000000001',
     'a0000000-0000-0000-0000-000000000002',
     'b0000000-0000-0000-0000-000000000001',
     array['ריקודי עם', 'זוגות'],
-    'FREQ=WEEKLY;BYDAY=MO',
     3000
   ),
   (
@@ -104,7 +114,6 @@ insert into public.dance_events (id, instructor_id, venue_id, dance_types, recur
     'a0000000-0000-0000-0000-000000000002',
     'b0000000-0000-0000-0000-000000000002',
     array['ריקודי עם'],
-    'FREQ=WEEKLY;BYDAY=WE',
     3500
   ),
   (
@@ -112,7 +121,6 @@ insert into public.dance_events (id, instructor_id, venue_id, dance_types, recur
     'a0000000-0000-0000-0000-000000000002',
     'b0000000-0000-0000-0000-000000000003',
     array['ריקודי עם', 'מתחילים'],
-    'FREQ=WEEKLY;BYDAY=TH',
     2500
   );
 

@@ -230,7 +230,11 @@ test("a search that matches nothing says so rather than showing every hall", asy
   await page.getByLabel(he.publishDance.venueSearchLabel).fill("זזזזזזזז");
 
   await expect(page.getByText(he.publishDance.venueEmpty)).toBeVisible({ timeout: 10_000 });
-  expect(await page.getByRole("radio").count()).toBe(0);
+  // Scoped to the VENUE radios by name. The form grew a second radio group in
+  // 3.3a (one-time / weekly / biweekly), so an unscoped count now answers a
+  // different question than the one this test is asking — "is the whole table
+  // still being shipped to the browser".
+  expect(await page.locator('input[name="venueId"]').count()).toBe(0);
 });
 
 test("adds a hall from Google Places, publishes there, and a dancer with no account sees it", async ({
@@ -408,7 +412,16 @@ test("every venue control clears the 48x48 minimum tap target (AGENTS.md §5)", 
     page.getByRole("list", { name: he.publishDance.addVenueSuggestionsLabel }),
   ).toBeVisible({ timeout: 25_000 });
 
-  for (const control of await page.locator("fieldset button, fieldset input").all()) {
+  // Scoped to the VENUE fieldset. 3.3a added a second one to this form for the
+  // repeat choice, whose tap target is the surrounding <label> rather than the
+  // 24px radio inside it — the same shape the venue list itself uses, and
+  // covered by tests/e2e/publishRecurringDance.spec.ts. An unscoped "every
+  // fieldset input" would be measuring that group's radio, not a venue control.
+  const venueFieldset = page.locator("fieldset", {
+    has: page.getByText(he.publishDance.venueLabel),
+  });
+
+  for (const control of await venueFieldset.locator("button, input").all()) {
     const box = await control.boundingBox();
     expect(box).not.toBeNull();
     expect(box?.height ?? 0).toBeGreaterThanOrEqual(48);

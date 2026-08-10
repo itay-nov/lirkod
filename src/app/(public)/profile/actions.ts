@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { serverClient } from "@/lib/auth/serverClient";
 import { currentUser } from "@/lib/auth/session";
-import { publishDance } from "@/lib/db/dances";
+import { publishDance, publishRecurringDance } from "@/lib/db/dances";
 import {
   createOwnProfile,
   findOwnInstructor,
@@ -11,7 +11,12 @@ import {
   registerAsInstructor,
 } from "@/lib/db/publisher";
 import { findOrCreateVenue, type VenueOption } from "@/lib/db/venues";
-import { buildNewDance, type NewDanceField } from "@/lib/domain/newDance";
+import { buildNewDance } from "@/lib/domain/newDance";
+import {
+  buildNewRecurringDance,
+  type Repeat,
+  type RecurringField,
+} from "@/lib/domain/newRecurringDance";
 import { buildNewVenue, type NewVenueInput } from "@/lib/domain/newVenue";
 
 /**
@@ -57,15 +62,19 @@ export async function saveProfileName(name: string): Promise<ProfileNameResult> 
 }
 
 export type PublishDanceResult =
-  | { ok: true }
-  | { ok: false; reason: "signedOut" | "noProfile" | "failed" }
-  | { ok: false; reason: "invalid"; problems: Array<{ field: NewDanceField }> };
+  | { ok: true; occurrenceCount: number }
+  | { ok: false; reason: "signedOut" | "noProfile" | "noNights" | "failed" }
+  | { ok: false; reason: "invalid"; problems: Array<{ field: RecurringField }> };
 
 export interface PublishDanceInput {
   venueId: string;
   date: string;
   startTime: string;
   endTime: string;
+  /** "once" keeps the single-night path; the other two publish a series. */
+  repeat: Repeat;
+  /** "YYYY-MM-DD" or "". Only read when `repeat` is not "once". */
+  untilDate: string;
   /** The public name to publish under. Only read when there is no instructor row yet. */
   instructorName: string;
 }
@@ -88,12 +97,27 @@ export async function publishDanceAction(
   const user = await currentUser();
   if (user === null) return { ok: false, reason: "signedOut" };
 
-  const built = buildNewDance({
-    venueId: input.venueId,
-    date: input.date,
-    startTime: input.startTime,
-    endTime: input.endTime,
-  });
+  // Validated before anything is looked up, and by whichever of the two builders
+  // matches what was asked for. The recurring one runs the single-night rules
+  // first and then adds its own, so a malformed time is reported the same way on
+  // both paths and the form needs one error map, not two.
+  const built =
+    input.repeat === "once"
+      ? buildNewDance({
+          venueId: input.venueId,
+          date: input.date,
+          startTime: input.startTime,
+          endTime: input.endTime,
+        })
+      : buildNewRecurringDance({
+          venueId: input.venueId,
+          repeat: input.repeat,
+          date: input.date,
+          startTime: input.startTime,
+          endTime: input.endTime,
+          untilDate: input.untilDate,
+        });
+
   if ("problems" in built) {
     return {
       ok: false,
@@ -117,12 +141,34 @@ export async function publishDanceAction(
       displayName: input.instructorName.trim() || profile.displayName,
     }));
 
-  await publishDance(client, {
-    instructorId: instructor.id,
-    venueId: built.command.venueId,
-    startsAtUtc: built.command.startsAtUtc,
-    endsAtUtc: built.command.endsAtUtc,
-  });
+  // `startsAtUtc` is only on the single-night command, so this narrows the union
+  // the two builders return without a second flag to keep in step with `repeat`.
+  const command = built.command;
+  let occurrenceCount = 1;
+
+  if ("startsAtUtc" in command) {
+    await publishDance(client, {
+      instructorId: instructor.id,
+      venueId: command.venueId,
+      startsAtUtc: command.startsAtUtc,
+      endsAtUtc: command.endsAtUtc,
+    });
+  } else {
+    const series = await publishRecurringDance(client, {
+      instructorId: instructor.id,
+      venueId: command.venueId,
+      freq: command.freq,
+      startDate: command.startDate,
+      localStartTime: command.localStartTime,
+      localEndTime: command.localEndTime,
+      untilDate: command.untilDate,
+    });
+
+    // Nothing was written — the whole RPC rolled back — so there is nothing to
+    // revalidate and the instructor needs to change a date, not retry.
+    if (!series.ok) return { ok: false, reason: series.reason };
+    occurrenceCount = series.occurrenceCount;
+  }
 
   // The map and the schedule read live occurrence rows, so a newly published
   // night has to invalidate them too — not just the screen it was created from.
@@ -130,7 +176,7 @@ export async function publishDanceAction(
   revalidatePath("/");
   revalidatePath("/schedule");
 
-  return { ok: true };
+  return { ok: true, occurrenceCount };
 }
 
 export type AddVenueResult =
