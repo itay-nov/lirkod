@@ -8,6 +8,7 @@ import {
   type AutocompleteSession,
   type PlaceSuggestion,
 } from "@/lib/maps/placesAutocomplete";
+import { GoogleAttribution } from "./GoogleAttribution";
 import { FIELD_CLASS, HINT_CLASS, LABEL_CLASS } from "./formStyles";
 import { he } from "@/lib/i18n/he";
 
@@ -266,6 +267,14 @@ export function VenuePicker({
           {showSuggestions && suggestions.length === 0 && !savingVenue ? (
             <p className="pt-3">{he.publishDance.addVenueEmpty}</p>
           ) : null}
+
+          {/*
+            Google's Places policy requires this wherever predictions appear
+            without a Google map, which is our case — /profile has no map. Shown
+            whenever the Places field is open rather than only alongside results,
+            so it is present while Google is being queried too.
+          */}
+          <GoogleAttribution />
 
           <div className="pt-4">
             <button

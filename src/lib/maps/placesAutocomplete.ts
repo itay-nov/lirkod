@@ -59,8 +59,13 @@ export interface AutocompleteSession {
   select(placeId: string): Promise<SelectedPlace | null>;
 }
 
-/** Israel only, for now. Widening this means widening the server-side bounds in
- * `newVenue.ts` too; they are one decision expressed twice. */
+/**
+ * Israel only, for now — and this is the weakest of the three copies of that
+ * decision, because it is a request parameter a forged call simply omits. The
+ * enforcing one is the `venues_location_within_israel` CHECK in migration 0008;
+ * `ISRAEL_BOUNDS` in `src/lib/domain/newVenue.ts` is the third. All three move
+ * together.
+ */
 const REGION_CODES = ["il"];
 
 const LANGUAGE = "he";
@@ -74,6 +79,19 @@ export async function startAutocompleteSession(
 
   let token: google.maps.places.AutocompleteSessionToken | undefined =
     new AutocompleteSessionToken();
+
+  /**
+   * The `PlacePrediction` objects behind the suggestions we last handed out.
+   *
+   * Retained because the session token only reaches Place Details through them.
+   * `prediction.toPlace()` returns a `Place` that Google has already associated
+   * with this session; `new Place({ id })` does not, so a details call built that
+   * way is billed as a standalone request and every keystroke before it becomes
+   * separately billable too. Both spellings work and return identical data, which
+   * is exactly why the wrong one survives review — the only visible difference is
+   * on the invoice.
+   */
+  const predictions = new Map<string, google.maps.places.PlacePrediction>();
 
   return {
     async suggest(input: string): Promise<PlaceSuggestion[]> {
@@ -90,15 +108,28 @@ export async function startAutocompleteSession(
         sessionToken: token,
       });
 
+      // Replaced rather than accumulated: only the latest set is selectable, and
+      // holding every prediction from every keystroke would pin objects Google
+      // considers stale.
+      predictions.clear();
+
       return suggestions.flatMap((suggestion) => {
         const prediction = suggestion.placePrediction;
         if (!prediction?.placeId) return [];
+        predictions.set(prediction.placeId, prediction);
         return [{ placeId: prediction.placeId, text: prediction.text.toString() }];
       });
     },
 
     async select(placeId: string): Promise<SelectedPlace | null> {
-      const place = new places.Place({ id: placeId, requestedLanguage: LANGUAGE });
+      const prediction = predictions.get(placeId);
+      // Nothing to select against means the caller passed an id this session
+      // never suggested. Refused rather than fetched with a fresh `Place`,
+      // because that would silently leave the session token behind and turn the
+      // whole search into per-request billing.
+      if (!prediction) return null;
+
+      const place = prediction.toPlace();
 
       // Exactly the four fields the venue row needs. The field mask is what
       // Google prices a details call on, so asking for more than is stored would
@@ -110,6 +141,7 @@ export async function startAutocompleteSession(
       // Spent: the token covered every suggestion above plus this one lookup, and
       // reusing it would silently start billing per keystroke.
       token = undefined;
+      predictions.clear();
 
       const location = place.location;
       if (!place.id || !place.displayName || !place.formattedAddress || !location) {

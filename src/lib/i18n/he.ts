@@ -147,6 +147,14 @@ export const he = {
     addVenueSearchPlaceholder: "לדוגמה: בית ציוני אמריקה",
     /** Names the suggestion list for a screen reader; it appears and disappears as you type. */
     addVenueSuggestionsLabel: "הצעות מגוגל",
+    /**
+     * The alt text on Google's required attribution mark.
+     *
+     * The one place an English word is allowed to stand in a UI string
+     * (AGENTS.md §2.8): "Google" is a brand name and the attribution is a
+     * policy requirement, not a phrase we chose. Everything around it is Hebrew.
+     */
+    poweredByGoogle: "מופעל על ידי Google",
     addVenueEmpty: "לא נמצאו הצעות. אפשר לנסות לכתוב אחרת.",
     addVenueSaving: "מוסיפים את המקום…",
     addVenueAdded: (name: string): string => `${name} נוסף ונבחר להרקדה.`,

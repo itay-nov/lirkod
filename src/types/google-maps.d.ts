@@ -140,6 +140,15 @@ declare namespace google.maps {
     interface PlacePrediction {
       placeId: string;
       text: FormattableText;
+      /**
+       * A `Place` Google has already tied to this autocomplete session.
+       *
+       * The reason it is declared, and the reason the code must use it: a
+       * `fetchFields` on this object carries the session token, while the same
+       * call on `new Place({ id })` does not — and Google then bills the details
+       * lookup, and every keystroke that preceded it, as separate requests.
+       */
+      toPlace(): Place;
     }
 
     interface AutocompleteSuggestionResult {

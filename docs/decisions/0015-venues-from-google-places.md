@@ -34,7 +34,8 @@ Session tokens are honoured: one token covers every keystroke plus the single
 details lookup that ends them, and it is discarded the moment it is spent. Google
 prices a session as one unit only if the token is attached to both halves —
 getting that wrong is not a correctness bug, which is exactly why it is easy to
-miss.
+miss, and the first version of this code did miss it. See "Session tokens reach
+Place Details" below.
 
 ## The search moved to the server
 
@@ -73,6 +74,16 @@ First write wins. A later caller with a different name for the same place_id get
 the existing row back rather than overwriting it, so this path cannot be used to
 rename or move a hall.
 
+## Attribution
+
+Places predictions are rendered without a Google map anywhere on the screen,
+which is the case Google's Places policy requires "Powered by Google" for. The
+approved asset is vendored from `maps.gstatic.com` into `public/` rather than
+hotlinked or redrawn — recreating the wordmark by hand would mean approximating
+someone else's trademark. It renders at its native 120x14, which is the one
+element on the screen that does not scale with the user's text size, because its
+size is Google's requirement rather than ours.
+
 ## RLS: shared, not owned
 
 `venues_insert_authenticated` is `with check (place_id is not null)` — no
@@ -96,27 +107,81 @@ next one books; giving the first person edit rights over it would be wrong.
 is possible. That is the same trust model as "any signed-in user can publish a
 dance" (0014), and moderation is a later layer. Accepted, not overlooked.
 
-## What the server cannot verify, and what it does instead
+## The bounds are enforced by the database
+
+### Correction — the first version of this ADR put the boundary in the wrong place
+
+This section originally said `buildNewVenue` "constrains the payload" and treated
+that as the mitigation. **It was not a boundary at all.** `buildNewVenue` runs in
+the Server Action, and the anon key ships in the JavaScript bundle — so a caller
+with an ordinary phone-OTP session reaches `find_or_create_venue` and
+`POST /rest/v1/venues` directly and never executes a line of it. The same mistake
+docs/decisions/0012 records about the near route, repeated on a write.
+
+Measured against the local stack, from a plain signed-in session, before the fix.
+Eight rows landed, every one of them anon-readable:
+
+| input | result before 0008 |
+|---|---|
+| `place_id` `''` | accepted — `NOT NULL` does not reject the empty string |
+| `place_id` `'   '` | accepted |
+| 1000-character name | accepted |
+| 1000-character address | accepted |
+| lat 90 / lng 0 | accepted — a venue at the North Pole |
+| lat 30.04 / lng 31.23 | accepted — Cairo |
+
+Only an empty name was refused, by 0001's own `length(btrim(name)) > 0`.
+
+### What migration 0008 adds
+
+CHECK constraints, so every entry point is bounded — the RPC, a direct
+PostgREST insert, and anything written later that nobody remembers to route
+through the Server Action:
+
+- `venues_place_id_not_blank` — null (the seeded rows) or 1..512 trimmed
+- `venues_name_max_length` — ≤ 200 trimmed, on top of 0001's non-empty check
+- `venues_address_max_length` — ≤ 300 trimmed
+- `venues_location_within_israel` — `ST_Y(location::geometry)` in 29.0..33.5 and
+  `ST_X(...)` in 34.0..36.0
+
+The three seeded venues were verified against every one of these before the
+constraints were added — Eilat at 29.5581 is the closest to an edge.
+
+`buildNewVenue` stays, demoted to what it always was: a UX pre-filter that names
+the offending field in Hebrew instead of surfacing a bare 23514. Its numbers are
+copies of the constraint's, it says so, and they are exported so
+`tests/rls/venues.test.ts` asserts the database against them — drift fails a test
+rather than leaving one side looser.
+
+The Israel box is now **three** expressions of one decision: the CHECK (which
+enforces), `ISRAEL_BOUNDS` (which explains), and `includedRegionCodes: ["il"]`
+(which asks Google nicely). Widening the product means changing all three, and
+each of the three says so.
+
+### What is still not verified
 
 The Maps key is HTTP-referrer restricted, so Places can only be called from the
-browser — a server-side Details call with the same key is refused
-(`API_KEY_HTTP_REFERRER_BLOCKED`, measured). The server therefore **cannot
-re-fetch the place** to confirm what the client sent, which is normally the
-answer to AGENTS.md §8.
+browser and the server **cannot re-fetch the place**
+(`API_KEY_HTTP_REFERRER_BLOCKED`, measured). A signed-in caller can therefore
+still pair a genuine place_id with a name and a position of their choosing —
+now bounded to a plausible hall inside Israel, but not confirmed to be that hall.
 
-So `buildNewVenue` constrains the payload instead: non-empty bounded text, and a
-position inside a loose box around Israel. That is weaker than verification and
-the gap is real — a signed-in caller can post a genuine place_id with a name and
-position of their choosing. The bounds keep a forged payload to a plausible hall
-in Israel rather than a venue at the North Pole called 4MB of text.
+Closing it needs a second, IP-restricted key so the server can call Places
+itself. A deployment change, not a code one, and the main outstanding item from
+this phase.
 
-Closing it properly needs a second, IP-restricted key so the server can call
-Places itself. That is a deployment change, not a code one, and it is the main
-outstanding item from this phase.
+## Session tokens reach Place Details
 
-The Israel box is the server-side twin of `includedRegionCodes: ["il"]`. Widening
-the product beyond Israel means widening **both**; they are one decision
-expressed twice.
+Also corrected after review. The first implementation resolved a selection with
+`new Place({ id })`, which returns identical data and **loses the session token**
+— so Google bills the details lookup, and every keystroke before it, as separate
+requests. Selection now goes through `prediction.toPlace()` on the retained
+`PlacePrediction`, which Google has already associated with the session.
+
+Nothing observable changes, which is exactly why it needed a test rather than a
+careful reading: `tests/unit/placesAutocomplete.test.ts` mocks the Places objects
+and asserts that the details call came from the prediction and that `new Place`
+was never constructed. Reverting the fix fails three of its cases.
 
 ## PostGIS
 

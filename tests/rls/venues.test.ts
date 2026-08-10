@@ -1,5 +1,11 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { anonClient, serviceClient, signInAs, type Client } from "./helpers";
+import {
+  ISRAEL_BOUNDS,
+  MAX_ADDRESS_LENGTH,
+  MAX_NAME_LENGTH,
+  MAX_PLACE_ID_LENGTH,
+} from "@/lib/domain/newVenue";
 
 /**
  * The venue write path added in 3.2b (migration 0007, docs/decisions/0015).
@@ -148,29 +154,36 @@ describe("adding a venue", () => {
 });
 
 describe("dedupe by place_id", () => {
-  it("returns the existing venue instead of inserting a second one", async () => {
-    const first = await addVenue(member).single();
+  it("survives two callers adding the same hall at the same moment", async () => {
+    // Concurrent, not sequential. A sequential pair proves only that the second
+    // caller reads what the first wrote; the failure this guards is the LOSING
+    // caller erroring instead of getting the row back, which a sequential test
+    // cannot produce because there is never a race to lose.
+    const [first, second] = await Promise.all([
+      addVenue(member).single(),
+      addVenue(member, {
+        p_name: `${FIXTURE_PREFIX}אותו אולם בשם אחר`,
+        p_lat: 31.9,
+        p_lng: 34.8,
+      }).single(),
+    ]);
+
+    // BOTH succeed. Whichever loses the insert falls through to the select and
+    // comes back with the winner's row.
     expect(first.error).toBeNull();
-
-    // Same place, different name and position — as a second instructor's Places
-    // result might plausibly differ. The place_id is what identifies the hall.
-    const second = await addVenue(member, {
-      p_name: `${FIXTURE_PREFIX}אותו אולם בשם אחר`,
-      p_lat: 31.9,
-      p_lng: 34.8,
-    }).single();
-
     expect(second.error).toBeNull();
     expect(second.data?.id).toBe(first.data?.id);
-    // The first write wins: `on conflict do nothing` does not overwrite, so a
-    // later caller cannot rename or move a hall through this path.
-    expect(second.data?.name).toBe(`${FIXTURE_PREFIX}אולם`);
 
+    // Exactly one row, and the first write's contents: `on conflict do nothing`
+    // does not overwrite, so a later caller cannot rename or move a hall here.
     const { data: rows } = await service
       .from("venues")
-      .select("id")
+      .select("id, name")
       .eq("place_id", PLACE_ID);
     expect(rows ?? []).toHaveLength(1);
+    expect([`${FIXTURE_PREFIX}אולם`, `${FIXTURE_PREFIX}אותו אולם בשם אחר`]).toContain(
+      rows?.[0]?.name,
+    );
   });
 
   it("is enforced by the database, not only by the function", async () => {
@@ -185,6 +198,157 @@ describe("dedupe by place_id", () => {
     });
 
     expect(error?.code).toBe("23505");
+  });
+});
+
+/**
+ * The bounds live in the DATABASE (migration 0008), and this block is why.
+ *
+ * `buildNewVenue` runs in the Server Action only. The anon key ships in the
+ * JavaScript bundle, so a caller with a session reaches the RPC and PostgREST
+ * directly and never executes it — measured before 0008: empty place_id, a
+ * 1000-character address and a venue at the North Pole all landed, and every one
+ * of them was anon-readable.
+ *
+ * Every case below is therefore run through BOTH doors. The limits are imported
+ * from the TypeScript module rather than retyped, so if the two definitions ever
+ * drift this suite fails instead of leaving one side quietly looser.
+ */
+describe("the database bounds what a venue may contain", () => {
+  const HOSTILE: ReadonlyArray<{
+    what: string;
+    place_id: string;
+    name: string;
+    address: string;
+    lat: number;
+    lng: number;
+  }> = [
+    { what: "an empty place_id", place_id: "", name: "אולם", address: "רחוב 1", lat: LAT, lng: LNG },
+    {
+      what: "a whitespace-only place_id",
+      place_id: "   ",
+      name: "אולם",
+      address: "רחוב 1",
+      lat: LAT,
+      lng: LNG,
+    },
+    {
+      what: "a place_id past the ceiling",
+      place_id: "x".repeat(MAX_PLACE_ID_LENGTH + 1),
+      name: "אולם",
+      address: "רחוב 1",
+      lat: LAT,
+      lng: LNG,
+    },
+    { what: "an empty name", place_id: `${FIXTURE_PREFIX}h1`, name: "", address: "רחוב 1", lat: LAT, lng: LNG },
+    {
+      what: "a whitespace-only name",
+      place_id: `${FIXTURE_PREFIX}h2`,
+      name: "   ",
+      address: "רחוב 1",
+      lat: LAT,
+      lng: LNG,
+    },
+    {
+      what: "a name past the ceiling",
+      place_id: `${FIXTURE_PREFIX}h3`,
+      name: "א".repeat(MAX_NAME_LENGTH + 1),
+      address: "רחוב 1",
+      lat: LAT,
+      lng: LNG,
+    },
+    {
+      what: "an address past the ceiling",
+      place_id: `${FIXTURE_PREFIX}h4`,
+      name: "אולם",
+      address: "א".repeat(MAX_ADDRESS_LENGTH + 1),
+      lat: LAT,
+      lng: LNG,
+    },
+    {
+      what: "the North Pole (lat 90, lng 0)",
+      place_id: `${FIXTURE_PREFIX}h5`,
+      name: "אולם",
+      address: "רחוב 1",
+      lat: 90,
+      lng: 0,
+    },
+    {
+      what: "Cairo",
+      place_id: `${FIXTURE_PREFIX}h6`,
+      name: "אולם",
+      address: "רחוב 1",
+      lat: 30.0444,
+      lng: 31.2357,
+    },
+    {
+      what: "a latitude just past the northern bound",
+      place_id: `${FIXTURE_PREFIX}h7`,
+      name: "אולם",
+      address: "רחוב 1",
+      lat: ISRAEL_BOUNDS.maxLat + 0.1,
+      lng: LNG,
+    },
+    {
+      what: "a transposed lat/lng for Tel Aviv",
+      place_id: `${FIXTURE_PREFIX}h8`,
+      name: "אולם",
+      address: "רחוב 1",
+      lat: LNG,
+      lng: LAT,
+    },
+  ];
+
+  it.each(HOSTILE)("refuses $what through the RPC", async (row) => {
+    const { error } = await member.rpc("find_or_create_venue", {
+      p_place_id: row.place_id,
+      p_name: row.name,
+      p_address: row.address,
+      p_lat: row.lat,
+      p_lng: row.lng,
+    });
+
+    // 23514 — a CHECK constraint. Specifically not "some error": a 42501 here
+    // would mean a privilege happened to save us rather than the bound holding.
+    expect(error?.code).toBe("23514");
+  });
+
+  it.each(HOSTILE)("refuses $what through a direct insert", async (row) => {
+    const { error } = await member.from("venues").insert({
+      place_id: row.place_id,
+      name: row.name,
+      address: row.address,
+      location: `POINT(${row.lng} ${row.lat})`,
+    });
+
+    expect(error).not.toBeNull();
+    expect(["23514", "22P02"]).toContain(error?.code);
+  });
+
+  it("leaves nothing behind for an anonymous reader", async () => {
+    // The consequence that made this a Medium rather than a nitpick: a venue row
+    // is world-readable, so a rejected write that silently succeeded would be
+    // published to every visitor.
+    const { data } = await anon
+      .from("venues")
+      .select("id")
+      .like("place_id", `${FIXTURE_PREFIX}h%`);
+
+    expect(data ?? []).toHaveLength(0);
+  });
+
+  it("accepts the values exactly at the limits, so the bounds are not off by one", async () => {
+    // The other half of a boundary test. Without it, a constraint that rejected
+    // everything would pass every assertion above.
+    const { error } = await member.rpc("find_or_create_venue", {
+      p_place_id: `${FIXTURE_PREFIX}edge`,
+      p_name: "א".repeat(MAX_NAME_LENGTH),
+      p_address: "א".repeat(MAX_ADDRESS_LENGTH),
+      p_lat: ISRAEL_BOUNDS.maxLat,
+      p_lng: ISRAEL_BOUNDS.maxLng,
+    });
+
+    expect(error).toBeNull();
   });
 });
 

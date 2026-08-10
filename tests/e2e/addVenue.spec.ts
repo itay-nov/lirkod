@@ -70,12 +70,34 @@ const rest = (path: string, init?: RequestInit) =>
   fetch(`${localStack().apiUrl}/rest/v1/${path}`, { ...init, headers: headers() });
 
 /**
- * Place ids present before the run. Anything else this suite created is a real
- * Google place it added to the developer's database, and afterAll removes
- * exactly those — a prefix sweep cannot work here, because the names come from
- * Google rather than from us.
+ * Rows this suite created, recorded as it goes.
+ *
+ * The previous version snapshotted place_ids before the run and deleted anything
+ * absent from that set afterwards. That is a sweep, not a cleanup: it deletes
+ * venues another worktree's stack added while this ran, and — since the local
+ * Supabase stack is shared across worktrees — a developer's real data with it.
+ * Recording ids as they appear scopes the damage to exactly what this file made.
  */
-let placeIdsBefore = new Set<string>();
+const createdVenueIds = new Set<string>();
+
+/**
+ * Notes any venue that appeared since the last check.
+ *
+ * Called after each add, rather than deriving ids from the page, because the
+ * venue is created by a Server Action and its id never reaches the DOM. Scoped
+ * by place_id against a before-snapshot taken moments earlier, so a row another
+ * process inserts between the two calls is not attributed to us.
+ */
+async function recordVenuesCreatedSince(before: Set<string>): Promise<void> {
+  const rows = (await (await rest("venues?select=id,place_id")).json()) as Array<{
+    id: string;
+    place_id: string | null;
+  }>;
+
+  for (const row of rows) {
+    if (row.place_id !== null && !before.has(row.place_id)) createdVenueIds.add(row.id);
+  }
+}
 
 async function currentPlaceIds(): Promise<Set<string>> {
   const rows = (await (await rest("venues?select=place_id")).json()) as Array<{
@@ -84,24 +106,29 @@ async function currentPlaceIds(): Promise<Set<string>> {
   return new Set(rows.map((row) => row.place_id).filter((id): id is string => id !== null));
 }
 
-async function removeVenuesAddedByThisRun(): Promise<void> {
-  const rows = (await (await rest("venues?select=id,place_id")).json()) as Array<{
-    id: string;
-    place_id: string | null;
-  }>;
-
-  for (const row of rows) {
-    if (row.place_id === null || placeIdsBefore.has(row.place_id)) continue;
-
-    const events = (await (
-      await rest(`dance_events?select=id&venue_id=eq.${row.id}`)
-    ).json()) as Array<{ id: string }>;
-    for (const event of events) {
-      await rest(`event_occurrences?event_id=eq.${event.id}`, { method: "DELETE" });
-      await rest(`dance_events?id=eq.${event.id}`, { method: "DELETE" });
-    }
-    await rest(`venues?id=eq.${row.id}`, { method: "DELETE" });
+/** Throws on a failed DELETE rather than leaving the row and reporting success. */
+async function mustDelete(path: string): Promise<void> {
+  const response = await rest(path, { method: "DELETE" });
+  if (!response.ok) {
+    throw new Error(`cleanup DELETE ${path} failed: ${response.status} ${await response.text()}`);
   }
+}
+
+async function removeVenuesCreatedByThisRun(): Promise<void> {
+  for (const venueId of createdVenueIds) {
+    const events = (await (
+      await rest(`dance_events?select=id&venue_id=eq.${venueId}`)
+    ).json()) as Array<{ id: string }>;
+
+    // dance_events.venue_id is `on delete restrict`, so the dependencies have to
+    // go first or the venue delete fails — silently, in the version this replaces.
+    for (const event of events) {
+      await mustDelete(`event_occurrences?event_id=eq.${event.id}`);
+      await mustDelete(`dance_events?id=eq.${event.id}`);
+    }
+    await mustDelete(`venues?id=eq.${venueId}`);
+  }
+  createdVenueIds.clear();
 }
 
 /** Also resets the per-number OTP cooldown, which is keyed on the user row. */
@@ -160,17 +187,13 @@ function dateInDays(days: number): string {
   return new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
 }
 
-test.beforeAll(async () => {
-  placeIdsBefore = await currentPlaceIds();
-});
-
 test.beforeEach(async () => {
   await resetTestUser();
 });
 
 test.afterAll(async () => {
   await resetTestUser();
-  await removeVenuesAddedByThisRun();
+  await removeVenuesCreatedByThisRun();
 });
 
 test("the venue list is searched on the server, not filtered in the browser", async ({
@@ -222,6 +245,7 @@ test("adds a hall from Google Places, publishes there, and a dancer with no acco
   // Focus moves to the field, so a keyboard user is not left where the button was.
   await expect(placeField).toBeFocused();
 
+  const before = await currentPlaceIds();
   await placeField.fill(PLACE_QUERY);
 
   // Real Places, so the wait is generous and nothing asserts on which hall comes
@@ -242,6 +266,7 @@ test("adds a hall from Google Places, publishes there, and a dancer with no acco
   await expect(chosen).toBeVisible({ timeout: 25_000 });
   const venueName = (await chosen.locator("xpath=../span/span[1]").innerText()).trim();
   expect(venueName.length).toBeGreaterThan(0);
+  await recordVenuesCreatedSince(before);
 
   const date = dateInDays(9);
   await page.getByLabel(he.publishDance.dateLabel).fill(date);
@@ -281,6 +306,7 @@ test("adding the same place twice does not create a second venue", async ({ page
   await signInAndName(page);
 
   async function addFirstSuggestion(): Promise<string> {
+    const before = await currentPlaceIds();
     await page.getByRole("button", { name: he.publishDance.addVenueToggle }).click();
     await page.getByLabel(he.publishDance.addVenueSearchLabel).fill(PLACE_QUERY);
     const list = page.getByRole("list", { name: he.publishDance.addVenueSuggestionsLabel });
@@ -288,6 +314,7 @@ test("adding the same place twice does not create a second venue", async ({ page
     await list.getByRole("button").first().click();
     const chosen = page.getByRole("radio", { checked: true });
     await expect(chosen).toBeVisible({ timeout: 25_000 });
+    await recordVenuesCreatedSince(before);
     return (await chosen.locator("xpath=../span/span[1]").innerText()).trim();
   }
 
