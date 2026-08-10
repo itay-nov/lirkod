@@ -111,6 +111,11 @@ function signInError(page: Page) {
   return page.locator("#signin-error");
 }
 
+/** What a session with no profile row lands on — see the round-trip test. */
+function nameHeading(page: Page) {
+  return page.getByRole("heading", { name: he.profileName.heading });
+}
+
 /** The heading is the one thing on the page that differs between the two states. */
 function signInHeading(page: Page) {
   return page.getByRole("heading", { name: he.signIn.heading });
@@ -173,15 +178,18 @@ test("the full round trip: number, code, signed in, signed out", async ({ page }
   await codeField.fill(TEST_OTP);
   await page.getByRole("button", { name: he.signIn.submitCode, exact: true }).click();
 
-  await expect(page.getByText(he.profile.signedInAs(PHONE_LOCAL))).toBeVisible({
-    timeout: 20_000,
-  });
+  // What a signed-in visitor sees is now the name step, not the profile:
+  // `profiles.display_name` is NOT NULL, so a session with no profile row is
+  // asked for a name first (Phase 3.2a). It only renders for a session, so it is
+  // as good a proof of one as the old greeting was — and this spec is about
+  // getting the session, not about what comes after it.
+  await expect(nameHeading(page)).toBeVisible({ timeout: 20_000 });
   await expect(signInHeading(page)).toHaveCount(0);
 
   // The session is in a cookie, not in component state: a full reload must find
   // it. This is the assertion that would fail if we had settled for localStorage.
   await page.reload();
-  await expect(page.getByText(he.profile.signedInAs(PHONE_LOCAL))).toBeVisible();
+  await expect(nameHeading(page)).toBeVisible();
 
   await page.getByRole("button", { name: he.profile.signOut }).click();
   await expect(signInHeading(page)).toBeVisible();
@@ -266,7 +274,7 @@ test("the signed-out form does not scroll sideways at 200% text size", async ({
   expect(overflows).toBe(false);
 });
 
-test("the signed-in screen does not scroll sideways at 200% text size", async ({
+test("the signed-in name step does not scroll sideways at 200% text size", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 375, height: 812 });
@@ -278,9 +286,7 @@ test("the signed-in screen does not scroll sideways at 200% text size", async ({
   await expect(codeField).toBeVisible({ timeout: 20_000 });
   await codeField.fill(TEST_OTP);
   await page.getByRole("button", { name: he.signIn.submitCode, exact: true }).click();
-  await expect(page.getByText(he.profile.signedInAs(PHONE_LOCAL))).toBeVisible({
-    timeout: 20_000,
-  });
+  await expect(nameHeading(page)).toBeVisible({ timeout: 20_000 });
 
   await page.evaluate(() => {
     document.documentElement.style.fontSize = "32px";

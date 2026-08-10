@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database";
+import type { Client } from "./client";
 
 export type OccurrenceStatus = Database["public"]["Enums"]["occurrence_status"];
 
@@ -48,4 +49,56 @@ export async function findDancesNear(
     danceTypes: row.dance_types,
     priceAgorot: row.price_agorot,
   }));
+}
+
+export interface PublishedDance {
+  eventId: string;
+  occurrenceId: string;
+}
+
+/**
+ * Publishes one non-recurring dance: a `dance_events` row and the single
+ * `event_occurrences` row that is the night itself.
+ *
+ * Two rows because occurrences are materialised, not computed (docs/decisions/
+ * 0002) — a dance nobody can find is a dance that does not exist, and the read
+ * path joins occurrences. `recurrence_rule` is null: this is one night, and 3.3
+ * is where a pattern generates more.
+ *
+ * **One RPC, one transaction, on purpose.** This used to be two inserts with a
+ * compensating delete, which left a `dance_events` row behind whenever the
+ * process died between them. That orphan was not harmless: `anon` holds SELECT
+ * on the table and `dance_events_select_public` is `using (true)`, so it was
+ * served straight out of /rest/v1/dance_events to someone with no account —
+ * a public claim that an instructor runs a dance, with no night attached.
+ * Migration 0006 replaced the pair with `publish_dance`, where a failure on
+ * either insert rolls back both.
+ *
+ * The function is SECURITY INVOKER, so this still runs as the CALLER and both
+ * inserts are checked by the same policies as before — `dance_events_insert_own`
+ * (owns_instructor) and `event_occurrences_insert_own` (owns_event). An
+ * instructor id belonging to somebody else fails at the database, not here
+ * (AGENTS.md §8).
+ */
+export async function publishDance(
+  client: Client,
+  dance: {
+    instructorId: string;
+    venueId: string;
+    startsAtUtc: string;
+    endsAtUtc: string;
+  },
+): Promise<PublishedDance> {
+  const { data, error } = await client
+    .rpc("publish_dance", {
+      p_instructor_id: dance.instructorId,
+      p_venue_id: dance.venueId,
+      p_starts_at: dance.startsAtUtc,
+      p_ends_at: dance.endsAtUtc,
+    })
+    .single();
+
+  if (error) throw error;
+
+  return { eventId: data.event_id, occurrenceId: data.occurrence_id };
 }
