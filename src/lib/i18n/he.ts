@@ -81,6 +81,63 @@ export const he = {
     /** Names one day's list, so the days are distinguishable when tabbing between them. */
     dayListLabel: (day: string): string => `הרקדות ב${day}`,
   },
+  /**
+   * Managing the nights you already published — cancelling one, or moving it to
+   * a different hour. One night at a time; changing the pattern of a whole
+   * series is not something this screen offers.
+   *
+   * The words avoid "מופע", "אירוע" and "תזמון". A מרקיד says "הרקדה" and
+   * "שעה" (AGENTS.md §2.8), and every control here says what it does to a
+   * specific evening rather than naming a feature.
+   */
+  manageNights: {
+    heading: "ההרקדות שלי",
+    intro: "כאן אפשר לבטל הרקדה או לשנות את השעה שלה. הרוקדים יראו את השינוי מיד.",
+    /** Shown to an instructor whose dances are all behind them or not yet published. */
+    empty: "אין הרקדות קרובות לנהל.",
+    /** Names the list for a screen reader, and says what window it covers. */
+    listLabel: "ההרקדות הקרובות שלכם",
+    /** "יום שני, 17 באוגוסט בשעה 20:00" — which night a control acts on. */
+    whenText: (day: string, time: string): string => `${day} בשעה ${time}`,
+    /** Opens the controls for one night. Names the night so it is not "עריכה" ×12. */
+    manage: (when: string): string => `שינוי ההרקדה ב${when}`,
+    close: "סגירה",
+    cancelledOn: (reason: string): string => `סיבת הביטול: ${reason}`,
+    cancelledNoReason: "ההרקדה בוטלה.",
+
+    changeTimeHeading: "שינוי השעה",
+    startTimeLabel: "שעת התחלה",
+    endTimeLabel: "שעת סיום",
+    saveTime: "שמירת השעה",
+    savingTime: "שומרים…",
+    timeSaved: "השעה עודכנה. הרוקדים רואים אותה עכשיו.",
+
+    /**
+     * Two steps, on purpose. Cancelling is the one action here a dancer feels,
+     * and this audience should not be able to do it with a single stray tap —
+     * but a browser `confirm()` is a dialog they cannot read at their own text
+     * size, so the confirmation is part of the page.
+     */
+    cancelHeading: "ביטול ההרקדה",
+    cancelIntro: "הרוקדים יראו שההרקדה בוטלה, במקום שההרקדה תיעלם מהלוח.",
+    cancelStart: "ביטול ההרקדה",
+    reasonLabel: "סיבת הביטול (לא חובה)",
+    reasonHint: "לדוגמה: תקלה במזגן באולם. הסיבה תוצג לרוקדים.",
+    cancelConfirm: "כן, לבטל את ההרקדה",
+    cancelBack: "לא, להשאיר את ההרקדה",
+    cancelling: "מבטלים…",
+    cancelled: "ההרקדה בוטלה. הרוקדים רואים זאת עכשיו בלוח ובמפה.",
+
+    errors: {
+      startTime: "צריך לבחור שעת התחלה תקינה.",
+      endTime: "צריך לבחור שעת סיום תקינה, אחרי שעת ההתחלה.",
+      /** The stored date is unreadable — a server-side problem, not something to fix in the form. */
+      date: "לא הצלחנו לקרוא את תאריך ההרקדה. אפשר לנסות שוב.",
+      /** Somebody else's night, or one that no longer exists. */
+      notYours: "ההרקדה הזאת אינה שלכם או שאינה קיימת יותר.",
+      failed: "לא הצלחנו לשמור את השינוי. אפשר לנסות שוב.",
+    },
+  },
   /** Now a section inside /profile, not its own route or tab — see docs/decisions/0008. */
   favorites: {
     heading: "מועדפים",
@@ -297,6 +354,15 @@ export const he = {
     status: {
       moved: "הועבר",
       cancelled: "בוטל",
+      /**
+       * A night whose HOUR changed. Says the old time, not just "השתנה": a
+       * dancer who already planned around 20:00 needs to recognise which
+       * evening this is before they can act on it. The status stays
+       * "scheduled" in the database — docs/decisions/0003 reserves "הועבר"
+       * for a venue change — so this label is the only thing that tells them
+       * (AGENTS.md §2.6, §10).
+       */
+      retimedFrom: (time: string): string => `הועבר מ-${time}`,
     },
     withInstructor: (instructor: string): string => `עם ${instructor}`,
     /**

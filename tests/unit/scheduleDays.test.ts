@@ -14,6 +14,7 @@ function danceAt(startsAt: string, occurrenceId = startsAt): NearbyDance {
   return {
     occurrenceId,
     startsAt,
+    originalStartsAt: null,
     status: "scheduled",
     venueId: "b0000000-0000-0000-0000-000000000001",
     venueName: "היכל התרבות חולון",

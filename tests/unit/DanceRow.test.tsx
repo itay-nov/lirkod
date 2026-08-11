@@ -19,10 +19,14 @@ const STARTS_AT = "2025-06-02T17:30:00.000Z";
 
 afterEach(cleanup);
 
-function dance(status: OccurrenceStatus): NearbyDance {
+/** 19:30 on the same evening — an hour before STARTS_AT. */
+const ORIGINALLY_AT = "2025-06-02T16:30:00.000Z";
+
+function dance(status: OccurrenceStatus, originalStartsAt: string | null = null): NearbyDance {
   return {
     occurrenceId: "d0000000-0000-0000-0000-000000000001",
     startsAt: STARTS_AT,
+    originalStartsAt,
     status,
     venueId: "b0000000-0000-0000-0000-000000000001",
     venueName: "היכל התרבות חולון",
@@ -85,6 +89,40 @@ describe("DanceRow", () => {
       expect(container).toHaveTextContent(word);
     },
   );
+
+  it("says a night's hour moved, and says which hour it moved from", () => {
+    // The 3.3b failure this exists to prevent: an instructor moves one night from
+    // 19:30 to 20:30, the status stays 'scheduled' because docs/decisions/0003
+    // reserves 'moved' for a venue change, and without a label the row renders as
+    // an ordinary dance. A dancer who planned around 19:30 is told nothing —
+    // AGENTS.md §10's failure arriving through the feature meant to prevent it.
+    const { container } = render(<DanceRow dance={dance("scheduled", ORIGINALLY_AT)} />);
+
+    expect(container).toHaveTextContent(he.dance.status.retimedFrom("19:30"));
+    // And the row shows the NEW time, so the two together read as a change.
+    expect(container).toHaveTextContent("20:30");
+  });
+
+  it("does not draw a re-timed night as an ordinary one", () => {
+    const strokeOf = (element: React.ReactElement): string => {
+      const { container } = render(element);
+      return container.querySelector(".rounded-full.border-4")?.className ?? "";
+    };
+
+    expect(strokeOf(<DanceRow dance={dance("scheduled", ORIGINALLY_AT)} />)).not.toBe(
+      strokeOf(<DanceRow dance={dance("scheduled")} />),
+    );
+  });
+
+  it("lets a cancellation outrank a time change, because the dance is off either way", () => {
+    // A night moved and then cancelled says "בוטל". Telling someone the hour
+    // changed on a dance that is not happening is noise on the one message that
+    // matters.
+    const { container } = render(<DanceRow dance={dance("cancelled", ORIGINALLY_AT)} />);
+
+    expect(container).toHaveTextContent(he.dance.status.cancelled);
+    expect(container).not.toHaveTextContent(he.dance.status.retimedFrom("19:30"));
+  });
 
   it("aligns to the reading direction logically, never to a hardcoded side", () => {
     // text-right would look correct in this RTL app and silently break the

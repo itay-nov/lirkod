@@ -714,17 +714,27 @@ describe("occurrence status/override constraint (docs/decisions/0003)", () => {
   });
 
   it("rejects 'moved' with no new venue", async () => {
+    // `overridden_at` is supplied so that the constraint under test is the one
+    // that fires. Since migration 0010 a night that is not 'scheduled' must also
+    // carry the mark (event_occurrences_change_is_marked), and without it this
+    // row would be rejected for the wrong reason — which would leave the
+    // docs/decisions/0003 rule this test exists for unasserted.
     const { error } = await service.from("event_occurrences").insert({
       event_id: fixtures.eventAId,
       starts_at: "2026-11-02T17:00:00Z",
       ends_at: "2026-11-02T20:00:00Z",
       status: "moved",
+      overridden_at: new Date().toISOString(),
     });
 
     expect(error?.message).toContain("event_occurrences_status_matches_override");
   });
 
   it("allows a night that moved and was then cancelled to keep its override venue", async () => {
+    // Both of those states are a person's doing, so the row carries the mark
+    // migration 0010 requires. The trigger only stamps on UPDATE — an INSERT of
+    // a night that is already cancelled is not a product path, so the caller
+    // states it rather than having it filled in behind them.
     const { data, error } = await service
       .from("event_occurrences")
       .insert({
@@ -734,6 +744,7 @@ describe("occurrence status/override constraint (docs/decisions/0003)", () => {
         status: "cancelled",
         override_venue_id: fixtures.venue2Id,
         cancellation_reason: "האולם החלופי נסגר",
+        overridden_at: new Date().toISOString(),
       })
       .select("id")
       .single();

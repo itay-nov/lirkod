@@ -16,6 +16,7 @@ function dance(status: OccurrenceStatus): NearbyDance {
   return {
     occurrenceId: "d0000000-0000-0000-0000-000000000001",
     startsAt: STARTS_AT,
+    originalStartsAt: null,
     status,
     venueId: "b0000000-0000-0000-0000-000000000001",
     venueName: "היכל התרבות חולון",

@@ -97,6 +97,33 @@ export function jerusalemDayKey(startsAt: string): string {
   return `${part("year")}-${part("month")}-${part("day")}`;
 }
 
+/**
+ * Fixed `en-US` and `formatToParts` again, and for the third time in this file
+ * the reason is that the output is an internal identity rather than something a
+ * person reads: this one goes into an `<input type="time">`, which accepts
+ * exactly "HH:MM" in ASCII digits and nothing else. `formatStartTime` renders
+ * the same instant for display and is free to change shape with the locale or a
+ * CLDR update; this one is not.
+ */
+const timeFieldFormatter = new Intl.DateTimeFormat("en-US", {
+  timeZone: TIMEZONE,
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
+
+/** "20:00" in Israel local time, in the shape a native time input requires. */
+export function jerusalemTimeField(startsAt: string): string {
+  const parts = timeFieldFormatter.formatToParts(parse(startsAt));
+  const value = (type: Intl.DateTimeFormatPartTypes): string =>
+    parts.find((part) => part.type === type)?.value ?? "";
+
+  // Some ICU versions render midnight as "24" under h23; jerusalemTime.ts
+  // normalises the same way on the way in.
+  const hour = String(Number(value("hour")) % 24).padStart(2, "0");
+  return `${hour}:${value("minute")}`;
+}
+
 const dayHeadingFormatter = new Intl.DateTimeFormat(LOCALE, {
   timeZone: TIMEZONE,
   weekday: "long",
