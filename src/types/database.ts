@@ -16,7 +16,12 @@ export type Database = {
           id: string
           instructor_id: string
           price_agorot: number
+          recurrence_freq: Database["public"]["Enums"]["recurrence_freq"] | null
+          recurrence_local_end_time: string | null
+          recurrence_local_start_time: string | null
           recurrence_rule: string | null
+          recurrence_start_date: string | null
+          recurrence_until_date: string | null
           venue_id: string
         }
         Insert: {
@@ -25,7 +30,14 @@ export type Database = {
           id?: string
           instructor_id: string
           price_agorot: number
+          recurrence_freq?:
+            | Database["public"]["Enums"]["recurrence_freq"]
+            | null
+          recurrence_local_end_time?: string | null
+          recurrence_local_start_time?: string | null
           recurrence_rule?: string | null
+          recurrence_start_date?: string | null
+          recurrence_until_date?: string | null
           venue_id: string
         }
         Update: {
@@ -34,7 +46,14 @@ export type Database = {
           id?: string
           instructor_id?: string
           price_agorot?: number
+          recurrence_freq?:
+            | Database["public"]["Enums"]["recurrence_freq"]
+            | null
+          recurrence_local_end_time?: string | null
+          recurrence_local_start_time?: string | null
           recurrence_rule?: string | null
+          recurrence_start_date?: string | null
+          recurrence_until_date?: string | null
           venue_id?: string
         }
         Relationships: [
@@ -63,6 +82,7 @@ export type Database = {
           id: string
           overridden_at: string | null
           override_venue_id: string | null
+          series_date: string | null
           starts_at: string
           status: Database["public"]["Enums"]["occurrence_status"]
         }
@@ -74,6 +94,7 @@ export type Database = {
           id?: string
           overridden_at?: string | null
           override_venue_id?: string | null
+          series_date?: string | null
           starts_at: string
           status?: Database["public"]["Enums"]["occurrence_status"]
         }
@@ -85,6 +106,7 @@ export type Database = {
           id?: string
           overridden_at?: string | null
           override_venue_id?: string | null
+          series_date?: string | null
           starts_at?: string
           status?: Database["public"]["Enums"]["occurrence_status"]
         }
@@ -237,6 +259,11 @@ export type Database = {
           name: string
         }[]
       }
+      generate_occurrences: { Args: never; Returns: number }
+      generate_occurrences_for_event: {
+        Args: { p_event_id: string; p_horizon_days?: number }
+        Returns: number
+      }
       owns_event: { Args: { p_event_id: string }; Returns: boolean }
       owns_instructor: { Args: { p_instructor_id: string }; Returns: boolean }
       publish_dance: {
@@ -251,9 +278,25 @@ export type Database = {
           occurrence_id: string
         }[]
       }
+      publish_recurring_dance: {
+        Args: {
+          p_freq: Database["public"]["Enums"]["recurrence_freq"]
+          p_instructor_id: string
+          p_local_end_time: string
+          p_local_start_time: string
+          p_start_date: string
+          p_until_date?: string
+          p_venue_id: string
+        }
+        Returns: {
+          event_id: string
+          occurrence_count: number
+        }[]
+      }
     }
     Enums: {
       occurrence_status: "scheduled" | "cancelled" | "moved"
+      recurrence_freq: "weekly" | "biweekly"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -382,6 +425,7 @@ export const Constants = {
   public: {
     Enums: {
       occurrence_status: ["scheduled", "cancelled", "moved"],
+      recurrence_freq: ["weekly", "biweekly"],
     },
   },
 } as const

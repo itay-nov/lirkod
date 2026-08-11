@@ -164,6 +164,14 @@ export async function setup(): Promise<Fixtures> {
   const venue2Id = venues.find((v) => v.name.endsWith("moadon-hakfar"))?.id;
   if (!venue1Id || !venue2Id) throw new Error("venue fixtures missing");
 
+  // Both are one-off dances, and the occurrences below are written by hand.
+  //
+  // They used to carry a `recurrence_rule` string that nothing read. Migration
+  // 0009 made that column generated from the recurrence_* columns, so a rule now
+  // implies a series the generator materialises — which would add nights to these
+  // events between one assertion and the next. These fixtures are about policies,
+  // not about recurrence; tests/db/occurrenceGenerator.test.ts owns that and
+  // builds its own series.
   const events = unwrap(
     await service
       .from("dance_events")
@@ -172,14 +180,12 @@ export async function setup(): Promise<Fixtures> {
           instructor_id: instructorAId,
           venue_id: venue1Id,
           dance_types: ["הרקדה", "זוגות"],
-          recurrence_rule: "FREQ=WEEKLY;BYDAY=TU",
           price_agorot: 4000,
         },
         {
           instructor_id: instructorBId,
           venue_id: venue1Id,
           dance_types: ["הרקדה"],
-          recurrence_rule: "FREQ=WEEKLY;BYDAY=TH",
           price_agorot: 3500,
         },
       ])

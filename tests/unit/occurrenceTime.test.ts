@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  formatCalendarDateWeekday,
   formatDayHeading,
   formatStartTime,
   formatStartWeekday,
@@ -64,5 +65,29 @@ describe("occurrence time formatting (AGENTS.md §7)", () => {
 
   it("heads the Israeli day, so a late-night dance is not filed under yesterday", () => {
     expect(formatDayHeading("2025-06-01T22:30:00.000Z")).toContain("יום שני");
+  });
+
+  it("names the weekday of a bare calendar date", () => {
+    // What the publish form says a recurring dance repeats on, in place of a
+    // weekday selector.
+    expect(formatCalendarDateWeekday("2025-06-02")).toBe("יום שני");
+  });
+
+  it("names the weekday of the date itself, not of its UTC midnight", () => {
+    // THE assertion for this function. `new Date("2025-06-01")` is midnight UTC,
+    // which is 03:00 on the 1st in Israel — so this case passes either way. The
+    // one that does not is a date whose UTC midnight falls on the previous
+    // evening somewhere; going through the wall-clock conversion is what keeps
+    // the answer tied to the date the instructor typed rather than to an instant.
+    expect(formatCalendarDateWeekday("2025-06-01")).toBe("יום ראשון");
+    expect(formatCalendarDateWeekday("2025-12-31")).toBe("יום רביעי");
+  });
+
+  it("returns null for something that is not a calendar date", () => {
+    // The form calls this on every keystroke of a native date input, which is
+    // empty and then partial before it is valid. A throw would be an error
+    // boundary in the middle of typing.
+    expect(formatCalendarDateWeekday("")).toBeNull();
+    expect(formatCalendarDateWeekday("2025-02-31")).toBeNull();
   });
 });

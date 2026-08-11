@@ -380,6 +380,12 @@ max_frequency = "60s"
 972500000010 = "123456"
 # tests/e2e/addVenue.spec.ts — the browser walk through Places.
 972500000011 = "123456"
+# tests/rls/publishRecurringDance.test.ts — the instructor who publishes a series,
+# and the signed-in stranger who must reach neither it nor the generator.
+972500000012 = "123456"
+972500000013 = "123456"
+# tests/e2e/publishRecurringDance.spec.ts — the browser walk through the repeat control.
+972500000014 = "123456"
 
 # Configure logged in session timeouts.
 # [auth.sessions]

@@ -20,6 +20,8 @@
  * without a DOM (AGENTS.md §3, ahead of the Capacitor wrap).
  */
 
+import { jerusalemWallTimeToUtc } from "./jerusalemTime";
+
 const TIMEZONE = "Asia/Jerusalem";
 const LOCALE = "he-IL";
 
@@ -51,6 +53,24 @@ export function formatStartTime(startsAt: string): string {
 /** "יום שני", in Israel local time — the same instant can fall on a different day elsewhere. */
 export function formatStartWeekday(startsAt: string): string {
   return weekdayFormatter.format(parse(startsAt));
+}
+
+/**
+ * "יום שני" for a bare calendar date, or null if it is not one.
+ *
+ * Takes "YYYY-MM-DD" rather than an instant, because the caller is a form field
+ * and not a stored occurrence. It goes through `jerusalemWallTimeToUtc` rather
+ * than `new Date("2026-08-18")` for the reason the module note above gives: that
+ * constructor produces UTC midnight, which is the previous evening in half the
+ * world, and reading a weekday off it is the class of bug §7 is about. Midday is
+ * used as the reference time because no timezone offset can move it off its own
+ * date.
+ */
+export function formatCalendarDateWeekday(date: string): string | null {
+  const noon = jerusalemWallTimeToUtc({ date, time: "12:00" });
+  if ("error" in noon) return null;
+
+  return weekdayFormatter.format(new Date(noon.utcIso));
 }
 
 /**

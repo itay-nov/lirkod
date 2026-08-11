@@ -102,3 +102,65 @@ export async function publishDance(
 
   return { eventId: data.event_id, occurrenceId: data.occurrence_id };
 }
+
+export type PublishedSeries =
+  | { ok: true; eventId: string; occurrenceCount: number }
+  /** The series produces no nights between today and the generator's horizon. */
+  | { ok: false; reason: "noNights" };
+
+/**
+ * Publishes a dance that REPEATS, and the first horizon of its nights, in one
+ * transaction (migration 0009).
+ *
+ * Takes an Israel WALL CLOCK — a start date, a start and end time, an optional
+ * end date — and not the UTC instants `publishDance` takes. That is the whole
+ * difference between the two, and it is not a style choice: a series' nights sit
+ * at different UTC offsets either side of a DST change, so there is no single
+ * conversion to do here. The generator resolves each night against the timezone
+ * database as it materialises it (src/lib/domain/newRecurringDance.ts has the
+ * longer version).
+ *
+ * The occurrences are written inside the same RPC rather than by waiting for the
+ * nightly pg_cron pass, so an instructor who publishes at 19:00 sees their dance
+ * on the map at 19:00 rather than after 03:00 the next morning.
+ *
+ * `noNights` is a refusal, not a failure. It means every night the rule
+ * describes is already in the past or beyond the horizon — an instructor who
+ * believes they published something a dancer will never see — so the RPC rolls
+ * the whole thing back rather than leave a dance_events row that `anon` can read
+ * with nothing attached to it (the orphan docs/decisions/0014 is about).
+ */
+export async function publishRecurringDance(
+  client: Client,
+  dance: {
+    instructorId: string;
+    venueId: string;
+    freq: "weekly" | "biweekly";
+    startDate: string;
+    localStartTime: string;
+    localEndTime: string;
+    untilDate: string | null;
+  },
+): Promise<PublishedSeries> {
+  const { data, error } = await client
+    .rpc("publish_recurring_dance", {
+      p_instructor_id: dance.instructorId,
+      p_venue_id: dance.venueId,
+      p_freq: dance.freq,
+      p_start_date: dance.startDate,
+      p_local_start_time: dance.localStartTime,
+      p_local_end_time: dance.localEndTime,
+      p_until_date: dance.untilDate ?? undefined,
+    })
+    .single();
+
+  // P0001 is what the RAISE in publish_recurring_dance reports. Narrowed to that
+  // one code on purpose: every other error — a policy refusal, a bad venue id, a
+  // dropped connection — is still thrown, because turning them all into
+  // "no nights" would tell an instructor to fix their dates when the real problem
+  // was something else entirely (AGENTS.md §6: never swallow).
+  if (error?.code === "P0001") return { ok: false, reason: "noNights" };
+  if (error) throw error;
+
+  return { ok: true, eventId: data.event_id, occurrenceCount: data.occurrence_count };
+}
