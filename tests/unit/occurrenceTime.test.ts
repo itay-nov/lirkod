@@ -5,6 +5,7 @@ import {
   formatStartTime,
   formatStartWeekday,
   jerusalemDayKey,
+  jerusalemTimeField,
 } from "@/lib/domain/occurrenceTime";
 
 /**
@@ -81,6 +82,21 @@ describe("occurrence time formatting (AGENTS.md §7)", () => {
     // the answer tied to the date the instructor typed rather than to an instant.
     expect(formatCalendarDateWeekday("2025-06-01")).toBe("יום ראשון");
     expect(formatCalendarDateWeekday("2025-12-31")).toBe("יום רביעי");
+  });
+
+  it("fills a native time input with ASCII HH:MM in Israel local time", () => {
+    // What goes into `<input type="time">`, which accepts exactly this shape.
+    // A localised string — with an RTL mark, or Eastern Arabic digits under a
+    // different locale — leaves the field blank and the control dead.
+    expect(jerusalemTimeField("2025-06-02T17:30:00.000Z")).toBe("20:30");
+    expect(jerusalemTimeField("2025-01-02T17:30:00.000Z")).toBe("19:30");
+    expect(jerusalemTimeField("2025-06-02T17:30:00.000Z")).toMatch(/^\d{2}:\d{2}$/);
+  });
+
+  it("renders an Israeli midnight as 00:00, never 24:00", () => {
+    // Some ICU versions render midnight as "24" under h23, which a time input
+    // rejects outright.
+    expect(jerusalemTimeField("2025-06-01T21:00:00.000Z")).toBe("00:00");
   });
 
   it("returns null for something that is not a calendar date", () => {

@@ -170,13 +170,19 @@ insert into public.event_occurrences (
   now()
 );
 
+-- `overridden_at` is set here, unlike in the first version of this file. Since
+-- migration 0010 a night that is not 'scheduled' MUST carry it
+-- (event_occurrences_change_is_marked): a cancellation is by definition
+-- somebody's decision, and a cancelled row that claims nobody touched it is the
+-- state that constraint exists to make unrepresentable.
 insert into public.event_occurrences (
-  id, event_id, starts_at, ends_at, status, cancellation_reason
+  id, event_id, starts_at, ends_at, status, cancellation_reason, overridden_at
 ) values (
   'd0000000-0000-0000-0000-000000000005',
   'c0000000-0000-0000-0000-000000000002',
   now() + interval '7 days',
   now() + interval '7 days' + interval '3 hours',
   'cancelled',
-  'תקלה במזגן באולם'
+  'תקלה במזגן באולם',
+  now()
 );

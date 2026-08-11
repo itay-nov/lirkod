@@ -70,8 +70,10 @@ export interface MapDance {
 export function toMapDance(dance: NearbyDance): MapDance {
   const time = formatStartTime(dance.startsAt);
   const weekday = formatStartWeekday(dance.startsAt);
-  const { statusLabel, statusBadgeClassName, ringClassName, timeClassName } =
-    appearanceFor(dance.status);
+  const { statusLabel, statusBadgeClassName, ringClassName, timeClassName } = appearanceFor(
+    dance.status,
+    dance.originalStartsAt,
+  );
   const target = { lat: dance.venueLat, lng: dance.venueLng };
 
   return {

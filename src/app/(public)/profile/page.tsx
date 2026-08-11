@@ -1,8 +1,11 @@
 import { serverClient } from "@/lib/auth/serverClient";
 import { currentUser } from "@/lib/auth/session";
+import { findOwnNights } from "@/lib/db/nights";
 import { findOwnInstructor, findOwnProfile } from "@/lib/db/publisher";
 import { searchVenues } from "@/lib/db/venues";
+import { toManageableNights } from "@/lib/domain/manageNight";
 import { CreateDanceForm } from "@/components/CreateDanceForm";
+import { ManageNights } from "@/components/ManageNights";
 import { PhoneSignIn } from "@/components/PhoneSignIn";
 import { ProfileNameForm } from "@/components/ProfileNameForm";
 import { SignOutButton } from "@/components/SignOutButton";
@@ -98,6 +101,15 @@ async function SignedIn({ userId, phone }: { userId: string; phone: string | nul
     searchVenues(client, ""),
   ]);
 
+  // Only for someone who has actually published. A dancer with no instructor row
+  // has no nights to manage, and the query needs an instructor id to filter by —
+  // `event_occurrences_select_authenticated` is `using (true)`, so an unfiltered
+  // version of it would list the whole country (see the note in db/nights.ts).
+  const nights =
+    instructor === null
+      ? []
+      : toManageableNights(await findOwnNights(client, instructor.id));
+
   return (
     <div className="flex flex-col gap-6 pt-4">
       <p className="font-bold">{he.profile.greeting(profile.displayName)}</p>
@@ -116,6 +128,14 @@ async function SignedIn({ userId, phone }: { userId: string; phone: string | nul
         instructorName={instructor?.displayName ?? profile.displayName}
         needsInstructorName={instructor === null}
       />
+
+      {/*
+        Below the publish form, not above it. Publishing is what brings an
+        instructor to this screen the first time and stays the more common
+        errand; managing a night is what they come back for, and a list of
+        twelve nights between the greeting and the form would bury it.
+      */}
+      {instructor !== null && <ManageNights nights={nights} />}
 
       <SignOutButton />
     </div>

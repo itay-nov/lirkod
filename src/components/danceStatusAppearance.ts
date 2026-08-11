@@ -1,4 +1,5 @@
 import type { OccurrenceStatus } from "@/lib/db/dances";
+import { formatStartTime } from "@/lib/domain/occurrenceTime";
 import { he } from "@/lib/i18n/he";
 
 export interface DanceStatusAppearance {
@@ -27,16 +28,46 @@ export interface DanceStatusAppearance {
  * `occurrence_status` cannot be added without this file failing to compile —
  * which is exactly the failure mode AGENTS.md §10 calls the product's most
  * important moment (a moved or cancelled dance rendering as if it were normal).
+ *
+ * `originalStartsAt` is the second argument rather than a fourth enum value for
+ * a reason the schema forced and docs/decisions/0003 predicted: a night moved to
+ * a different HOUR keeps `status = 'scheduled'`, because 'moved' is reserved for
+ * a venue change and is forbidden without one. Left to the status alone, a
+ * re-timed night would render as an ordinary one — a dancer arriving an hour
+ * late to a hall that is emptying, told nothing, which is §10's failure wearing
+ * a different hat. Migration 0010 added the column so this function can see it.
  */
-export function appearanceFor(status: OccurrenceStatus): DanceStatusAppearance {
+export function appearanceFor(
+  status: OccurrenceStatus,
+  /** The hour this night used to start at, or null if nobody moved it. */
+  originalStartsAt: string | null = null,
+): DanceStatusAppearance {
   switch (status) {
     case "scheduled":
+      // A re-timed night borrows the dashed ring from 'moved' on purpose: the
+      // ring means "something about this night is not what it was, read the
+      // label", and the label is what distinguishes them (AGENTS.md §2.6 —
+      // never state by shape or colour alone).
+      if (originalStartsAt !== null) {
+        return {
+          ringClassName: "border-dashed border-secondary",
+          statusLabel: he.dance.status.retimedFrom(formatStartTime(originalStartsAt)),
+          statusBadgeClassName: "bg-highlight text-ink",
+          timeClassName: "",
+        };
+      }
+
       return {
         ringClassName: "border-solid border-accent",
         statusLabel: null,
         statusBadgeClassName: "",
         timeClassName: "",
       };
+    // A night moved to another hall AND to another hour shows the venue label
+    // only. That is the one a dancer must not miss — the new hour is already the
+    // time printed on the row, whereas the new address is not written anywhere
+    // else on these screens (docs/decisions/0003: override_venue_id is
+    // authoritative for WHERE).
     case "moved":
       return {
         ringClassName: "border-dashed border-secondary",

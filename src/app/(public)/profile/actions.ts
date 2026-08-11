@@ -3,7 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { serverClient } from "@/lib/auth/serverClient";
 import { currentUser } from "@/lib/auth/session";
+import type { Client } from "@/lib/db/client";
 import { publishDance, publishRecurringDance } from "@/lib/db/dances";
+import { cancelNight, findOwnNight, rescheduleNight } from "@/lib/db/nights";
 import {
   createOwnProfile,
   findOwnInstructor,
@@ -12,6 +14,7 @@ import {
 } from "@/lib/db/publisher";
 import { findOrCreateVenue, type VenueOption } from "@/lib/db/venues";
 import { buildNewDance } from "@/lib/domain/newDance";
+import { buildNightTimes, type NightTimesField } from "@/lib/domain/nightTimes";
 import {
   buildNewRecurringDance,
   type Repeat,
@@ -218,4 +221,131 @@ export async function addVenueAction(input: NewVenueInput): Promise<AddVenueResu
   revalidatePath("/profile");
 
   return { ok: true, venue };
+}
+
+export type ManageNightResult =
+  | { ok: true }
+  | { ok: false; reason: "signedOut" | "notInstructor" | "notYours" | "failed" }
+  | { ok: false; reason: "invalid"; field: NightTimesField };
+
+/** Long enough for "תקלה במזגן באולם", short enough that it is not a notice board. */
+const MAX_REASON_LENGTH = 200;
+
+/**
+ * The instructor row the caller acts as, or null if they have not got one.
+ *
+ * Both per-night actions below start here rather than taking an instructor id.
+ * A Server Action is a public HTTP endpoint with a generated name, so anything
+ * in its parameters is client input (AGENTS.md §8) — `occurrenceId` is the only
+ * thing a caller gets to choose, and it is checked against this before anything
+ * is written.
+ *
+ * That check is defence in depth, not the enforcement. The enforcement is
+ * `event_occurrences_update_own` plus migration 0010's column grants, and it
+ * holds for a caller who skips these actions entirely and posts to PostgREST
+ * with their own token. `notYours` is what this layer says when it can tell
+ * early; the database says the same thing by matching no rows, which
+ * `src/lib/db/nights.ts` checks for rather than assuming a silent success.
+ */
+async function ownInstructorId(client: Client, userId: string): Promise<string | null> {
+  const profile = await findOwnProfile(client, userId);
+  if (profile === null) return null;
+
+  const instructor = await findOwnInstructor(client, profile.id);
+  return instructor?.id ?? null;
+}
+
+/** Everything a night change invalidates: the manage list and both read screens. */
+function revalidateNightViews(): void {
+  revalidatePath("/profile");
+  revalidatePath("/");
+  revalidatePath("/schedule");
+}
+
+/**
+ * Takes one night off the board.
+ *
+ * A soft cancel, and there is deliberately no delete counterpart anywhere in
+ * this codebase: the generator skips a recurrence slot because a row EXISTS in
+ * it, so removing the row brings the night back on the next nightly pass
+ * (docs/decisions/0017). `overridden_at` is not passed either — migration 0010's
+ * trigger stamps it, so no caller can cancel a night and leave it looking
+ * untouched.
+ */
+export async function cancelNightAction(
+  occurrenceId: string,
+  reason: string,
+): Promise<ManageNightResult> {
+  const user = await currentUser();
+  if (user === null) return { ok: false, reason: "signedOut" };
+
+  const client = await serverClient();
+  const instructorId = await ownInstructorId(client, user.id);
+  if (instructorId === null) return { ok: false, reason: "notInstructor" };
+
+  const night = await findOwnNight(client, instructorId, occurrenceId);
+  if (night === null) return { ok: false, reason: "notYours" };
+
+  const trimmed = reason.trim();
+  const result = await cancelNight(client, {
+    occurrenceId,
+    // An empty box means "no reason given", which is not the same as the empty
+    // string — the column is nullable so the UI can tell the two apart.
+    reason: trimmed === "" ? null : trimmed.slice(0, MAX_REASON_LENGTH),
+  });
+
+  if (!result.ok) return { ok: false, reason: result.reason };
+
+  revalidateNightViews();
+  return { ok: true };
+}
+
+/**
+ * Moves one night to a different hour, in place.
+ *
+ * The DATE the new times are read against comes off the STORED ROW, never off
+ * the form. A client that could choose it would be able to move a night to a
+ * different day through a control that only offers hours, and every dancer who
+ * had already planned around it would be told nothing — which is the failure
+ * AGENTS.md §10 exists to prevent, arriving through the feature meant to prevent
+ * it.
+ */
+export async function rescheduleNightAction(
+  occurrenceId: string,
+  startTime: string,
+  endTime: string,
+): Promise<ManageNightResult> {
+  const user = await currentUser();
+  if (user === null) return { ok: false, reason: "signedOut" };
+
+  const client = await serverClient();
+  const instructorId = await ownInstructorId(client, user.id);
+  if (instructorId === null) return { ok: false, reason: "notInstructor" };
+
+  const night = await findOwnNight(client, instructorId, occurrenceId);
+  if (night === null) return { ok: false, reason: "notYours" };
+
+  const built = buildNightTimes({ date: night.dateKey, startTime, endTime });
+  if ("problems" in built) {
+    return {
+      ok: false,
+      reason: "invalid",
+      field: built.problems[0]?.field ?? "startTime",
+    };
+  }
+
+  const result = await rescheduleNight(client, {
+    occurrenceId,
+    startsAtUtc: built.times.startsAtUtc,
+    endsAtUtc: built.times.endsAtUtc,
+    // Read back off the row rather than accepted from the client: this pair
+    // decides what every dancer is told the night used to be (AGENTS.md §8).
+    currentStartsAt: night.startsAt,
+    currentOriginalStartsAt: night.originalStartsAt,
+  });
+
+  if (!result.ok) return { ok: false, reason: result.reason };
+
+  revalidateNightViews();
+  return { ok: true };
 }

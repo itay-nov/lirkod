@@ -386,6 +386,12 @@ max_frequency = "60s"
 972500000013 = "123456"
 # tests/e2e/publishRecurringDance.spec.ts — the browser walk through the repeat control.
 972500000014 = "123456"
+# tests/rls/manageNights.test.ts — the instructor who cancels and re-times a night,
+# and the signed-in stranger who must be able to do neither.
+972500000015 = "123456"
+972500000016 = "123456"
+# tests/e2e/manageNights.spec.ts — the browser walk through the per-night controls.
+972500000017 = "123456"
 
 # Configure logged in session timeouts.
 # [auth.sessions]

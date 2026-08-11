@@ -7,6 +7,15 @@ export type OccurrenceStatus = Database["public"]["Enums"]["occurrence_status"];
 export interface NearbyDance {
   occurrenceId: string;
   startsAt: string;
+  /**
+   * The hour this night used to be at, or null if nobody moved it.
+   *
+   * Carried all the way to the dancer on purpose. A time change keeps
+   * `status = 'scheduled'` — docs/decisions/0003 reserves 'moved' for a venue
+   * change — so without this the one thing AGENTS.md §10 says must never happen
+   * quietly would happen quietly.
+   */
+  originalStartsAt: string | null;
   status: OccurrenceStatus;
   venueId: string;
   venueName: string;
@@ -40,6 +49,10 @@ export async function findDancesNear(
   return (data ?? []).map((row) => ({
     occurrenceId: row.occurrence_id,
     startsAt: row.starts_at,
+    // `supabase gen types` marks every RETURNS TABLE column non-null, which is
+    // right for the rest of them and wrong for this one — a night nobody moved
+    // has no original time. Narrowed here rather than trusted.
+    originalStartsAt: (row.original_starts_at as string | null) ?? null,
     status: row.status,
     venueId: row.venue_id,
     venueName: row.venue_name,

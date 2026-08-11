@@ -80,6 +80,7 @@ export type Database = {
           ends_at: string
           event_id: string
           id: string
+          original_starts_at: string | null
           overridden_at: string | null
           override_venue_id: string | null
           series_date: string | null
@@ -92,6 +93,7 @@ export type Database = {
           ends_at: string
           event_id: string
           id?: string
+          original_starts_at?: string | null
           overridden_at?: string | null
           override_venue_id?: string | null
           series_date?: string | null
@@ -104,6 +106,7 @@ export type Database = {
           ends_at?: string
           event_id?: string
           id?: string
+          original_starts_at?: string | null
           overridden_at?: string | null
           override_venue_id?: string | null
           series_date?: string | null
@@ -236,6 +239,7 @@ export type Database = {
           dance_types: string[]
           instructor_display_name: string
           occurrence_id: string
+          original_starts_at: string
           price_agorot: number
           starts_at: string
           status: Database["public"]["Enums"]["occurrence_status"]

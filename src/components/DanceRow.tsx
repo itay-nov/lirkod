@@ -21,8 +21,10 @@ import { formatStartTime } from "@/lib/domain/occurrenceTime";
  * No `"use client"` — this renders on the server and ships no JavaScript.
  */
 export function DanceRow({ dance }: { dance: NearbyDance }) {
-  const { ringClassName, statusLabel, statusBadgeClassName, timeClassName } =
-    appearanceFor(dance.status);
+  const { ringClassName, statusLabel, statusBadgeClassName, timeClassName } = appearanceFor(
+    dance.status,
+    dance.originalStartsAt,
+  );
 
   // No weekday here, unlike DanceRing: the row's day is the <h2> the schedule
   // groups it under, and the surrounding <ul> is labelled with it too. It used
