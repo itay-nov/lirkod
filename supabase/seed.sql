@@ -186,3 +186,216 @@ insert into public.event_occurrences (
   'תקלה במזגן באולם',
   now()
 );
+
+-- Nationwide recurring seed (Phase 4.0) ----------------------------------------
+--
+-- Everything above this line is the original fixed-distance fixture
+-- tests/db/proximity.test.ts and tests/rls/publishRecurringDance.test.ts assert
+-- against — none of it is touched. Everything below is additional, purely to
+-- make the hero map and the schedule look like a live national product instead
+-- of three dots around Holon: three more instructors, five more cities'
+-- venues, and five recurring series, one per new city (migration 0009's model — typed
+-- recurrence_* columns, not a hand-written recurrence_rule) spread across the
+-- week. New id prefixes (f1/f2/f3/f4) so nothing here can collide with a fixed
+-- id another suite depends on.
+--
+-- place_id is left null on these venues, same as the three above: they predate
+-- the Google-Places-only insert path 0007 added and are curated rows, not
+-- something a client submitted.
+--
+-- The three new instructors are inserted the same two-step way as the seeded
+-- one at the top of this file (auth.users then public.profiles then
+-- public.instructors), including the same non-null token columns GoTrue's
+-- admin-users scan requires.
+
+insert into auth.users (
+  instance_id, id, aud, role, phone, phone_confirmed_at,
+  confirmation_token, recovery_token, email_change_token_new, email_change,
+  raw_app_meta_data, raw_user_meta_data, created_at, updated_at
+) values
+  (
+    '00000000-0000-0000-0000-000000000000',
+    'f1000000-0000-0000-0000-000000000001',
+    'authenticated', 'authenticated', '+972500000101', now(),
+    '', '', '', '',
+    '{"provider":"phone","providers":["phone"]}', '{}', now(), now()
+  ),
+  (
+    '00000000-0000-0000-0000-000000000000',
+    'f1000000-0000-0000-0000-000000000002',
+    'authenticated', 'authenticated', '+972500000102', now(),
+    '', '', '', '',
+    '{"provider":"phone","providers":["phone"]}', '{}', now(), now()
+  ),
+  (
+    '00000000-0000-0000-0000-000000000000',
+    'f1000000-0000-0000-0000-000000000003',
+    'authenticated', 'authenticated', '+972500000103', now(),
+    '', '', '', '',
+    '{"provider":"phone","providers":["phone"]}', '{}', now(), now()
+  );
+
+insert into public.profiles (id, display_name, phone) values
+  ('f1000000-0000-0000-0000-000000000001', 'אבי שרון', '+972500000101'),
+  ('f1000000-0000-0000-0000-000000000002', 'מיכל בר', '+972500000102'),
+  ('f1000000-0000-0000-0000-000000000003', 'יוסי אלון', '+972500000103');
+
+insert into public.instructors (id, profile_id, display_name, bio, verified) values
+  (
+    'f2000000-0000-0000-0000-000000000001',
+    'f1000000-0000-0000-0000-000000000001',
+    'אבי מרקיד',
+    'מרקיד ריקודי עם בצפון ובדרום כבר עשור.',
+    true
+  ),
+  (
+    'f2000000-0000-0000-0000-000000000002',
+    'f1000000-0000-0000-0000-000000000002',
+    'מיכל מרקידה',
+    'מרקידה במרכז הארץ, מתמחה בריקודי מתחילים.',
+    true
+  ),
+  (
+    'f2000000-0000-0000-0000-000000000003',
+    'f1000000-0000-0000-0000-000000000003',
+    'יוסי מרקיד',
+    'מרקיד ריקודי עם, מארח ערבי ריקוד שבועיים.',
+    true
+  );
+
+-- Five more cities' venues -------------------------------------------------
+
+insert into public.venues (id, name, address, location, capacity, has_parking, is_accessible, has_ac) values
+  (
+    'f3000000-0000-0000-0000-000000000001',
+    'בית שמואל',
+    'המ"ג 6, ירושלים',
+    extensions.st_setsrid(extensions.st_makepoint(35.2202, 31.7761), 4326)::extensions.geography,
+    200,
+    true,
+    true,
+    true
+  ),
+  (
+    'f3000000-0000-0000-0000-000000000002',
+    'היכל התרבות חיפה',
+    'פל-ים 12, חיפה',
+    extensions.st_setsrid(extensions.st_makepoint(34.9896, 32.7940), 4326)::extensions.geography,
+    350,
+    true,
+    true,
+    true
+  ),
+  (
+    -- East of the city centre (Nachalat Yehuda), not the coordinate closer to
+    -- 34.7925/31.9730 a map search returns first — that point is under 5km
+    -- from the seeded Holon venue and would join it inside
+    -- tests/db/proximity.test.ts's 5km case, which asserts Holon is the only
+    -- result close enough to be `dances[0]` there.
+    'f3000000-0000-0000-0000-000000000003',
+    'מתנ"ס נחלת יהודה',
+    'נחלת יהודה, ראשון לציון',
+    extensions.st_setsrid(extensions.st_makepoint(34.8100, 31.9550), 4326)::extensions.geography,
+    280,
+    true,
+    true,
+    false
+  ),
+  (
+    'f3000000-0000-0000-0000-000000000004',
+    'קונסרבטוריון באר שבע',
+    'התקוה 65, באר שבע',
+    extensions.st_setsrid(extensions.st_makepoint(34.7913, 31.2518), 4326)::extensions.geography,
+    180,
+    true,
+    null,
+    true
+  ),
+  (
+    'f3000000-0000-0000-0000-000000000005',
+    'היכל התרבות נתניה',
+    'שדרות בנימין 1, נתניה',
+    extensions.st_setsrid(extensions.st_makepoint(34.8532, 32.3215), 4326)::extensions.geography,
+    220,
+    false,
+    true,
+    true
+  );
+
+-- Five recurring series, one per new city, spread across the week -----------
+--
+-- Weekday is fixed by recurrence_start_date, not by a separate column (0009):
+-- 2024-01-07 is a Sunday, so the five dates below walk Sunday through
+-- Thursday. The year is otherwise arbitrary — only the phase (which weekday,
+-- and for the biweekly one which week) matters, since the generator counts
+-- whole steps forward from this date to today, not from "when this file
+-- happened to run".
+--
+-- Deliberately nothing added at the two seeded venues (Holon, Tel Aviv):
+-- both sit inside DEFAULT_RADIUS_METERS of DEFAULT_LAT/LNG
+-- (src/lib/domain/defaultRegion.ts), the region the home page and the
+-- schedule both query before any location permission is granted. A recurring
+-- series there would keep materialising nights into that exact result set
+-- every single day, which is exactly what tests/e2e/home.spec.ts's fixed
+-- "reach the end in N presses" and "never lands inside the ring list"
+-- assertions — and the proximity suite's Tel Aviv case — assert a bounded
+-- count against. The five cities below are all outside that radius, so they
+-- add national density (a locate from any of them, or the schedule/map once
+-- there is a national view) without ever changing what the unlocated default
+-- view returns.
+insert into public.dance_events (
+  id, instructor_id, venue_id, dance_types, price_agorot,
+  recurrence_freq, recurrence_start_date, recurrence_until_date,
+  recurrence_local_start_time, recurrence_local_end_time
+) values
+  ( -- Jerusalem, Monday, weekly
+    'f4000000-0000-0000-0000-000000000001',
+    'f2000000-0000-0000-0000-000000000002',
+    'f3000000-0000-0000-0000-000000000001',
+    array['ריקודי עם', 'מתחילים'],
+    2800,
+    'weekly', date '2024-01-08', null, time '20:00', time '22:30'
+  ),
+  ( -- Haifa, Tuesday, weekly
+    'f4000000-0000-0000-0000-000000000002',
+    'f2000000-0000-0000-0000-000000000001',
+    'f3000000-0000-0000-0000-000000000002',
+    array['ריקודי עם'],
+    3000,
+    'weekly', date '2024-01-09', null, time '19:30', time '22:00'
+  ),
+  ( -- Rishon LeZion, Wednesday, weekly
+    'f4000000-0000-0000-0000-000000000003',
+    'f2000000-0000-0000-0000-000000000003',
+    'f3000000-0000-0000-0000-000000000003',
+    array['ריקודי עם', 'זוגות'],
+    3200,
+    'weekly', date '2024-01-10', null, time '20:30', time '23:00'
+  ),
+  ( -- Beer Sheva, Thursday, weekly
+    'f4000000-0000-0000-0000-000000000004',
+    'f2000000-0000-0000-0000-000000000001',
+    'f3000000-0000-0000-0000-000000000004',
+    array['ריקודי עם', 'מתקדמים'],
+    2600,
+    'weekly', date '2024-01-11', null, time '19:00', time '21:30'
+  ),
+  ( -- Netanya, Sunday, biweekly
+    'f4000000-0000-0000-0000-000000000005',
+    'f2000000-0000-0000-0000-000000000002',
+    'f3000000-0000-0000-0000-000000000005',
+    array['ריקודי עם'],
+    2400,
+    'biweekly', date '2024-01-07', null, time '20:00', time '22:00'
+  );
+
+-- Materialises the horizon of nights for the five series above, the same
+-- function the nightly pg_cron top-up and publish_recurring_dance call
+-- (migration 0009). Filtered on recurrence_freq rather than the f4 id range so
+-- this keeps working if more recurring series are ever seeded above it. Run as
+-- `postgres` during `db reset`, which bypasses the RLS this function would
+-- otherwise enforce as the caller (SECURITY INVOKER) — exactly like the
+-- pg_cron job does in every other environment.
+select public.generate_occurrences_for_event(id)
+from public.dance_events
+where recurrence_freq is not null;

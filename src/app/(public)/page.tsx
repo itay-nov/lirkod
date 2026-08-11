@@ -45,6 +45,7 @@ export default async function HomePage() {
       apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? ""}
       mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID ?? "DEMO_MAP_ID"}
       locatedRadiusMeters={LOCATED_RADIUS_METERS}
+      demoMode={process.env.NEXT_PUBLIC_DEMO_MODE === "true"}
       mapLabels={{
         regionLabel: he.map.regionLabel,
         loading: he.map.loading,

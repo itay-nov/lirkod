@@ -191,6 +191,16 @@ export function DanceRingScroller({
         id="dance-ring-list"
         ref={scrollerRef}
         aria-label={listLabel}
+        // tabIndex={-1}: Chromium gives a genuinely-overflowing scroll
+        // container its own tab stop by default, which only shows up once a
+        // list is long enough to overflow — a short list never surfaces it.
+        // That stop would duplicate the prev/next buttons above with a
+        // scroll-by-arrow-keys gesture nothing else in the app offers or
+        // documents, exactly the kind of gesture-only path AGENTS.md §2.7
+        // exists to rule out. -1 keeps it reachable for a script (and for
+        // `.focus()` calls elsewhere in this file) without adding it to the
+        // Tab sequence.
+        tabIndex={-1}
         // pb-2 is not decoration: overflow-x-auto clips overflow on BOTH
         // axes, and without it the focused ring's 4px outline is sliced off
         // at the bottom of the scroller.
