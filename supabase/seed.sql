@@ -187,17 +187,35 @@ insert into public.event_occurrences (
   now()
 );
 
--- Nationwide recurring seed (Phase 4.0) ----------------------------------------
+-- Nationwide recurring seed (Phase 4.0 / 4.0.1) --------------------------------
 --
 -- Everything above this line is the original fixed-distance fixture
 -- tests/db/proximity.test.ts and tests/rls/publishRecurringDance.test.ts assert
 -- against — none of it is touched. Everything below is additional, purely to
 -- make the hero map and the schedule look like a live national product instead
--- of three dots around Holon: three more instructors, five more cities'
--- venues, and five recurring series, one per new city (migration 0009's model — typed
--- recurrence_* columns, not a hand-written recurrence_rule) spread across the
--- week. New id prefixes (f1/f2/f3/f4) so nothing here can collide with a fixed
--- id another suite depends on.
+-- of three dots around Holon: three more instructors, eight more venues, and
+-- eleven recurring series (migration 0009's model — typed recurrence_*
+-- columns, not a hand-written recurrence_rule) spread across the week, in two
+-- groups:
+--
+--   * A NATIONAL SPREAD: Jerusalem, Haifa, Beer Sheva, Netanya — one venue and
+--     one series each, all well outside DEFAULT_RADIUS_METERS of
+--     DEFAULT_LAT/LNG (src/lib/domain/defaultRegion.ts, ~15km around Rabin
+--     Square), so a dancer reaches them by locating from that city or, once
+--     one exists, from a national view — never from the unauthenticated
+--     default screen.
+--   * A DENSE CENTRAL CLUSTER: Rishon LeZion, Bat Yam, Ramat Gan and Herzliya
+--     (new), plus a second series each at the two originally-seeded venues
+--     (Holon, Tel Aviv) — all genuinely INSIDE that same 15km, so the map and
+--     schedule a dancer sees before granting location, or a real-address
+--     dancer sees after, is not three sparse dots. 4.0 kept this radius empty
+--     to dodge a handful of e2e/unit assertions that had hardcoded the old,
+--     thin roster's exact count and first row; 4.0.1 fixed those assertions
+--     instead (see tests/db/proximity.test.ts and tests/e2e/home.spec.ts) so
+--     the seed could do its actual job here.
+--
+-- New id prefixes (f1/f2/f3/f4) so nothing here can collide with a fixed id
+-- another suite depends on.
 --
 -- place_id is left null on these venues, same as the three above: they predate
 -- the Google-Places-only insert path 0007 added and are curated rows, not
@@ -263,7 +281,9 @@ insert into public.instructors (id, profile_id, display_name, bio, verified) val
     true
   );
 
--- Five more cities' venues -------------------------------------------------
+-- National-spread venues: Jerusalem, Haifa, Beer Sheva, Netanya --------------
+-- All well outside the ~15km DEFAULT_RADIUS_METERS around Rabin Square
+-- (src/lib/domain/defaultRegion.ts) — see the note above.
 
 insert into public.venues (id, name, address, location, capacity, has_parking, is_accessible, has_ac) values
   (
@@ -287,21 +307,6 @@ insert into public.venues (id, name, address, location, capacity, has_parking, i
     true
   ),
   (
-    -- East of the city centre (Nachalat Yehuda), not the coordinate closer to
-    -- 34.7925/31.9730 a map search returns first — that point is under 5km
-    -- from the seeded Holon venue and would join it inside
-    -- tests/db/proximity.test.ts's 5km case, which asserts Holon is the only
-    -- result close enough to be `dances[0]` there.
-    'f3000000-0000-0000-0000-000000000003',
-    'מתנ"ס נחלת יהודה',
-    'נחלת יהודה, ראשון לציון',
-    extensions.st_setsrid(extensions.st_makepoint(34.8100, 31.9550), 4326)::extensions.geography,
-    280,
-    true,
-    true,
-    false
-  ),
-  (
     'f3000000-0000-0000-0000-000000000004',
     'קונסרבטוריון באר שבע',
     'התקוה 65, באר שבע',
@@ -322,27 +327,61 @@ insert into public.venues (id, name, address, location, capacity, has_parking, i
     true
   );
 
--- Five recurring series, one per new city, spread across the week -----------
+-- Central-cluster venues: Rishon LeZion, Bat Yam, Ramat Gan, Herzliya --------
+-- All genuinely inside DEFAULT_RADIUS_METERS of Rabin Square — real
+-- coordinates, not nudged to dodge a test (see the header note on why that
+-- was true of Rishon LeZion in 4.0 and no longer is).
+
+insert into public.venues (id, name, address, location, capacity, has_parking, is_accessible, has_ac) values
+  (
+    'f3000000-0000-0000-0000-000000000003',
+    'היכל התרבות ראשון לציון',
+    'רוטשילד 45, ראשון לציון',
+    extensions.st_setsrid(extensions.st_makepoint(34.7925, 31.9730), 4326)::extensions.geography,
+    280,
+    true,
+    true,
+    false
+  ),
+  (
+    'f3000000-0000-0000-0000-000000000006',
+    'היכל התרבות בת ים',
+    'העצמאות 55, בת ים',
+    extensions.st_setsrid(extensions.st_makepoint(34.7515, 32.0171), 4326)::extensions.geography,
+    240,
+    true,
+    true,
+    true
+  ),
+  (
+    'f3000000-0000-0000-0000-000000000007',
+    'היכל התרבות רמת גן',
+    'ביאליק 26, רמת גן',
+    extensions.st_setsrid(extensions.st_makepoint(34.8248, 32.0684), 4326)::extensions.geography,
+    260,
+    true,
+    true,
+    true
+  ),
+  (
+    'f3000000-0000-0000-0000-000000000008',
+    'מתנ"ס הרצליה',
+    'סוקולוב 42, הרצליה',
+    extensions.st_setsrid(extensions.st_makepoint(34.8397, 32.1656), 4326)::extensions.geography,
+    200,
+    true,
+    true,
+    false
+  );
+
+-- National-spread series: one per city, spread across the week --------------
 --
 -- Weekday is fixed by recurrence_start_date, not by a separate column (0009):
--- 2024-01-07 is a Sunday, so the five dates below walk Sunday through
+-- 2024-01-07 is a Sunday, so the four dates below walk Sunday through
 -- Thursday. The year is otherwise arbitrary — only the phase (which weekday,
 -- and for the biweekly one which week) matters, since the generator counts
 -- whole steps forward from this date to today, not from "when this file
 -- happened to run".
---
--- Deliberately nothing added at the two seeded venues (Holon, Tel Aviv):
--- both sit inside DEFAULT_RADIUS_METERS of DEFAULT_LAT/LNG
--- (src/lib/domain/defaultRegion.ts), the region the home page and the
--- schedule both query before any location permission is granted. A recurring
--- series there would keep materialising nights into that exact result set
--- every single day, which is exactly what tests/e2e/home.spec.ts's fixed
--- "reach the end in N presses" and "never lands inside the ring list"
--- assertions — and the proximity suite's Tel Aviv case — assert a bounded
--- count against. The five cities below are all outside that radius, so they
--- add national density (a locate from any of them, or the schedule/map once
--- there is a national view) without ever changing what the unlocated default
--- view returns.
 insert into public.dance_events (
   id, instructor_id, venue_id, dance_types, price_agorot,
   recurrence_freq, recurrence_start_date, recurrence_until_date,
@@ -364,14 +403,6 @@ insert into public.dance_events (
     3000,
     'weekly', date '2024-01-09', null, time '19:30', time '22:00'
   ),
-  ( -- Rishon LeZion, Wednesday, weekly
-    'f4000000-0000-0000-0000-000000000003',
-    'f2000000-0000-0000-0000-000000000003',
-    'f3000000-0000-0000-0000-000000000003',
-    array['ריקודי עם', 'זוגות'],
-    3200,
-    'weekly', date '2024-01-10', null, time '20:30', time '23:00'
-  ),
   ( -- Beer Sheva, Thursday, weekly
     'f4000000-0000-0000-0000-000000000004',
     'f2000000-0000-0000-0000-000000000001',
@@ -389,7 +420,67 @@ insert into public.dance_events (
     'biweekly', date '2024-01-07', null, time '20:00', time '22:00'
   );
 
--- Materialises the horizon of nights for the five series above, the same
+-- Central-cluster series: Rishon LeZion, Bat Yam, Ramat Gan, Herzliya, plus a
+-- second series each at the two originally-seeded venues (Holon, Tel Aviv) ---
+--
+-- Six series, several sharing a weekday with each other or with the national
+-- spread on purpose — several halls running the same night is what a real
+-- Gush Dan week looks like, not a bug to avoid.
+insert into public.dance_events (
+  id, instructor_id, venue_id, dance_types, price_agorot,
+  recurrence_freq, recurrence_start_date, recurrence_until_date,
+  recurrence_local_start_time, recurrence_local_end_time
+) values
+  ( -- Rishon LeZion, Wednesday, weekly
+    'f4000000-0000-0000-0000-000000000003',
+    'f2000000-0000-0000-0000-000000000003',
+    'f3000000-0000-0000-0000-000000000003',
+    array['ריקודי עם', 'זוגות'],
+    3200,
+    'weekly', date '2024-01-10', null, time '20:30', time '23:00'
+  ),
+  ( -- Holon, Thursday, weekly — a second series at the originally-seeded venue
+    'f4000000-0000-0000-0000-000000000006',
+    'a0000000-0000-0000-0000-000000000002',
+    'b0000000-0000-0000-0000-000000000001',
+    array['ריקודי עם', 'מתחילים'],
+    3000,
+    'weekly', date '2024-01-11', null, time '21:00', time '23:00'
+  ),
+  ( -- Tel Aviv, Tuesday, biweekly — a second series at the originally-seeded venue
+    'f4000000-0000-0000-0000-000000000007',
+    'a0000000-0000-0000-0000-000000000002',
+    'b0000000-0000-0000-0000-000000000002',
+    array['ריקודי עם', 'זוגות'],
+    3500,
+    'biweekly', date '2024-01-09', null, time '20:00', time '22:30'
+  ),
+  ( -- Bat Yam, Sunday, weekly
+    'f4000000-0000-0000-0000-000000000008',
+    'a0000000-0000-0000-0000-000000000002',
+    'f3000000-0000-0000-0000-000000000006',
+    array['ריקודי עם'],
+    2700,
+    'weekly', date '2024-01-07', null, time '19:30', time '21:30'
+  ),
+  ( -- Ramat Gan, Monday, weekly
+    'f4000000-0000-0000-0000-000000000009',
+    'f2000000-0000-0000-0000-000000000002',
+    'f3000000-0000-0000-0000-000000000007',
+    array['ריקודי עם', 'מתקדמים'],
+    3100,
+    'weekly', date '2024-01-08', null, time '20:00', time '22:00'
+  ),
+  ( -- Herzliya, Thursday, biweekly
+    'f4000000-0000-0000-0000-000000000010',
+    'f2000000-0000-0000-0000-000000000003',
+    'f3000000-0000-0000-0000-000000000008',
+    array['ריקודי עם'],
+    2900,
+    'biweekly', date '2024-01-11', null, time '20:30', time '22:30'
+  );
+
+-- Materialises the horizon of nights for the eleven series above, the same
 -- function the nightly pg_cron top-up and publish_recurring_dance call
 -- (migration 0009). Filtered on recurrence_freq rather than the f4 id range so
 -- this keeps working if more recurring series are ever seeded above it. Run as
