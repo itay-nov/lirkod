@@ -56,10 +56,18 @@ export default async function ProfilePage() {
         Favorites was its own route and tab in the first pass of this shell;
         merged in here as a labeled section rather than kept as a fourth
         destination — see docs/decisions/0008 for why.
+
+        Real favorites (saving a dance) is Phase 4.5 — this is shell only, so
+        the section is one of two honest empty-states rather than a "בבנייה"
+        notice (AGENTS.md §2). Which one depends on whether signing in would
+        change anything: an anonymous visitor is told to sign in, a signed-in
+        one is told there is nothing saved yet.
       */}
       <section className="pt-8">
         <h2 className="font-display text-2xl font-black">{he.favorites.heading}</h2>
-        <p className="pt-4">{he.common.screenNotReady}</p>
+        <p className="pt-4">
+          {user === null ? he.favorites.signedOutEmpty : he.favorites.empty}
+        </p>
       </section>
     </div>
   );
