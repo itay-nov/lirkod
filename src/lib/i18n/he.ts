@@ -68,7 +68,15 @@ export const he = {
     label: "ניווט ראשי",
     map: "מפה",
     schedule: "לוח",
-    profile: "שלי",
+    /**
+     * Phase 4.1 rename from "שלי": the tab now leads to a real screen with two
+     * states (sign in / signed-in profile), not a placeholder, so it needs a
+     * name that describes a place rather than a possessive. Two words with a
+     * natural break at the space — unlike "מועדפים" in docs/decisions/0007/8,
+     * which had none — but still verified not to wrap at 200% on a 375px
+     * viewport (tests/e2e/navigation.spec.ts).
+     */
+    profile: "אזור אישי",
   },
   /**
    * The DEMO_MODE toggle (AGENTS.md §13 Phase 4.0): one button in the header
@@ -152,9 +160,18 @@ export const he = {
   /** Now a section inside /profile, not its own route or tab — see docs/decisions/0008. */
   favorites: {
     heading: "מועדפים",
+    /**
+     * Real favorites (saving a dance) is Phase 4.5 — nothing to list yet
+     * either way, so this section is two honest empty-states, never
+     * `common.screenNotReady`. Which one shows depends on whether signing in
+     * would actually change anything for the person reading it.
+     */
+    signedOutEmpty: "התחברו כדי לשמור הרקדות מועדפות.",
+    empty: "עדיין אין מועדפים.",
   },
   profile: {
-    heading: "שלי",
+    /** Phase 4.1: matches nav.profile so the tab and the screen it opens agree. */
+    heading: "אזור אישי",
     /** The signed-in state. Says who you are, in the words a dancer gave us. */
     signedInAs: (phone: string): string => `מחוברים עם המספר ${phone}`,
     signOut: "יציאה מהחשבון",

@@ -78,17 +78,33 @@ export function TabBar({
       aria-label={navLabel}
       className="shrink-0 border-t border-muted/40 bg-surface"
     >
-      <ul className="flex">
+      <ul className="flex justify-between">
         {TABS.map(({ key, href, iconPaths }) => {
           const active = isActiveTab(pathname, href);
 
           return (
-            // min-w-0 lets a tab shrink past its label's intrinsic width. A
-            // flex item defaults to min-width:auto, so without this the four
-            // labels set a floor the viewport cannot honour and the whole page
-            // scrolls sideways at 200% (measured: 391px of nav in a 375px
-            // viewport, which is precisely AGENTS.md §2.4 failing).
-            <li key={href} className="min-w-0 flex-1">
+            // NOT flex-1 (equal thirds) any more, since Phase 4.1: "אזור אישי"
+            // needs ~146px on one line at 200% text, and an equal column here
+            // is only 125px even with zero padding — "מפה" and "לוח" were
+            // sitting on ~55px and ~74px of unused width in their own equal
+            // thirds the whole time. `justify-between` gives each tab its own
+            // content width and spreads the leftover as gaps instead, which is
+            // what actually fits — content here (all three labels, both icons,
+            // all padding) sums to well under 375px, so this does not
+            // reintroduce the four-tab bug (docs/decisions/0007) it looks
+            // similar to: that one had labels wider than an EQUAL column with
+            // no natural break point; this one has one label that is wider
+            // than an equal column but not wider than the bar.
+            //
+            // min-w-12 (48px, AGENTS.md §5's tap target floor) replaces the
+            // old min-w-0: that one existed to let a forced-equal flex-1
+            // column shrink below its label's intrinsic width. There is no
+            // forced-equal column any more (see the note on `justify-between`
+            // above), so the risk flipped — "מפה", the shortest label,
+            // measured under 48px wide once it was sized to its own content
+            // instead of a third of the bar. This is the explicit floor that
+            // an equal-width column used to provide for free.
+            <li key={href} className="min-w-12">
               <Link
                 href={href}
                 // Only on the active tab, so a screen reader announces "current
