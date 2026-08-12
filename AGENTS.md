@@ -1,7 +1,24 @@
 # AGENTS.md — Lirkod (לרקוד)
 
-Read this file fully before your first edit in a session. If a rule here conflicts
-with a task instruction, follow this file and say so in your response.
+Read this file fully before your first edit in a session.
+
+Next, before browsing or grepping source, read `graphify-out/graph.json` — this
+repo's generated AST/dependency graph — and use it as your primary map of the
+codebase. Resolve "where is X" and "what depends on Y" from the graph (or via
+`graphify query "<question>"` / `graphify path "<A>" "<B>"` / `graphify explain
+"<concept>"`, which return a scoped subgraph) before opening any source file, and
+open a full file only once you actually need its contents — not to double-check
+what the graph already told you. The entire point is fewer file reads and lower
+token cost per task; reading the graph and then reading every file anyway defeats
+it. The graph is rebuilt automatically in the background after every commit and
+branch switch (git hooks this repo has installed, `.git/hooks/post-commit` and
+`.git/hooks/post-checkout`), so it is normally already current when a session
+starts — you do not need to regenerate it just to begin a task. But it is NOT
+rebuilt on every file save, so after you modify code, run `graphify update .`
+(AST-only, no LLM/API cost) before relying on the graph again in the same session.
+
+If a rule here conflicts with a task instruction, follow this file and say so
+in your response.
 
 ---
 
