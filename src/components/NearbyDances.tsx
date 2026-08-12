@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { DanceMap, type DanceMapLabels } from "@/components/DanceMap";
 import { DanceRing } from "@/components/DanceRing";
 import { DanceRingScroller } from "@/components/DanceRingScroller";
+import { useDemoHidden } from "@/lib/demo/demoVisibility";
 import type { MapDance } from "@/lib/maps/mapDance";
 
 export interface NearbyDancesLabels {
@@ -44,6 +45,7 @@ export function NearbyDances({
   locatedRadiusMeters,
   mapLabels,
   labels,
+  demoMode = false,
 }: {
   initialDances: MapDance[];
   initialCenter: { lat: number; lng: number };
@@ -52,6 +54,8 @@ export function NearbyDances({
   locatedRadiusMeters: number;
   mapLabels: DanceMapLabels;
   labels: NearbyDancesLabels;
+  /** DEMO_MODE only (AGENTS.md §13 Phase 4.0) — see the note on `demoHidden` below. */
+  demoMode?: boolean;
 }) {
   const [dances, setDances] = useState(initialDances);
   const [center, setCenter] = useState(initialCenter);
@@ -64,6 +68,14 @@ export function NearbyDances({
     [],
   );
 
+  // The DEMO_MODE toggle in AppHeader flips this via the shared store; `demoMode`
+  // is false in production (`page.tsx` reads NEXT_PUBLIC_DEMO_MODE the same way
+  // it reads NEXT_PUBLIC_GOOGLE_MAPS_API_KEY), and with no button rendered to
+  // ever flip `demoHidden`, `dances` always shows untouched. Display only — the
+  // query result itself never changes.
+  const demoHidden = useDemoHidden();
+  const visibleDances = demoMode && demoHidden ? [] : dances;
+
   return (
     // min-h-full, not min-h-dvh, and a div rather than a <main>: the shell in
     // layout.tsx owns both the viewport height and the <main> landmark, and a
@@ -71,7 +83,7 @@ export function NearbyDances({
     // container it sits in by exactly the height of the header and bar.
     <div className="flex min-h-full flex-col">
       <DanceMap
-        dances={dances}
+        dances={visibleDances}
         apiKey={apiKey}
         mapId={mapId}
         center={center}
@@ -83,10 +95,12 @@ export function NearbyDances({
       <section className="mt-3 rounded-t-3xl bg-surface pb-8 pt-5 shadow-[0_-2px_12px_rgba(43,36,32,0.15)]">
         <h1 className="px-4 font-display text-3xl font-black">{labels.heading}</h1>
 
-        {dances.length === 0 ? (
+        {visibleDances.length === 0 ? (
           // Reached after a locate too, not only on first load: a dancer with
           // nothing within 10km of them must be told so, rather than left
-          // looking at the previous region's list under an empty map.
+          // looking at the previous region's list under an empty map. Also
+          // what the DEMO_MODE toggle shows while it is on — the same honest
+          // empty state, not a separate "demo" message.
           <p className="px-4 pt-4">{labels.empty}</p>
         ) : (
           <DanceRingScroller
@@ -94,7 +108,7 @@ export function NearbyDances({
             prevLabel={labels.prevLabel}
             nextLabel={labels.nextLabel}
           >
-            {dances.map((dance) => (
+            {visibleDances.map((dance) => (
               <li key={dance.occurrenceId} className="flex">
                 <DanceRing dance={dance} />
               </li>

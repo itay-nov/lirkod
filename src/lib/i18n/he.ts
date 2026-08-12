@@ -70,6 +70,17 @@ export const he = {
     schedule: "לוח",
     profile: "שלי",
   },
+  /**
+   * The DEMO_MODE toggle (AGENTS.md §13 Phase 4.0): one button in the header
+   * that hides every dance from the map and the schedule, for showing the app
+   * with an empty state. Display only — never rendered when
+   * NEXT_PUBLIC_DEMO_MODE is unset, so a real dancer in production never sees
+   * these strings.
+   */
+  demo: {
+    hide: "הסתר הרקדות",
+    show: "הצג הרקדות",
+  },
   schedule: {
     heading: "לוח הרקדות",
     /**

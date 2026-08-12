@@ -1,4 +1,5 @@
 import { DanceRow } from "@/components/DanceRow";
+import { DemoVisibilityGate } from "@/components/DemoVisibilityGate";
 import { anonClient } from "@/lib/db/client";
 import { findDancesNear } from "@/lib/db/dances";
 import {
@@ -37,15 +38,14 @@ export default async function SchedulePage() {
   );
 
   const days = groupDancesByDay(dances);
+  const demoMode = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
 
-  return (
-    <div className="px-4 pb-8 pt-5">
-      <h1 className="font-display text-3xl font-black">{he.schedule.heading}</h1>
+  const emptyState = <p className="pt-4">{he.schedule.empty}</p>;
 
-      {days.length === 0 ? (
-        <p className="pt-4">{he.schedule.empty}</p>
-      ) : (
-        days.map((day) => {
+  const scheduleContent =
+    days.length === 0
+      ? emptyState
+      : days.map((day) => {
           const heading = formatDayHeading(day.dances[0].startsAt);
 
           return (
@@ -68,7 +68,21 @@ export default async function SchedulePage() {
               </ul>
             </section>
           );
-        })
+        });
+
+  return (
+    <div className="px-4 pb-8 pt-5">
+      <h1 className="font-display text-3xl font-black">{he.schedule.heading}</h1>
+
+      {demoMode ? (
+        // Only mounted when NEXT_PUBLIC_DEMO_MODE is set, so this route never
+        // hands a real dancer a live subscription to the toggle it has no way
+        // to reach (AGENTS.md §13 Phase 4.0). `scheduleContent` is already
+        // fully server-rendered JSX — the gate only picks which finished
+        // subtree to mount, and never re-renders `groupDancesByDay` itself.
+        <DemoVisibilityGate empty={emptyState}>{scheduleContent}</DemoVisibilityGate>
+      ) : (
+        scheduleContent
       )}
     </div>
   );

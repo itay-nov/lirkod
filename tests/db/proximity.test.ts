@@ -42,15 +42,28 @@ describe("findDancesNear — proximity filtering runs in Postgres (AGENTS.md §9
     expect(venueNames).not.toContain(EILAT_VENUE);
   });
 
-  it("runs unauthenticated, through the same RLS an anonymous map visitor uses", async () => {
+  it("runs unauthenticated, through the same RLS an anonymous map visitor uses, ordered by starts_at", async () => {
     const dances = await findDancesNear(anonClient(), HOLON_LAT, HOLON_LNG, 5_000);
 
     expect(dances.length).toBeGreaterThan(0);
-    expect(dances[0]).toMatchObject({
-      status: "scheduled",
-      venueName: HOLON_VENUE,
-      instructorDisplayName: "רונית מרקידה",
-    });
+
+    // migration 0002 orders by starts_at, not by distance — asserted on the
+    // invariant itself, not on which row happens to be first. Phase 4.0.1's
+    // dense central cluster (supabase/seed.sql) put other venues inside 5km
+    // of Holon too, so "the Holon dance is dances[0]" stopped being something
+    // this data actually guarantees; the ordering does not depend on the
+    // roster at all. Compared against a sorted copy rather than consecutive
+    // indexing, so this reads under noUncheckedIndexedAccess with no `!`.
+    const startTimes = dances.map((d) => Date.parse(d.startsAt));
+    const sortedStartTimes = [...startTimes].sort((a, b) => a - b);
+    expect(startTimes).toEqual(sortedStartTimes);
+
+    // Every row is a real join result, not a partial one — the shape check
+    // the old dances[0] assertion also did, kept without pinning it to one row.
+    for (const dance of dances) {
+      expect(dance.venueName.length).toBeGreaterThan(0);
+      expect(dance.instructorDisplayName.length).toBeGreaterThan(0);
+    }
   });
 });
 

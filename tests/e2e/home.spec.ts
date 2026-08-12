@@ -217,7 +217,14 @@ test.describe("dance ring prev/next controls", () => {
     // synchronously in the same click (see scrollByPage in
     // DanceRingScroller.tsx), so each iteration's state is final the moment
     // Enter returns — no wait needed between presses.
-    for (let i = 0; i < 6; i++) {
+    //
+    // The bound here is a safety cap, not an assumption about how many pages
+    // the ring list has — that count is seed data (supabase/seed.sql), which
+    // Phase 4.0.1's dense central cluster made much larger than the handful
+    // of dances this test used to assume. 200 is "reaches the end well before
+    // this" for any seed size sane enough to page through by hand; the real
+    // termination condition is `next` going disabled, checked every iteration.
+    for (let i = 0; i < 200; i++) {
       const next = page.getByRole("button", { name: he.home.nextLabel });
       if (await next.isDisabled()) break;
       await page.keyboard.press("Enter");
