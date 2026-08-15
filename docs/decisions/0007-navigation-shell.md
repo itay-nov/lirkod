@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted.
+Accepted. Partially superseded — see Update.
 
 ## Context
 
@@ -86,3 +86,18 @@ applies to "which screen am I on" as much as to a cancelled dance.
   per-user data, and the question of whether they move to `(auth)` or stay public
   with an inline sign-in prompt is open — it should be decided when they get real
   content, not silently at that point.
+
+## Update
+
+Two things described above as current state have since changed:
+
+- **`/favorites` no longer exists.** docs/decisions/0008 merged it into `/profile`
+  as a section, dropping the tab bar to three items, to fix the 200%-text wrap
+  called out as a rough edge above.
+- **`/schedule` is no longer static.** docs/decisions/0009 made it `force-dynamic`
+  for the same §10 cancellation-freshness reason `/` already was — so `/profile`
+  is now the only public route that still prerenders, not one of three.
+
+The reasoning above (flex-column shell, `force-dynamic` placement, TabBar as the
+sole client boundary, `--color-secondary` for inactive tabs) still holds; only the
+route inventory it describes is out of date.

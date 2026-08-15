@@ -294,9 +294,11 @@ than a confident wrong answer.
 These are unresolved. Do not implement around them silently — flag them if a task
 touches them.
 
+(Resolved: recurring-dance materialization, previously listed here, is decided by
+docs/decisions/0002 — occurrences are materialized rows, not computed from an RRULE.)
+
 - Final payment gateway choice, and the legal structure for collecting fees on behalf of
   instructors (regulatory question, not a technical one).
-- Recurring dances: whether occurrences are materialized rows or computed from an RRULE.
 - Whether instructor analytics get their own dashboard surface or live inside the
   existing instructor screens.
 

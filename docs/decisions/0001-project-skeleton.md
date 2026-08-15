@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Accepted. The "no `next/font`" decision below is historical — see Update.
 
 ## Context
 
@@ -30,3 +30,11 @@ or by AGENTS.md and needed a decision to move forward.
 - **Playwright's `webServer` runs `npm run dev`**, not a production build, so
   `test:e2e` stays fast. This should be revisited once there's a real CI pipeline
   that wants to test against a production build.
+
+## Update
+
+docs/decisions/0006 brought a second typeface (Rubik) in via `next/font/local`,
+vendored the same way as Heebo. This does not reopen the decision above: the
+objection was to `next/font/google` fetching at build time, not to `next/font`
+itself, and `next/font/local` needs no network access. Recorded here so the two
+ADRs don't read as contradictory.
