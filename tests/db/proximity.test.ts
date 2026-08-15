@@ -87,6 +87,42 @@ describe("find_dances_near bounds — an anonymous, unauthenticated RPC (migrati
     await expect(findDancesNear(anonClient(), HOLON_LAT, 181, 5_000)).rejects.toThrow();
   });
 
+  it("caps the result at 200 rows (migration 0003's c_row_limit), even when far more match", async () => {
+    const service = serviceClient();
+    const rowsToInsert = 210;
+    const baseStartsAt = Date.now() + 60 * 60 * 1000; // an hour from now — inside the horizon
+
+    const { data, error } = await service
+      .from("event_occurrences")
+      .insert(
+        Array.from({ length: rowsToInsert }, (_, i) => {
+          const startsAt = new Date(baseStartsAt + i * 60 * 1000);
+          const endsAt = new Date(startsAt.getTime() + 3 * 60 * 60 * 1000);
+          return {
+            event_id: HOLON_EVENT_ID,
+            starts_at: startsAt.toISOString(),
+            ends_at: endsAt.toISOString(),
+            status: "scheduled" as const,
+          };
+        }),
+      )
+      .select("id");
+    if (error) throw error;
+
+    try {
+      const dances = await findDancesNear(anonClient(), HOLON_LAT, HOLON_LNG, 50_000);
+      expect(dances.length).toBe(200);
+    } finally {
+      await service
+        .from("event_occurrences")
+        .delete()
+        .in(
+          "id",
+          data.map((row) => row.id),
+        );
+    }
+  });
+
   it("excludes an occurrence beyond the 60-day horizon, even inside the radius", async () => {
     const service = serviceClient();
     const farStartsAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
