@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { declareInstructorAction } from "@/app/(public)/profile/actions";
 import { browserClient } from "@/lib/auth/browserClient";
 import { normalizeIsraeliPhone } from "@/lib/domain/phone";
 import { retryAfterSeconds, signInErrorKind } from "@/lib/domain/signInError";
@@ -58,6 +59,14 @@ export function PhoneSignIn({ siteKey }: { siteKey: string | null }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [challengeUnavailable, setChallengeUnavailable] = useState(false);
+  /**
+   * "אני מרקיד/ה", answered on the way in (docs/decisions/0018).
+   *
+   * Held here across BOTH steps on purpose: the box is on the phone step, but it
+   * cannot be acted on until the code has been verified, and re-asking after the
+   * SMS would be asking the same question twice.
+   */
+  const [wantsInstructor, setWantsInstructor] = useState(false);
 
   /*
    * Focus follows the step. The button that was pressed no longer exists once the
@@ -143,6 +152,14 @@ export function PhoneSignIn({ siteKey }: { siteKey: string | null }) {
         return;
       }
 
+      // Only now, and only if they asked. The action re-derives who is acting
+      // from the session cookie this verify just established — it takes no
+      // arguments, so "make me a מרקיד" is the whole of what is being said here.
+      // Its result is deliberately not surfaced: the role is a preference, and
+      // failing to record one must not read as a failure to sign in, which HAS
+      // just succeeded. `/profile` will show "רוצה להרקיד?" if it did not take.
+      if (wantsInstructor) await declareInstructorAction();
+
       // The session now lives in cookies, so the server has to look again — this
       // is what swaps /profile over to the signed-in content without a full page
       // load and without this component ever deciding what that content is.
@@ -194,6 +211,35 @@ export function PhoneSignIn({ siteKey }: { siteKey: string | null }) {
                   className={FIELD_CLASS}
                 />
               </div>
+
+              {/*
+                Role declared on the way in (docs/decisions/0018), above the
+                security check so it reads as part of "who are you" rather than
+                as an afterthought under the button.
+
+                A real <input type="checkbox"> wrapped in its own <label>, not a
+                styled div with a click handler: it has to be reachable by Tab,
+                toggleable with Space, and announced as a checkbox.
+
+                size-12 — the box ITSELF is 48x48, not merely the label around
+                it. AGENTS.md §5 is about the control, and a 24px box inside a
+                48px row passes a casual reading while still handing a
+                70-year-old a 24px target to hit; tests/e2e/signIn.spec.ts
+                measures every `form input` and catches exactly that. A large,
+                unmissable checkbox is the right answer for this audience
+                anyway (§2).
+              */}
+              <label className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  name="wantsInstructor"
+                  checked={wantsInstructor}
+                  onChange={(e) => setWantsInstructor(e.target.checked)}
+                  className="size-12 shrink-0 accent-secondary focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-secondary"
+                />
+                <span className="font-bold">{he.signIn.instructorLabel}</span>
+              </label>
+              <p className="-mt-2 text-secondary">{he.signIn.instructorHint}</p>
 
               <SecurityCheck
                 ref={check}

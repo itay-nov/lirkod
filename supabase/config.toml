@@ -392,6 +392,22 @@ max_frequency = "60s"
 972500000016 = "123456"
 # tests/e2e/manageNights.spec.ts — the browser walk through the per-night controls.
 972500000017 = "123456"
+# ---------------------------------------------------------------------------
+# Demo-login accounts (Phase 4.2, docs/decisions/0018). A deliberately separate
+# 9000-range so they read as "the demo cast", not as one more test fixture.
+#
+# These are the ONLY accounts `demoSignInAction` can ever reach, and it reaches
+# them through this real OTP path — no fabricated session, no service_role.
+# Their presence HERE is also the third of the four things that would each have
+# to fail before demo login could work anywhere but a local/preview stack: a
+# hosted project does not carry this file's test numbers, so the fixed code
+# below would not verify there even if the server flag were wrongly enabled.
+#
+# 9000 is the מרקיד (typed number 0); 9001+ are רוקדים (typed 1 and up).
+972500009000 = "123456"
+972500009001 = "123456"
+972500009002 = "123456"
+972500009003 = "123456"
 
 # Configure logged in session timeouts.
 # [auth.sessions]

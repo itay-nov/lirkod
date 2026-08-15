@@ -18,7 +18,21 @@ import { he } from "@/lib/i18n/he";
  * explains itself rather than redirecting someone who arrived not knowing an
  * account was involved.
  */
-export function ProfileNameForm() {
+export function ProfileNameForm({
+  /**
+   * True when "אני מרקיד/ה" was ticked on the way in and there was no profile yet
+   * to attach the role to, so this step is about to create BOTH rows.
+   *
+   * It changes the words, and that is the whole point. The default intro promises
+   * this name is private and never shown to other dancers — which would be a lie
+   * the moment it also became the public מרקיד name. docs/decisions/0004 exists
+   * because the private and public names are different things and promoting one
+   * into the other silently publishes a name nobody agreed to show.
+   */
+  becomingInstructor = false,
+}: {
+  becomingInstructor?: boolean;
+}) {
   const router = useRouter();
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
@@ -61,7 +75,9 @@ export function ProfileNameForm() {
   return (
     <section className="pt-4">
       <h2 className="font-display text-2xl font-black">{he.profileName.heading}</h2>
-      <p className="pt-4">{he.profileName.intro}</p>
+      <p className="pt-4">
+        {becomingInstructor ? he.profileName.introInstructor : he.profileName.intro}
+      </p>
 
       <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-4 pt-6">
         <div>

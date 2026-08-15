@@ -88,6 +88,35 @@ export const he = {
   demo: {
     hide: "הסתר הרקדות",
     show: "הצג הרקדות",
+    /**
+     * The gated demo sign-in (Phase 4.2, docs/decisions/0018). Only rendered by a
+     * build with DEMO_LOGIN_ENABLED set, which production never is — so, like the
+     * toggle above, a real dancer never reads any of this.
+     *
+     * Written for whoever is DRIVING a demo, not for a dancer: it says "type 0"
+     * plainly instead of dressing the mechanism up, because the person reading it
+     * is showing the product to somebody else and needs to know what will happen.
+     */
+    signIn: {
+      heading: "כניסה להדגמה",
+      intro: "מספר 0 נכנס כמרקיד. מספר 1 ומעלה נכנסים כרוקדים.",
+      numberLabel: "מספר משתמש להדגמה",
+      submit: "אישור",
+      signingIn: "נכנסים…",
+      /** Names who you just became — a demo driver needs to see which account answered. */
+      signedInAs: (name: string): string => `נכנסתם בתור ${name}.`,
+      errors: {
+        /**
+         * The server flag is off. Reached only if a form somehow rendered without
+         * one — the gate is server-side and answers this before touching anything
+         * (see demoAuthActions.ts), so this string exists to make a refusal
+         * legible rather than to describe an expected state.
+         */
+        disabled: "הכניסה להדגמה אינה פעילה.",
+        unknownNumber: "אין משתמש הדגמה עם המספר הזה.",
+        failed: "לא הצלחנו להיכנס. אפשר לנסות שוב.",
+      },
+    },
   },
   schedule: {
     heading: "לוח הרקדות",
@@ -178,6 +207,21 @@ export const he = {
     signingOut: "יוצאים…",
     /** Greets by the name the dancer chose, once there is a profile row. */
     greeting: (name: string): string => `שלום, ${name}`,
+    /**
+     * The secondary role-declaration path (Phase 4.2, docs/decisions/0018): what a
+     * signed-in רוקד sees where a מרקיד sees the publish and manage surfaces.
+     *
+     * An invitation, not an error message. A dancer is not missing anything and
+     * should not be told they lack a permission — the words offer a thing to
+     * become, which is what ticking the box at sign-in would have done.
+     */
+    becomeInstructor: {
+      heading: "רוצה להרקיד?",
+      intro: "אפשר לפרסם הרקדות משלכם ולנהל אותן מכאן.",
+      cta: "אני מרקיד/ה",
+      working: "רק רגע…",
+      failed: "לא הצלחנו לעדכן. אפשר לנסות שוב.",
+    },
   },
   /**
    * Setting a name — the step between signing in and being able to publish.
@@ -190,6 +234,19 @@ export const he = {
   profileName: {
     heading: "איך קוראים לכם?",
     intro: "השם הזה פרטי ומשמש אותנו כדי לפנות אליכם. הוא לא מוצג לרוקדים אחרים.",
+    /**
+     * The same step, for somebody who ticked "אני מרקיד/ה" on the way in.
+     *
+     * Says the opposite of `intro` above, on purpose. That one promises the name
+     * stays private, and for a רוקד it does. For somebody becoming a מרקיד in
+     * this same step the name ALSO becomes their public one, and
+     * docs/decisions/0004 is explicit that the private and public names are
+     * different things which must never be silently promoted one into the other.
+     * Disclosing it here is what keeps the one-step flow honest; the name can
+     * still be changed later from the publish form.
+     */
+    introInstructor:
+      "השם הזה ישמש אותנו כדי לפנות אליכם, ויוצג גם לרוקדים ליד ההרקדות שלכם. תמיד אפשר לשנות אותו.",
     label: "השם שלכם",
     save: "שמירה",
     saving: "שומרים…",
@@ -315,6 +372,19 @@ export const he = {
      * itself rather than assume.
      */
     intro: "כדי לשמור הרקדות מועדפות ולנהל הרקדות משלכם, צריך להתחבר עם מספר טלפון.",
+    /**
+     * The role declaration (Phase 4.2, docs/decisions/0018). Asked once, here,
+     * because this is where a person says who they are — before this it was a
+     * side effect of publishing, which meant nobody could become a מרקיד once
+     * the publish form was gated by role.
+     *
+     * Phrased as an identity ("אני מרקיד/ה"), not a permission request ("בקשת
+     * הרשאות"): ticking it creates an unverified מרקיד record, which any
+     * signed-in person may already do for themselves. It is not a key being
+     * handed over, and the words should not suggest it is.
+     */
+    instructorLabel: "אני מרקיד/ה",
+    instructorHint: "אפשר לסמן גם אחר כך, מהאזור האישי.",
     phoneLabel: "מספר טלפון נייד",
     /** A shape to copy, not a value that gets submitted. */
     phonePlaceholder: "050-1234567",

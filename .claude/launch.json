@@ -4,8 +4,8 @@
     {
       "name": "lirkod-dev",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--", "-p", "3418"],
-      "port": 3418
+      "runtimeArgs": ["run", "dev", "--", "-p", "3419"],
+      "port": 3419
     }
   ]
 }
