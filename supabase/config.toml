@@ -392,6 +392,18 @@ max_frequency = "60s"
 972500000016 = "123456"
 # tests/e2e/manageNights.spec.ts — the browser walk through the per-night controls.
 972500000017 = "123456"
+# tests/rls/profileAndInstructorNameEditing.test.ts — two instructors, so a
+# cross-user avatar/public-name write can be attempted and refused. Not
+# tests/rls/rls.test.ts's PHONE_INSTRUCTOR_A/B (972500000001/2): that suite's
+# own beforeAll already spends those numbers' one-request-a-minute OTP budget
+# ([auth.sms] max_frequency), and running straight after it in the same
+# sequential test run would fail on a cooldown unrelated to what this file
+# asserts.
+972500000018 = "123456"
+972500000019 = "123456"
+# tests/e2e/profileEditing.spec.ts — the browser walk through the avatar
+# picker and both name-edit forms.
+972500000020 = "123456"
 # ---------------------------------------------------------------------------
 # Demo-login accounts (Phase 4.2, docs/decisions/0018). A deliberately separate
 # 9000-range so they read as "the demo cast", not as one more test fixture.

@@ -107,6 +107,14 @@ small change against the existing `instructors_update_own` policy. Until then th
 publish form still asks explicitly for anyone who became an instructor without
 declaring it at sign-in.
 
+**Paid in Phase 4.3 (docs/decisions/0019).** `InstructorNameForm` and
+`updateInstructorNameAction` let an instructor rename their public identity
+independently of the private profile name, at any time. The prediction above
+held exactly: no new grant or policy was needed — migration 0001 already
+granted `update (display_name, bio) on instructors to authenticated` and
+already had `instructors_update_own`, both written for a UI that did not
+exist yet until now. The debt was in the application, not the database.
+
 ## Decision 3 — demo login is gated server-side, to a fixed table of seeded ids
 
 A demo build can sign in by typing a small number and pressing אישור: `0` lands

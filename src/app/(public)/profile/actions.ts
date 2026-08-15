@@ -16,8 +16,11 @@ import {
   findOwnInstructor,
   findOwnProfile,
   registerAsInstructor,
+  updateInstructorPublicName,
+  updateOwnProfile,
 } from "@/lib/db/publisher";
 import { findOrCreateVenue, type VenueOption } from "@/lib/db/venues";
+import { isAvatarId } from "@/lib/domain/avatar";
 import { buildNewDance } from "@/lib/domain/newDance";
 import { buildNightTimes, type NightTimesField } from "@/lib/domain/nightTimes";
 import {
@@ -164,6 +167,91 @@ export async function declareInstructorAction(): Promise<DeclareInstructorResult
   }
 
   revalidatePath("/profile");
+  return { ok: true };
+}
+
+export type UpdateProfileResult =
+  | { ok: true }
+  | { ok: false; reason: "signedOut" | "nameMissing" | "nameTooLong" | "invalidAvatar" | "failed" };
+
+/**
+ * Edits the caller's own name and avatar — Phase 4.3, and the first thing in
+ * this file that UPDATEs `profiles` rather than only inserting it once.
+ *
+ * Takes no id: `currentUser()` supplies who is acting, and `updateOwnProfile`
+ * writes `.eq("id", user.id)` regardless of anything a caller could send. The
+ * database repeats the same check independently — migration 0011's grant
+ * withholds every column but `display_name` and `avatar_id`, and
+ * `profiles_update_own` withholds every row but the caller's — so this
+ * validation is for a kind reply to a bad form, not the security boundary.
+ *
+ * `isAvatarId` is what actually needs the client-input caution AGENTS.md §8
+ * asks for: `avatarId` arrives as a plain string from a radio value, and the
+ * database's own enum constraint would refuse an invalid one anyway, but
+ * refusing it here means the person sees "not now, try again" instead of a
+ * raw Postgres error surfacing through a thrown exception.
+ */
+export async function updateOwnProfileAction(input: {
+  displayName: string;
+  avatarId: string;
+}): Promise<UpdateProfileResult> {
+  const user = await currentUser();
+  if (user === null) return { ok: false, reason: "signedOut" };
+
+  const displayName = input.displayName.trim();
+  if (displayName === "") return { ok: false, reason: "nameMissing" };
+  if (displayName.length > MAX_NAME_LENGTH) return { ok: false, reason: "nameTooLong" };
+  if (!isAvatarId(input.avatarId)) return { ok: false, reason: "invalidAvatar" };
+
+  const client = await serverClient();
+  await updateOwnProfile(client, { id: user.id, displayName, avatarId: input.avatarId });
+
+  revalidatePath("/profile");
+  return { ok: true };
+}
+
+export type UpdateInstructorNameResult =
+  | { ok: true }
+  | { ok: false; reason: "signedOut" | "notInstructor" | "nameMissing" | "nameTooLong" | "failed" };
+
+/**
+ * Renames the caller's PUBLIC identity — the write that pays the debt
+ * docs/decisions/0018 recorded. `declareInstructorAction` defaults this to the
+ * private profile name on first declaration; this is what makes that default
+ * editable afterwards, independently of the private name
+ * (`updateOwnProfileAction` above never touches `instructors` and this never
+ * touches `profiles` — the split docs/decisions/0004 asks for).
+ *
+ * `notInstructor` for anyone without a row rather than creating one: unlike
+ * `declareInstructorAction`, becoming a מרקיד is not this action's job, and
+ * conflating the two would mean a stray call from a signed-in דancer's session
+ * — a forged form, a replayed request — silently enrols them. `showsInstructorTools`
+ * keeps this control off a רוקד's screen; the check here is what holds if that
+ * is bypassed.
+ */
+export async function updateInstructorNameAction(
+  name: string,
+): Promise<UpdateInstructorNameResult> {
+  const user = await currentUser();
+  if (user === null) return { ok: false, reason: "signedOut" };
+
+  const displayName = name.trim();
+  if (displayName === "") return { ok: false, reason: "nameMissing" };
+  if (displayName.length > MAX_NAME_LENGTH) return { ok: false, reason: "nameTooLong" };
+
+  const client = await serverClient();
+  const profile = await findOwnProfile(client, user.id);
+  if (profile === null) return { ok: false, reason: "notInstructor" };
+
+  const instructor = await findOwnInstructor(client, profile.id);
+  if (instructor === null) return { ok: false, reason: "notInstructor" };
+
+  await updateInstructorPublicName(client, { id: instructor.id, displayName });
+
+  // The public name reaches the map and the schedule, not only /profile.
+  revalidatePath("/profile");
+  revalidatePath("/");
+  revalidatePath("/schedule");
   return { ok: true };
 }
 

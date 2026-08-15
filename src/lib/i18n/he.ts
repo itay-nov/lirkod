@@ -15,6 +15,31 @@ export const he = {
      */
     screenNotReady: "המסך הזה עדיין בבנייה.",
   },
+  /**
+   * The accessible name for each preset avatar (Phase 4.3, docs/decisions/0019),
+   * spoken by a screen reader on its radio tile and used as this dictionary's
+   * one runtime check that every `AvatarId` has Hebrew words to go with it —
+   * `tests/unit/avatar.test.ts` asserts this object's keys match `AVATAR_IDS`
+   * exactly, so a thirteenth avatar cannot ship silently mute.
+   *
+   * Described by what they show, not by a marketing name: a screen reader user
+   * choosing between tiles needs "אישה, שיער אפור אסוף" to mean something on
+   * its own, out of context.
+   */
+  avatars: {
+    woman_short_hair: "אישה עם שיער קצר",
+    man_curly: "גבר עם שיער מתולתל",
+    woman_long_hair: "אישה עם שיער ארוך",
+    man_glasses: "גבר עם משקפיים",
+    woman_gray_bun: "אישה עם שיער אפור אסוף",
+    man_bald_mustache: "גבר קירח עם שפם",
+    woman_curly_gray: "אישה עם שיער אפור מתולתל",
+    man_gray_beard: "גבר עם זקן אפור",
+    dancer_figure: "דמות רוקדת",
+    circle_dance: "מעגל רוקדים",
+    pomegranate: "רימון",
+    musical_notes: "תווים מוזיקליים",
+  },
   home: {
     heading: "הרקדות קרובות",
     /** Shown when the proximity query comes back empty — not an error state. */
@@ -221,6 +246,50 @@ export const he = {
       cta: "אני מרקיד/ה",
       working: "רק רגע…",
       failed: "לא הצלחנו לעדכן. אפשר לנסות שוב.",
+    },
+  },
+  /**
+   * Editing the name and avatar AFTER there is already a profile row — Phase
+   * 4.3. `profileName` above is the separate, one-time "what should we call
+   * you" step `saveProfileName` answers; this is `updateOwnProfileAction`,
+   * reached from a toggle in the signed-in screen rather than shown by
+   * default, the same "toggle to reveal a secondary form" shape
+   * `publishDance.addVenueToggle` already uses — the default view stays the
+   * dignified, uncluttered greeting (AGENTS.md §2).
+   */
+  profileEdit: {
+    toggle: "עריכת הפרופיל",
+    cancel: "ביטול",
+    nameLabel: "השם שלכם",
+    /** The picker's fieldset legend — see AvatarPicker.tsx. */
+    avatarLabel: "תמונת הפרופיל",
+    save: "שמירה",
+    saving: "שומרים…",
+    errors: {
+      missing: "צריך להקליד שם.",
+      tooLong: "השם ארוך מדי. עד 80 תווים.",
+      failed: "לא הצלחנו לשמור את השינויים. אפשר לנסות שוב.",
+    },
+  },
+  /**
+   * The instructor's PUBLIC name, editable on its own — Phase 4.3, pays the
+   * debt docs/decisions/0018 recorded: declaring "אני מרקיד/ה" at sign-in
+   * defaults this to the private profile name (disclosed at the time,
+   * `profileName.introInstructor`), and this is where that default stops
+   * being permanent. Deliberately separate wording from `profileEdit` above —
+   * docs/decisions/0004 is that these are two different names, and the two
+   * forms editing them should not look like one form with an extra field.
+   */
+  instructorName: {
+    heading: "השם הפומבי שלכם",
+    intro: "זה השם שהרוקדים רואים במפה ובלוח, ליד ההרקדות שלכם. הוא נפרד מהשם הפרטי שלכם.",
+    label: "השם הפומבי",
+    save: "שמירה",
+    saving: "שומרים…",
+    errors: {
+      missing: "צריך להקליד שם.",
+      tooLong: "השם ארוך מדי. עד 80 תווים.",
+      failed: "לא הצלחנו לשמור את השם. אפשר לנסות שוב.",
     },
   },
   /**
