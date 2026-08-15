@@ -2,6 +2,8 @@ import type { NearbyDance, OccurrenceStatus } from "@/lib/db/dances";
 import { formatStartTime, formatStartWeekday } from "@/lib/domain/occurrenceTime";
 import { appearanceFor } from "@/components/danceStatusAppearance";
 import { googleMapsNavigationUrl, wazeNavigationUrl } from "@/lib/maps/navigationLinks";
+import { whatsAppShareUrl } from "@/lib/maps/shareLinks";
+import { buildIcsEvent, icsDataUrl } from "@/lib/domain/calendarEvent";
 import { he } from "@/lib/i18n/he";
 
 /**
@@ -67,16 +69,56 @@ export interface MapDance {
   wazeLabel: string;
   googleMapsUrl: string;
   googleMapsLabel: string;
+  /** wa.me, pre-filled with a plain-text summary of the night (Phase 4.6a). */
+  shareUrl: string;
+  shareLabel: string;
+  /**
+   * A `data:` .ics download, or null for a cancelled night — a calendar entry
+   * for a dance that is off is not a "normal calendar event" (Phase 4.6a task).
+   * The button that would use this simply does not render when it is null.
+   */
+  icsUrl: string | null;
+  icsFilename: string;
+  calendarLabel: string;
 }
 
 export function toMapDance(dance: NearbyDance): MapDance {
   const time = formatStartTime(dance.startsAt);
   const weekday = formatStartWeekday(dance.startsAt);
+  const endTime = formatStartTime(dance.endsAt);
   const { statusLabel, statusBadgeClassName, ringClassName, timeClassName } = appearanceFor(
     dance.status,
     dance.originalStartsAt,
   );
   const target = { lat: dance.venueLat, lng: dance.venueLng };
+  const googleMapsUrl = googleMapsNavigationUrl(target);
+
+  const shareText = he.map.preview.shareText({
+    instructor: dance.instructorDisplayName,
+    weekday,
+    timeRange: `${time}–${endTime}`,
+    venue: dance.venueName,
+    address: dance.venueAddress,
+    status: statusLabel,
+    mapsUrl: googleMapsUrl,
+  });
+
+  // A cancelled night gets no calendar entry at all (Phase 4.6a task) — an
+  // added event nobody removes is worse than no button, and there is no
+  // "cancelled" state for a dancer's own calendar app to show it in.
+  const icsUrl =
+    dance.status === "cancelled"
+      ? null
+      : icsDataUrl(
+          buildIcsEvent({
+            uid: dance.occurrenceId,
+            title: he.dance.title(dance.instructorDisplayName),
+            location: `${dance.venueName}, ${dance.venueAddress}`,
+            startUtcIso: dance.startsAt,
+            endUtcIso: dance.endsAt,
+            now: new Date(),
+          }),
+        );
 
   return {
     eventId: dance.eventId,
@@ -103,8 +145,13 @@ export function toMapDance(dance: NearbyDance): MapDance {
     }),
     wazeUrl: wazeNavigationUrl(target),
     wazeLabel: he.map.preview.waze(dance.venueName),
-    googleMapsUrl: googleMapsNavigationUrl(target),
+    googleMapsUrl,
     googleMapsLabel: he.map.preview.googleMaps(dance.venueName),
+    shareUrl: whatsAppShareUrl(shareText),
+    shareLabel: he.map.preview.shareWhatsapp,
+    icsUrl,
+    icsFilename: `${dance.occurrenceId}.ics`,
+    calendarLabel: he.map.preview.addToCalendar,
   };
 }
 

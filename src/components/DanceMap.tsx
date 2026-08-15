@@ -524,6 +524,32 @@ export function DanceMap({
                 {selected.googleMapsLabel}
               </a>
 
+              {/*
+                Two plain links, not buttons with a click handler — the same
+                "hand off to another app" shape Waze and Google Maps already
+                use above. WhatsApp opens in a new tab like the navigation
+                links; the calendar link downloads instead, via `download`
+                rather than `target="_blank"`, so it never replaces the panel
+                a dancer is looking at with a browser's raw .ics preview.
+              */}
+              <a
+                href={selected.shareUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex min-h-12 items-center justify-center rounded-full border-2 border-secondary px-4 py-2 text-center font-semibold text-secondary focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-secondary"
+              >
+                {selected.shareLabel}
+              </a>
+              {selected.icsUrl !== null && (
+                <a
+                  href={selected.icsUrl}
+                  download={selected.icsFilename}
+                  className="flex min-h-12 items-center justify-center rounded-full border-2 border-secondary px-4 py-2 text-center font-semibold text-secondary focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-secondary"
+                >
+                  {selected.calendarLabel}
+                </a>
+              )}
+
               <button
                 type="button"
                 onClick={closePreview}

@@ -11,6 +11,8 @@ import { toMapDance, toMapDances } from "@/lib/maps/mapDance";
 
 // 2025-06-02T17:30:00Z is 20:30 on a Monday in Asia/Jerusalem (IDT, UTC+3).
 const STARTS_AT = "2025-06-02T17:30:00.000Z";
+// 22:30 the same evening.
+const ENDS_AT = "2025-06-02T19:30:00.000Z";
 
 function dance(status: OccurrenceStatus): NearbyDance {
   return {
@@ -21,8 +23,10 @@ function dance(status: OccurrenceStatus): NearbyDance {
     status,
     venueId: "b0000000-0000-0000-0000-000000000001",
     venueName: "היכל התרבות חולון",
+    venueAddress: "רחוב סוקולוב 15, חולון",
     venueLat: 32.0114,
     venueLng: 34.7736,
+    endsAt: ENDS_AT,
     instructorDisplayName: "רונית מרקידה",
     danceTypes: ["ריקודי עם"],
     priceAgorot: 3000,
@@ -106,6 +110,38 @@ describe("toMapDance", () => {
     // Not the same string: a screen reader user tabbing between two links must
     // be able to tell which app each one opens.
     expect(mapped.wazeLabel).not.toBe(mapped.googleMapsLabel);
+  });
+
+  it("builds a WhatsApp share link pre-filled with venue, address, time and instructor", () => {
+    const mapped = toMapDance(dance("scheduled"));
+    const text = decodeURIComponent(mapped.shareUrl.slice("https://wa.me/?text=".length));
+
+    expect(text).toContain("רונית מרקידה");
+    expect(text).toContain("היכל התרבות חולון");
+    expect(text).toContain("רחוב סוקולוב 15, חולון");
+    expect(text).toContain("20:30");
+    expect(text).toContain(mapped.googleMapsUrl);
+  });
+
+  it("names the WhatsApp status word in the share text, never colour alone (§2.6)", () => {
+    const mapped = toMapDance(dance("cancelled"));
+    const text = decodeURIComponent(mapped.shareUrl.slice("https://wa.me/?text=".length));
+
+    expect(text).toContain(he.dance.status.cancelled);
+  });
+
+  it("offers an .ics download for a normal or moved night", () => {
+    expect(toMapDance(dance("scheduled")).icsUrl).not.toBeNull();
+    expect(toMapDance(dance("moved")).icsUrl).not.toBeNull();
+  });
+
+  it("does not offer a calendar entry for a cancelled night", () => {
+    expect(toMapDance(dance("cancelled")).icsUrl).toBeNull();
+  });
+
+  it("names the .ics file by occurrence, so two downloads from one session never collide", () => {
+    const mapped = toMapDance(dance("scheduled"));
+    expect(mapped.icsFilename).toBe("d0000000-0000-0000-0000-000000000001.ics");
   });
 
   it("leaves nothing for the client to format", () => {

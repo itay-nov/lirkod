@@ -21,8 +21,11 @@ export interface NearbyDance {
   status: OccurrenceStatus;
   venueId: string;
   venueName: string;
+  venueAddress: string;
   venueLat: number;
   venueLng: number;
+  /** ISO-8601 UTC. Not returned by find_dances_near/find_favorite_nights — see attachNightDetails. */
+  endsAt: string;
   instructorDisplayName: string;
   danceTypes: string[];
   priceAgorot: number;
@@ -60,12 +63,58 @@ function toNearbyDance(row: NearbyDanceRow): NearbyDance {
     status: row.status,
     venueId: row.venue_id,
     venueName: row.venue_name,
+    // Filled in by attachNightDetails — find_dances_near/find_favorite_nights
+    // do not return these two columns, and changing their RETURNS TABLE needs a
+    // migration this task does not carry. Placeholders here, never returned as-is.
+    venueAddress: "",
+    endsAt: row.starts_at,
     venueLat: row.venue_lat,
     venueLng: row.venue_lng,
     instructorDisplayName: row.instructor_display_name,
     danceTypes: row.dance_types,
     priceAgorot: row.price_agorot,
   };
+}
+
+/**
+ * Fills in `venueAddress` and `endsAt`, neither of which find_dances_near or
+ * find_favorite_nights return (both are RETURNS TABLE functions from earlier
+ * migrations, and widening one needs a new migration this task does not carry).
+ * Both columns are already public-readable through `venues` and
+ * `event_occurrences` directly — `venues_select_public` and
+ * `event_occurrences_select_anon_horizon`/`_select_authenticated` — so this is
+ * two more bounded, indexed lookups by primary key, not a widened exposure.
+ *
+ * Batched by id rather than N+1: the row counts here are the same 200-row cap
+ * find_dances_near already carries.
+ */
+async function attachNightDetails(
+  client: SupabaseClient<Database>,
+  dances: NearbyDance[],
+): Promise<NearbyDance[]> {
+  if (dances.length === 0) return dances;
+
+  const venueIds = [...new Set(dances.map((dance) => dance.venueId))];
+  const occurrenceIds = dances.map((dance) => dance.occurrenceId);
+
+  const [venuesResult, occurrencesResult] = await Promise.all([
+    client.from("venues").select("id, address").in("id", venueIds),
+    client.from("event_occurrences").select("id, ends_at").in("id", occurrenceIds),
+  ]);
+
+  if (venuesResult.error) throw venuesResult.error;
+  if (occurrencesResult.error) throw occurrencesResult.error;
+
+  const addressByVenueId = new Map(venuesResult.data.map((row) => [row.id, row.address]));
+  const endsAtByOccurrenceId = new Map(
+    occurrencesResult.data.map((row) => [row.id, row.ends_at]),
+  );
+
+  return dances.map((dance) => ({
+    ...dance,
+    venueAddress: addressByVenueId.get(dance.venueId) ?? "",
+    endsAt: endsAtByOccurrenceId.get(dance.occurrenceId) ?? dance.startsAt,
+  }));
 }
 
 /**
@@ -88,7 +137,7 @@ export async function findDancesNear(
 
   if (error) throw error;
 
-  return (data ?? []).map(toNearbyDance);
+  return attachNightDetails(client, (data ?? []).map(toNearbyDance));
 }
 
 /**
@@ -118,7 +167,7 @@ export async function findFavoriteNights(
 
   if (error) throw error;
 
-  return (data ?? []).map(toNearbyDance);
+  return attachNightDetails(client, (data ?? []).map(toNearbyDance));
 }
 
 export interface PublishedDance {
