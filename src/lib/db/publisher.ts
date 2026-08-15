@@ -1,3 +1,4 @@
+import type { AvatarId } from "@/lib/domain/avatar";
 import type { Client } from "./client";
 
 /**
@@ -14,6 +15,8 @@ import type { Client } from "./client";
 export interface Profile {
   id: string;
   displayName: string;
+  /** Phase 4.3 — always present: migration 0011 gives the column a default. */
+  avatarId: AvatarId;
 }
 
 export interface Instructor {
@@ -42,14 +45,14 @@ export async function findOwnProfile(
 ): Promise<Profile | null> {
   const { data, error } = await client
     .from("profiles")
-    .select("id, display_name")
+    .select("id, display_name, avatar_id")
     .eq("id", userId)
     .maybeSingle();
 
   if (error) throw error;
   if (!data) return null;
 
-  return { id: data.id, displayName: data.display_name };
+  return { id: data.id, displayName: data.display_name, avatarId: data.avatar_id };
 }
 
 /**
@@ -67,12 +70,40 @@ export async function createOwnProfile(
   const { data, error } = await client
     .from("profiles")
     .insert({ id: profile.id, display_name: profile.displayName, phone: profile.phone })
-    .select("id, display_name")
+    .select("id, display_name, avatar_id")
     .single();
 
   if (error) throw error;
 
-  return { id: data.id, displayName: data.display_name };
+  return { id: data.id, displayName: data.display_name, avatarId: data.avatar_id };
+}
+
+/**
+ * Updates the caller's own name and avatar — the one write behind
+ * `updateOwnProfileAction` (Phase 4.3).
+ *
+ * `.update({ display_name, avatar_id })` names exactly the two columns
+ * migration 0011 granted UPDATE on. Naming any other column here would fail
+ * with 42501 before `profiles_update_own` is even consulted — see that
+ * migration's note on why `phone`, `home_location`, `id` and `created_at`
+ * stay outside the grant. The `.eq("id", profileId)` is what
+ * `profiles_update_own` would enforce anyway, written explicitly for the same
+ * reason `findOwnProfile` above does not rely on RLS as a filter.
+ */
+export async function updateOwnProfile(
+  client: Client,
+  profile: { id: string; displayName: string; avatarId: AvatarId },
+): Promise<Profile> {
+  const { data, error } = await client
+    .from("profiles")
+    .update({ display_name: profile.displayName, avatar_id: profile.avatarId })
+    .eq("id", profile.id)
+    .select("id, display_name, avatar_id")
+    .single();
+
+  if (error) throw error;
+
+  return { id: data.id, displayName: data.display_name, avatarId: data.avatar_id };
 }
 
 /**
@@ -129,6 +160,36 @@ export async function registerAsInstructor(
   const { data, error } = await client
     .from("instructors")
     .insert({ profile_id: instructor.profileId, display_name: instructor.displayName })
+    .select("id, display_name, verified")
+    .single();
+
+  if (error) throw error;
+
+  return { id: data.id, displayName: data.display_name, verified: data.verified };
+}
+
+/**
+ * Renames the caller's PUBLIC identity — pays the debt docs/decisions/0018
+ * recorded (Phase 4.3). `registerAsInstructor` above still defaults this to
+ * the private profile name on first declaration; this is what makes that
+ * default stop being permanent.
+ *
+ * `.update({ display_name })` names only the column migration 0001 already
+ * granted UPDATE on for `instructors` (`display_name`, `bio`) — no new
+ * migration was needed for this write path, only this function and the form
+ * in front of it; see docs/decisions/0019 for why. `verified` was never in
+ * that grant and stays that way; naming it here would fail with 42501 before
+ * `instructors_update_own` is consulted, the same layered defence migration
+ * 0004 built.
+ */
+export async function updateInstructorPublicName(
+  client: Client,
+  instructor: { id: string; displayName: string },
+): Promise<Instructor> {
+  const { data, error } = await client
+    .from("instructors")
+    .update({ display_name: instructor.displayName })
+    .eq("id", instructor.id)
     .select("id, display_name, verified")
     .single();
 

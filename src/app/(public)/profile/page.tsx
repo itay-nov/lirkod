@@ -9,11 +9,14 @@ import { findOwnNights } from "@/lib/db/nights";
 import { findOwnInstructor, findOwnProfile } from "@/lib/db/publisher";
 import { searchVenues } from "@/lib/db/venues";
 import { toManageableNights } from "@/lib/domain/manageNight";
+import { Avatar } from "@/components/Avatar";
 import { BecomeInstructor } from "@/components/BecomeInstructor";
 import { CreateDanceForm } from "@/components/CreateDanceForm";
 import { DemoSignIn } from "@/components/DemoSignIn";
+import { InstructorNameForm } from "@/components/InstructorNameForm";
 import { ManageNights } from "@/components/ManageNights";
 import { PhoneSignIn } from "@/components/PhoneSignIn";
+import { ProfileEditForm } from "@/components/ProfileEditForm";
 import { ProfileNameForm } from "@/components/ProfileNameForm";
 import { SignOutButton } from "@/components/SignOutButton";
 import { formatIsraeliPhone } from "@/lib/domain/phone";
@@ -163,11 +166,36 @@ async function SignedIn({ userId, phone }: { userId: string; phone: string | nul
 
   return (
     <div className="flex flex-col gap-6 pt-4">
-      <p className="font-bold">{he.profile.greeting(profile.displayName)}</p>
-      <p>{he.profile.signedInAs(phone === null ? "" : formatIsraeliPhone(phone))}</p>
+      {/*
+        The avatar is PRIVATE, like the rest of `profiles` — it renders here
+        and nowhere else. The public map and schedule read `instructors.
+        display_name` only, never `profiles`, and there is no avatar column on
+        `instructors` (docs/decisions/0004, 0019). "Anywhere the name already
+        appears" therefore means this greeting; it does not mean pins.
+      */}
+      <div className="flex items-center gap-3">
+        <Avatar id={profile.avatarId} className="block size-14 shrink-0" />
+        <div>
+          <p className="font-bold">{he.profile.greeting(profile.displayName)}</p>
+          <p>{he.profile.signedInAs(phone === null ? "" : formatIsraeliPhone(phone))}</p>
+        </div>
+      </div>
+
+      <ProfileEditForm
+        initialDisplayName={profile.displayName}
+        initialAvatarId={profile.avatarId}
+      />
 
       {showsInstructorTools(role) ? (
         <>
+          {/* The instructor's own PUBLIC name, editable independently of the
+              private one above — Phase 4.3 pays the debt docs/decisions/0018
+              recorded. `instructor` is non-null in this branch (that is what
+              `showsInstructorTools` means), so this can read its id directly. */}
+          {instructor !== null && (
+            <InstructorNameForm initialDisplayName={instructor.displayName} />
+          )}
+
           {/*
             The public name is prefilled from the private one but asked for
             explicitly, because they are different things (docs/decisions/0004)

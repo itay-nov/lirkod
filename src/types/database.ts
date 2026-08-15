@@ -167,6 +167,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          avatar_id: Database["public"]["Enums"]["avatar_choice"]
           created_at: string
           display_name: string
           home_location: unknown
@@ -174,6 +175,7 @@ export type Database = {
           phone: string
         }
         Insert: {
+          avatar_id?: Database["public"]["Enums"]["avatar_choice"]
           created_at?: string
           display_name: string
           home_location?: unknown
@@ -181,6 +183,7 @@ export type Database = {
           phone: string
         }
         Update: {
+          avatar_id?: Database["public"]["Enums"]["avatar_choice"]
           created_at?: string
           display_name?: string
           home_location?: unknown
@@ -299,6 +302,19 @@ export type Database = {
       }
     }
     Enums: {
+      avatar_choice:
+        | "woman_short_hair"
+        | "man_curly"
+        | "woman_long_hair"
+        | "man_glasses"
+        | "woman_gray_bun"
+        | "man_bald_mustache"
+        | "woman_curly_gray"
+        | "man_gray_beard"
+        | "dancer_figure"
+        | "circle_dance"
+        | "pomegranate"
+        | "musical_notes"
       occurrence_status: "scheduled" | "cancelled" | "moved"
       recurrence_freq: "weekly" | "biweekly"
     }
@@ -428,6 +444,20 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      avatar_choice: [
+        "woman_short_hair",
+        "man_curly",
+        "woman_long_hair",
+        "man_glasses",
+        "woman_gray_bun",
+        "man_bald_mustache",
+        "woman_curly_gray",
+        "man_gray_beard",
+        "dancer_figure",
+        "circle_dance",
+        "pomegranate",
+        "musical_notes",
+      ],
       occurrence_status: ["scheduled", "cancelled", "moved"],
       recurrence_freq: ["weekly", "biweekly"],
     },
