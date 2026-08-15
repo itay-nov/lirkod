@@ -33,6 +33,7 @@ afterEach(cleanup);
  */
 function dance(status: OccurrenceStatus): MapDance {
   return toMapDance({
+    eventId: "c0000000-0000-0000-0000-000000000001",
     occurrenceId: "d0000000-0000-0000-0000-000000000001",
     startsAt: STARTS_AT,
     originalStartsAt: null,

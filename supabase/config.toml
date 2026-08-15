@@ -404,6 +404,12 @@ max_frequency = "60s"
 # tests/e2e/profileEditing.spec.ts — the browser walk through the avatar
 # picker and both name-edit forms.
 972500000020 = "123456"
+# tests/rls/favorites.test.ts — two dancers, so a cross-user favorites
+# read/write can be attempted and refused (Phase 4.5, migration 0012).
+972500000021 = "123456"
+972500000022 = "123456"
+# tests/e2e/favorites.spec.ts — the browser walk through the heart toggle.
+972500000023 = "123456"
 # ---------------------------------------------------------------------------
 # Demo-login accounts (Phase 4.2, docs/decisions/0018). A deliberately separate
 # 9000-range so they read as "the demo cast", not as one more test fixture.

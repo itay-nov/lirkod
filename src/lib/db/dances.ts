@@ -5,6 +5,8 @@ import type { Client } from "./client";
 export type OccurrenceStatus = Database["public"]["Enums"]["occurrence_status"];
 
 export interface NearbyDance {
+  /** The series this night belongs to — what a dancer favorites, not the occurrence. */
+  eventId: string;
   occurrenceId: string;
   startsAt: string;
   /**
@@ -27,6 +29,46 @@ export interface NearbyDance {
 }
 
 /**
+ * find_dances_near and find_favorite_nights return identical shapes (migration
+ * 0012 — the second is the first's sibling, filtered by event id instead of by
+ * distance), so both RPCs share this one mapper.
+ */
+interface NearbyDanceRow {
+  event_id: string;
+  occurrence_id: string;
+  starts_at: string;
+  original_starts_at: unknown;
+  status: OccurrenceStatus;
+  venue_id: string;
+  venue_name: string;
+  venue_lat: number;
+  venue_lng: number;
+  instructor_display_name: string;
+  dance_types: string[];
+  price_agorot: number;
+}
+
+function toNearbyDance(row: NearbyDanceRow): NearbyDance {
+  return {
+    eventId: row.event_id,
+    occurrenceId: row.occurrence_id,
+    startsAt: row.starts_at,
+    // `supabase gen types` marks every RETURNS TABLE column non-null, which is
+    // right for the rest of them and wrong for this one — a night nobody moved
+    // has no original time. Narrowed here rather than trusted.
+    originalStartsAt: (row.original_starts_at as string | null) ?? null,
+    status: row.status,
+    venueId: row.venue_id,
+    venueName: row.venue_name,
+    venueLat: row.venue_lat,
+    venueLng: row.venue_lng,
+    instructorDisplayName: row.instructor_display_name,
+    danceTypes: row.dance_types,
+    priceAgorot: row.price_agorot,
+  };
+}
+
+/**
  * Future dances within radiusMeters of (lat, lng), for the public map (AGENTS.md §9).
  * Delegates the radius filter and the venue coalesce (docs/decisions/0003) to the
  * find_dances_near SQL function (docs/decisions/0005) — never fetch-then-filter in JS.
@@ -46,22 +88,37 @@ export async function findDancesNear(
 
   if (error) throw error;
 
-  return (data ?? []).map((row) => ({
-    occurrenceId: row.occurrence_id,
-    startsAt: row.starts_at,
-    // `supabase gen types` marks every RETURNS TABLE column non-null, which is
-    // right for the rest of them and wrong for this one — a night nobody moved
-    // has no original time. Narrowed here rather than trusted.
-    originalStartsAt: (row.original_starts_at as string | null) ?? null,
-    status: row.status,
-    venueId: row.venue_id,
-    venueName: row.venue_name,
-    venueLat: row.venue_lat,
-    venueLng: row.venue_lng,
-    instructorDisplayName: row.instructor_display_name,
-    danceTypes: row.dance_types,
-    priceAgorot: row.price_agorot,
-  }));
+  return (data ?? []).map(toNearbyDance);
+}
+
+/**
+ * The caller's favorited dances' upcoming nights — including cancelled and
+ * moved ones, exactly like findDancesNear (AGENTS.md §10: a follower must
+ * learn a night is off, never just find an absence). Delegates to
+ * find_favorite_nights (migration 0012), find_dances_near's sibling: same
+ * shape, filtered by event id instead of distance, for the same reason
+ * docs/decisions/0005 gives — PostgREST cannot express the
+ * coalesce(override_venue_id, venue_id) join it needs.
+ *
+ * Takes the event ids rather than a user id: the caller (favoritesActions.ts)
+ * has already read them from `favorites`, which IS the ownership boundary
+ * (favorites_select_own) — this function does not re-check ownership, because
+ * event_occurrences and dance_events are public-readable regardless (see the
+ * note on this RPC's grant in migration 0012).
+ */
+export async function findFavoriteNights(
+  client: SupabaseClient<Database>,
+  eventIds: readonly string[],
+): Promise<NearbyDance[]> {
+  if (eventIds.length === 0) return [];
+
+  const { data, error } = await client.rpc("find_favorite_nights", {
+    p_event_ids: eventIds as string[],
+  });
+
+  if (error) throw error;
+
+  return (data ?? []).map(toNearbyDance);
 }
 
 export interface PublishedDance {

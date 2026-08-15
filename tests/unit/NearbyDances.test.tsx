@@ -97,6 +97,7 @@ const LOCATED_VENUES = ["אולם נתניה", "מרכז קהילתי הרצלי
 
 function dance(venueName: string, overrides: Partial<MapDance> = {}): MapDance {
   return {
+    eventId: `event-${venueName}`,
     occurrenceId: `occurrence-${venueName}`,
     lat: 32.0114,
     lng: 34.7736,

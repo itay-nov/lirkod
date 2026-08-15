@@ -69,16 +69,43 @@ test("renders each dance with its night spelled out in visible text", async ({
   expect(text).toMatch(/\S/);
 });
 
-test("no dance row is a control while there is no detail route to reach", async ({
+test("a dance row has no control of its own — only the heart it was handed (Phase 4.5)", async ({
   page,
 }) => {
   await page.goto("/schedule");
   const rows = page.locator("main li");
 
   await expect(rows.first()).toBeVisible();
-  expect(await rows.getByRole("button").count()).toBe(0);
+
+  // Still no links, and still nothing focusable that isn't the one control
+  // every row is deliberately given: the favorite heart. DanceRow itself
+  // stays exactly as inert as before (docs/decisions/0020) — the heart is a
+  // real, fully-functional action passed in from the outside, not a stub
+  // this component grew on its own account.
   expect(await rows.getByRole("link").count()).toBe(0);
-  expect(await rows.locator("[tabindex], [aria-label]").count()).toBe(0);
+
+  const rowCount = await rows.count();
+  const buttons = rows.getByRole("button");
+  // One heart per row, no more — proves nothing else in the row picked up
+  // an accidental button, link or aria-label of its own.
+  expect(await buttons.count()).toBe(rowCount);
+  for (const name of await buttons.evaluateAll((els) =>
+    els.map((el) => el.getAttribute("aria-label")),
+  )) {
+    expect(name).toMatch(/^(הוספה למועדפים|הסרה מהמועדפים): /);
+  }
+
+  // Beyond the hearts themselves, nothing in a row carries its own
+  // aria-label or tabindex.
+  const strayCounts = await rows.evaluateAll((rowElements) =>
+    rowElements.map(
+      (row) =>
+        [...row.querySelectorAll("[tabindex], [aria-label]")].filter(
+          (el) => !el.getAttribute("aria-label")?.match(/מועדפים/),
+        ).length,
+    ),
+  );
+  expect(strayCounts.every((count) => count === 0)).toBe(true);
 });
 
 test("states a moved or cancelled dance in words, not only in colour", async ({
@@ -142,21 +169,27 @@ test("shows venue names in full at 200% on a phone, not cut to an ellipsis", asy
   expect(overflows).toBe(false);
 });
 
-test("tabbing never lands inside a dance row", async ({ page }) => {
-  // This replaces a test that walked the rows with Tab and asserted they came
-  // in the order shown. That order is still correct — it is just the reading
-  // order now, not a tab order, because a row that takes focus and does nothing
-  // on Enter is a dead end for exactly the keyboard user it looked like it was
-  // serving. Sequential Tab, not a [tabindex] query: a button reintroduced
-  // inside a row shows up here and nowhere else.
+test("tabbing lands only on a row's heart, never anywhere else inside it (Phase 4.5)", async ({
+  page,
+}) => {
+  // Until Phase 4.5 this asserted tabbing never landed inside a row at all —
+  // true when a row had nothing on it that did anything on Enter (see the
+  // comment on DanceRing that reasoning traces back to). The favorite heart
+  // is not that: it is a real, fully-functional control (docs/decisions/0020),
+  // so it is SUPPOSED to be a tab stop — the thing this now checks is that it
+  // is the ONLY one. A button reintroduced inside a row for any other reason
+  // still shows up here as a second stop this test does not expect.
   await page.goto("/schedule");
   await expect(page.locator("main li").first()).toBeVisible();
 
   for (let i = 0; i < 12; i++) {
     await page.keyboard.press("Tab");
-    const inRow = await page.evaluate(
-      () => document.activeElement?.closest("main li") !== null,
-    );
-    expect(inRow).toBe(false);
+    const focused = await page.evaluate(() => {
+      const row = document.activeElement?.closest("main li");
+      if (!row) return { inRow: false, isHeart: false };
+      const label = document.activeElement?.getAttribute("aria-label") ?? "";
+      return { inRow: true, isHeart: /מועדפים/.test(label) };
+    });
+    if (focused.inRow) expect(focused.isHeart).toBe(true);
   }
 });

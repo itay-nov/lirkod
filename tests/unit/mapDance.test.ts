@@ -14,6 +14,7 @@ const STARTS_AT = "2025-06-02T17:30:00.000Z";
 
 function dance(status: OccurrenceStatus): NearbyDance {
   return {
+    eventId: "c0000000-0000-0000-0000-000000000001",
     occurrenceId: "d0000000-0000-0000-0000-000000000001",
     startsAt: STARTS_AT,
     originalStartsAt: null,
@@ -47,6 +48,15 @@ describe("toMapDance", () => {
 
     expect(mapped.lat).toBe(32.0114);
     expect(mapped.lng).toBe(34.7736);
+  });
+
+  it("carries the SERIES id, not just the occurrence's, for the heart toggle to favorite (Phase 4.5)", () => {
+    // docs/decisions/0002: an occurrence is one materialized night, but what
+    // a dancer favorites is the recurring dance behind it — eventId has to
+    // survive this conversion for FavoriteButton to have anything to act on.
+    expect(toMapDance(dance("scheduled")).eventId).toBe(
+      "c0000000-0000-0000-0000-000000000001",
+    );
   });
 
   it("gives a normal night no status word — there is nothing to warn about", () => {

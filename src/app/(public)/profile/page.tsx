@@ -5,6 +5,8 @@ import {
 } from "@/lib/auth/instructorIntent";
 import { serverClient } from "@/lib/auth/serverClient";
 import { currentUser } from "@/lib/auth/session";
+import { findFavoriteNights } from "@/lib/db/dances";
+import { findOwnFavoriteEventIds } from "@/lib/db/favorites";
 import { findOwnNights } from "@/lib/db/nights";
 import { findOwnInstructor, findOwnProfile } from "@/lib/db/publisher";
 import { searchVenues } from "@/lib/db/venues";
@@ -12,7 +14,9 @@ import { toManageableNights } from "@/lib/domain/manageNight";
 import { Avatar } from "@/components/Avatar";
 import { BecomeInstructor } from "@/components/BecomeInstructor";
 import { CreateDanceForm } from "@/components/CreateDanceForm";
+import { DanceRow } from "@/components/DanceRow";
 import { DemoSignIn } from "@/components/DemoSignIn";
+import { FavoriteButton } from "@/components/FavoriteButton";
 import { InstructorNameForm } from "@/components/InstructorNameForm";
 import { ManageNights } from "@/components/ManageNights";
 import { PhoneSignIn } from "@/components/PhoneSignIn";
@@ -82,20 +86,64 @@ export default async function ProfilePage() {
         Favorites was its own route and tab in the first pass of this shell;
         merged in here as a labeled section rather than kept as a fourth
         destination — see docs/decisions/0008 for why.
-
-        Real favorites (saving a dance) is Phase 4.5 — this is shell only, so
-        the section is one of two honest empty-states rather than a "בבנייה"
-        notice (AGENTS.md §2). Which one depends on whether signing in would
-        change anything: an anonymous visitor is told to sign in, a signed-in
-        one is told there is nothing saved yet.
       */}
+      <FavoritesSection userId={user?.id ?? null} />
+    </div>
+  );
+}
+
+/**
+ * The real list, Phase 4.5. Split out from ProfilePage itself — not nested in
+ * `SignedIn` below — because it needs only a user id, not a `profiles` row:
+ * `favorites.user_id` references `auth.users` rather than `public.profiles`
+ * (migration 0012), on purpose, so a dancer who has favorited a dance from the
+ * map before ever answering "what's your name" here still sees it.
+ *
+ * Includes cancelled and moved nights, never hides them — the same AGENTS.md
+ * §10 rule `findDancesNear` follows, for the same reason: a follower has to
+ * learn a night is off, not just find it missing from their list one day.
+ *
+ * Reuses `DanceRow` rather than a bespoke row, the same way the schedule does
+ * — one row component drawing one convention for status, everywhere a night
+ * is listed. The heart here un-favorites in place; there is no separate
+ * "remove" control.
+ */
+async function FavoritesSection({ userId }: { userId: string | null }) {
+  if (userId === null) {
+    return (
       <section className="pt-8">
         <h2 className="font-display text-2xl font-black">{he.favorites.heading}</h2>
-        <p className="pt-4">
-          {user === null ? he.favorites.signedOutEmpty : he.favorites.empty}
-        </p>
+        <p className="pt-4">{he.favorites.signedOutEmpty}</p>
       </section>
-    </div>
+    );
+  }
+
+  const client = await serverClient();
+  const favoriteEventIds = await findOwnFavoriteEventIds(client, userId);
+  const nights =
+    favoriteEventIds.length === 0 ? [] : await findFavoriteNights(client, favoriteEventIds);
+
+  return (
+    <section className="pt-8">
+      <h2 className="font-display text-2xl font-black">{he.favorites.heading}</h2>
+
+      {nights.length === 0 ? (
+        <p className="pt-4">{he.favorites.empty}</p>
+      ) : (
+        <ul aria-label={he.favorites.listLabel} className="flex flex-col gap-2 pt-4">
+          {nights.map((dance) => (
+            <li key={dance.occurrenceId}>
+              <DanceRow
+                dance={dance}
+                action={
+                  <FavoriteButton eventId={dance.eventId} venueName={dance.venueName} />
+                }
+              />
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 
