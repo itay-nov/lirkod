@@ -139,6 +139,11 @@ function mapDance(overrides: Partial<MapDance> = {}): MapDance {
     wazeLabel: "ניווט להיכל התרבות חולון עם ווייז",
     googleMapsUrl: "https://www.google.com/maps/dir/?api=1&destination=32.011400%2C34.773600",
     googleMapsLabel: "ניווט להיכל התרבות חולון עם גוגל מפות",
+    shareUrl: "https://wa.me/?text=test",
+    shareLabel: "שיתוף בוואטסאפ",
+    icsUrl: "data:text/calendar;charset=utf-8,test",
+    icsFilename: "occurrence-1.ics",
+    calendarLabel: "הוספה ליומן",
     ...overrides,
   };
 }
@@ -305,6 +310,37 @@ describe("DanceMap preview", () => {
       "href",
       dance.googleMapsUrl,
     );
+  });
+
+  it("offers a WhatsApp share link and an .ics download (Phase 4.6a)", async () => {
+    const dance = mapDance();
+    renderMap({ dances: [dance] });
+    const [marker] = await markers();
+
+    marker?.activate();
+    await screen.findByRole("region", { name: LABELS.previewLabel });
+
+    const share = screen.getByRole("link", { name: dance.shareLabel });
+    expect(share).toHaveAttribute("href", dance.shareUrl);
+    expect(share).toHaveAttribute("target", "_blank");
+
+    const calendar = screen.getByRole("link", { name: dance.calendarLabel });
+    expect(calendar).toHaveAttribute("href", dance.icsUrl ?? "");
+    expect(calendar).toHaveAttribute("download", dance.icsFilename);
+  });
+
+  it("does not offer a calendar entry for a cancelled night", async () => {
+    const dance = mapDance({ status: "cancelled", statusLabel: "בוטל", icsUrl: null });
+    renderMap({ dances: [dance] });
+    const [marker] = await markers();
+
+    marker?.activate();
+    await screen.findByRole("region", { name: LABELS.previewLabel });
+
+    expect(screen.queryByRole("link", { name: dance.calendarLabel })).toBeNull();
+    // The share link is unaffected — a cancelled night is still worth telling
+    // someone about, in words that say it is off.
+    expect(screen.getByRole("link", { name: dance.shareLabel })).toBeInTheDocument();
   });
 
   it("offers Waze before Google Maps (AGENTS.md §9)", async () => {

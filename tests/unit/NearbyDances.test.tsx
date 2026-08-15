@@ -119,6 +119,11 @@ function dance(venueName: string, overrides: Partial<MapDance> = {}): MapDance {
     wazeLabel: `ניווט ל${venueName} עם ווייז`,
     googleMapsUrl: "https://www.google.com/maps/dir/?api=1&destination=32.011400%2C34.773600",
     googleMapsLabel: `ניווט ל${venueName} עם גוגל מפות`,
+    shareUrl: "https://wa.me/?text=test",
+    shareLabel: "שיתוף בוואטסאפ",
+    icsUrl: "data:text/calendar;charset=utf-8,test",
+    icsFilename: `occurrence-${venueName}.ics`,
+    calendarLabel: "הוספה ליומן",
     ...overrides,
   };
 }

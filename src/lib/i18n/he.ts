@@ -86,6 +86,36 @@ export const he = {
        */
       waze: (venue: string): string => `ניווט ל${venue} עם ווייז`,
       googleMaps: (venue: string): string => `ניווט ל${venue} עם גוגל מפות`,
+      shareWhatsapp: "שיתוף בוואטסאפ",
+      addToCalendar: "הוספה ליומן",
+      /**
+       * The WhatsApp share message (Phase 4.6a). Plain text, one fact per
+       * line, so it reads cleanly if pasted anywhere and not only inside a
+       * WhatsApp bubble — no markup, no emoji standing in for a word.
+       * `status` carries the same "בוטל"/"הועבר" word the badge shows
+       * (AGENTS.md §2.6): a dancer sharing a cancelled night should not
+       * accidentally invite someone to a hall that is dark.
+       */
+      shareText: ({
+        instructor,
+        weekday,
+        timeRange,
+        venue,
+        address,
+        status,
+        mapsUrl,
+      }: {
+        instructor: string;
+        weekday: string;
+        timeRange: string;
+        venue: string;
+        address: string;
+        status: string | null;
+        mapsUrl: string;
+      }): string =>
+        `הרקדה עם ${instructor}\n${weekday}, ${timeRange}${
+          status === null ? "" : `\n${status}`
+        }\n${venue}, ${address}\nניווט: ${mapsUrl}`,
     },
   },
   nav: {
@@ -551,6 +581,13 @@ export const he = {
       retimedFrom: (time: string): string => `הועבר מ-${time}`,
     },
     withInstructor: (instructor: string): string => `עם ${instructor}`,
+    /**
+     * `dance_events` carries no title column — a dance is identified by its
+     * instructor, venue and time, not a name someone typed in. The calendar
+     * event's SUMMARY and the WhatsApp share message's first line both name
+     * it the same way `mapPinLabel` already does for the pin.
+     */
+    title: (instructor: string): string => `הרקדה עם ${instructor}`,
     /**
      * This is `ringLabel` returning under a name that says where it is used.
      * It was removed when DanceRing and DanceRow stopped being controls — a
