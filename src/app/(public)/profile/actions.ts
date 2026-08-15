@@ -1,6 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
+import {
+  INSTRUCTOR_INTENT_COOKIE,
+  INSTRUCTOR_INTENT_VALUE,
+} from "@/lib/auth/instructorIntent";
 import { serverClient } from "@/lib/auth/serverClient";
 import { currentUser } from "@/lib/auth/session";
 import type { Client } from "@/lib/db/client";
@@ -59,6 +64,104 @@ export async function saveProfileName(name: string): Promise<ProfileNameResult> 
 
   const client = await serverClient();
   await createOwnProfile(client, { id: user.id, displayName, phone });
+
+  // The "אני מרקיד" box was ticked on the sign-in form, but there was no profile
+  // to hang an instructor row off yet — this is the first moment there is one.
+  // See `declareInstructorAction` for why the intent had to wait here at all.
+  await applyPendingInstructorIntent(client, { profileId: user.id, displayName });
+
+  revalidatePath("/profile");
+  return { ok: true };
+}
+
+/**
+ * Carries "I ticked אני מרקיד" across the one gap where it cannot be acted on:
+ * a brand-new user declares the role while signing in, but `instructors.profile_id`
+ * references a `profiles` row that does not exist until they answer the name step.
+ *
+ * A cookie rather than a session field or a database column, because the intent is
+ * worth exactly one page transition and should disappear on its own if the person
+ * abandons the form. `httpOnly` so no script can read it; `sameSite: "lax"` so it
+ * does not ride along on cross-site requests.
+ *
+ * The name and the "why this needs no signature" argument live in
+ * `src/lib/auth/instructorIntent.ts`, which `/profile` also reads.
+ */
+
+async function applyPendingInstructorIntent(
+  client: Client,
+  profile: { profileId: string; displayName: string },
+): Promise<void> {
+  const jar = await cookies();
+  if (jar.get(INSTRUCTOR_INTENT_COOKIE)?.value !== INSTRUCTOR_INTENT_VALUE) return;
+
+  // Cleared first, so a failure below cannot leave an intent that re-fires on
+  // every later save. Declaring the role is a convenience; silently retrying it
+  // forever behind someone's back is not.
+  jar.delete(INSTRUCTOR_INTENT_COOKIE);
+
+  const existing = await findOwnInstructor(client, profile.profileId);
+  if (existing !== null) return;
+
+  await registerAsInstructor(client, {
+    profileId: profile.profileId,
+    displayName: profile.displayName,
+  });
+}
+
+export type DeclareInstructorResult =
+  | { ok: true }
+  | { ok: false; reason: "signedOut" | "failed" };
+
+/**
+ * Makes the caller a מרקיד — the single write behind both role-declaration paths.
+ *
+ * Two callers, one behaviour (docs/decisions/0018): the "אני מרקיד" checkbox on
+ * the sign-in form, and the "רוצה להרקיד?" control a signed-in רוקד sees. Before
+ * this phase the role was instead a side effect of publishing, which is why
+ * gating the publish form by role would otherwise have left nobody able to become
+ * an instructor at all.
+ *
+ * Takes NO arguments and trusts nothing from the client. Who is acting comes from
+ * the session cookie; the public name comes from the profile already in the
+ * database. A Server Action is a public endpoint (see the note at the top of this
+ * file), so "make me an instructor" is the only thing a caller gets to say — not
+ * *which* profile, and not under what name.
+ *
+ * Idempotent: a second call for somebody who already has an instructor row is a
+ * no-op rather than an error, because both entry points can be pressed twice and
+ * neither should punish that.
+ */
+export async function declareInstructorAction(): Promise<DeclareInstructorResult> {
+  const user = await currentUser();
+  if (user === null) return { ok: false, reason: "signedOut" };
+
+  const client = await serverClient();
+  const profile = await findOwnProfile(client, user.id);
+
+  // No profile yet: the name step has not happened, so there is nothing to
+  // attach an instructor row to. Remember the intent and let `saveProfileName`
+  // finish the job a moment from now.
+  if (profile === null) {
+    const jar = await cookies();
+    jar.set(INSTRUCTOR_INTENT_COOKIE, INSTRUCTOR_INTENT_VALUE, {
+      httpOnly: true,
+      sameSite: "lax",
+      path: "/",
+      // Long enough to answer "what is your name?", short enough that an
+      // abandoned sign-in does not quietly change a role days later.
+      maxAge: 60 * 30,
+    });
+    return { ok: true };
+  }
+
+  const existing = await findOwnInstructor(client, profile.id);
+  if (existing === null) {
+    await registerAsInstructor(client, {
+      profileId: profile.id,
+      displayName: profile.displayName,
+    });
+  }
 
   revalidatePath("/profile");
   return { ok: true };

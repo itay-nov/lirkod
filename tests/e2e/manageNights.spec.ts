@@ -119,6 +119,12 @@ async function resetTestUser(): Promise<void> {
 async function signIn(page: Page): Promise<void> {
   await page.goto("/profile");
   await page.getByLabel(he.signIn.phoneLabel).fill(PHONE_LOCAL);
+  // Declares the מרקיד role on the way in (Phase 4.2, docs/decisions/0018).
+  // Every test in this file publishes or manages a dance, and those surfaces are
+  // now offered to instructors only — so this box IS the flow under test, not
+  // setup around it. Before 4.2 the role was a side effect of publishing, which
+  // is why these helpers used not to need it.
+  await page.getByLabel(he.signIn.instructorLabel).check();
   await page.getByRole("button", { name: he.signIn.sendCode }).click();
 
   const codeField = page.getByLabel(he.signIn.codeLabel);
@@ -146,7 +152,13 @@ function dateInDays(days: number): string {
  * generator has slots that a cancelled night has to keep occupying.
  */
 async function publishSeries(page: Page): Promise<void> {
-  await page.getByLabel(he.publishDance.instructorNameLabel).fill(PUBLIC_NAME);
+  // Only when the form actually asks. Since Phase 4.2 the role is declared at
+  // sign-in (docs/decisions/0018), so an instructor row usually exists by now and
+  // its own name is authoritative — the field is absent in that case. It still
+  // renders for anyone who became an instructor some other way, and this helper
+  // has to work for both.
+  const publicName = page.getByLabel(he.publishDance.instructorNameLabel);
+  if ((await publicName.count()) > 0) await publicName.fill(PUBLIC_NAME);
   await page.getByRole("radio", { name: /היכל התרבות חולון/ }).check();
   await page.getByLabel(he.publishDance.dateLabel).fill(dateInDays(4));
   await page.getByLabel(he.publishDance.startTimeLabel).fill("20:00");
@@ -191,9 +203,17 @@ test("a new instructor is told there is nothing to manage yet", async ({ page })
   await signIn(page);
   await setName(page);
 
-  // An empty screen reads as a broken app to this audience (AGENTS.md §2), and
-  // there is no instructor row yet — so the section is absent rather than empty.
-  await expect(page.getByRole("heading", { name: he.manageNights.heading })).toHaveCount(0);
+  // Since Phase 4.2 the role is declared at sign-in (docs/decisions/0018), and
+  // `signIn` above ticks "אני מרקיד/ה" — so this person IS an instructor from
+  // their first moment, and the section is present with nothing in it rather
+  // than absent. An empty screen reads as a broken app to this audience
+  // (AGENTS.md §2), which is exactly what the empty message is for, and saying
+  // so is closer to what this test is named for than asserting the whole
+  // section is missing.
+  await expect(
+    page.getByRole("heading", { name: he.manageNights.heading }),
+  ).toBeVisible();
+  await expect(page.getByText(he.manageNights.empty)).toBeVisible();
 });
 
 test("publishing a series fills the manage list, one entry per night", async ({ page }) => {
@@ -235,7 +255,10 @@ test("cancelling a night takes two deliberate steps, and a dancer is told", asyn
     const visitor = await anonymous.newPage();
     await visitor.goto("/schedule");
 
-    await expect(visitor.getByText(PUBLIC_NAME).first()).toBeVisible({ timeout: 20_000 });
+    // PROFILE_NAME, not PUBLIC_NAME: since Phase 4.2 the instructor row is
+    // created at sign-in from the profile name, so that is the name a visitor
+    // sees (docs/decisions/0018).
+    await expect(visitor.getByText(PROFILE_NAME).first()).toBeVisible({ timeout: 20_000 });
     await expect(visitor.getByText(he.dance.status.cancelled).first()).toBeVisible();
   } finally {
     await anonymous.close();

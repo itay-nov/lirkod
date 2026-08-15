@@ -129,6 +129,12 @@ async function resetTestUser(): Promise<void> {
 async function signIn(page: Page): Promise<void> {
   await page.goto("/profile");
   await page.getByLabel(he.signIn.phoneLabel).fill(PHONE_LOCAL);
+  // Declares the מרקיד role on the way in (Phase 4.2, docs/decisions/0018).
+  // Every test in this file publishes or manages a dance, and those surfaces are
+  // now offered to instructors only — so this box IS the flow under test, not
+  // setup around it. Before 4.2 the role was a side effect of publishing, which
+  // is why these helpers used not to need it.
+  await page.getByLabel(he.signIn.instructorLabel).check();
   await page.getByRole("button", { name: he.signIn.sendCode }).click();
 
   const codeField = page.getByLabel(he.signIn.codeLabel);
@@ -154,7 +160,13 @@ function dateInDays(days: number): string {
 }
 
 async function publish(page: Page, date: string): Promise<void> {
-  await page.getByLabel(he.publishDance.instructorNameLabel).fill(PUBLIC_NAME);
+  // Only when the form actually asks. Since Phase 4.2 the role is declared at
+  // sign-in (docs/decisions/0018), so an instructor row usually exists by now and
+  // its own name is authoritative — the field is absent in that case. It still
+  // renders for anyone who became an instructor some other way, and this helper
+  // has to work for both.
+  const publicName = page.getByLabel(he.publishDance.instructorNameLabel);
+  if ((await publicName.count()) > 0) await publicName.fill(PUBLIC_NAME);
   await page.getByRole("radio", { name: /היכל התרבות חולון/ }).check();
   await page.getByLabel(he.publishDance.dateLabel).fill(date);
   await page.getByLabel(he.publishDance.startTimeLabel).fill("20:00");
@@ -191,9 +203,27 @@ test("naming yourself unlocks the publish form", async ({ page }) => {
   await setName(page);
 
   await expect(page.getByRole("heading", { name: he.publishDance.heading })).toBeVisible();
-  // First publish, so the public name is asked for explicitly rather than taken
-  // from the private one (docs/decisions/0004).
-  await expect(page.getByLabel(he.publishDance.instructorNameLabel)).toBeVisible();
+
+  // The public-name field is NOT here any more, and that is the intended change
+  // rather than lost coverage. Since Phase 4.2 the role is declared at sign-in
+  // (docs/decisions/0018) — `signIn` above ticks "אני מרקיד/ה" — so the instructor
+  // row already exists by the time this form renders, and its own name is
+  // authoritative. docs/decisions/0004's rule that the private name must never be
+  // promoted silently is honoured a step earlier instead: the name step discloses
+  // that the name will also be public, which `setName` walks through.
+  await expect(page.getByLabel(he.publishDance.instructorNameLabel)).toHaveCount(0);
+});
+
+test("the name step says the name will be public when the מרקיד box was ticked", async ({
+  page,
+}) => {
+  // The disclosure that replaces the old first-publish prompt. Without it the
+  // step would still promise "לא מוצג לרוקדים אחרים" while quietly publishing
+  // that exact name as the מרקיד's public one.
+  await signIn(page);
+
+  await expect(page.getByText(he.profileName.introInstructor)).toBeVisible();
+  await expect(page.getByText(he.profileName.intro)).toHaveCount(0);
 });
 
 test("publishing a dance makes it visible to an anonymous visitor", async ({

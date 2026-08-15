@@ -1,15 +1,23 @@
+import { cookies } from "next/headers";
+import {
+  INSTRUCTOR_INTENT_COOKIE,
+  INSTRUCTOR_INTENT_VALUE,
+} from "@/lib/auth/instructorIntent";
 import { serverClient } from "@/lib/auth/serverClient";
 import { currentUser } from "@/lib/auth/session";
 import { findOwnNights } from "@/lib/db/nights";
 import { findOwnInstructor, findOwnProfile } from "@/lib/db/publisher";
 import { searchVenues } from "@/lib/db/venues";
 import { toManageableNights } from "@/lib/domain/manageNight";
+import { BecomeInstructor } from "@/components/BecomeInstructor";
 import { CreateDanceForm } from "@/components/CreateDanceForm";
+import { DemoSignIn } from "@/components/DemoSignIn";
 import { ManageNights } from "@/components/ManageNights";
 import { PhoneSignIn } from "@/components/PhoneSignIn";
 import { ProfileNameForm } from "@/components/ProfileNameForm";
 import { SignOutButton } from "@/components/SignOutButton";
 import { formatIsraeliPhone } from "@/lib/domain/phone";
+import { roleFor, showsInstructorTools } from "@/lib/domain/role";
 import { he } from "@/lib/i18n/he";
 
 /**
@@ -43,11 +51,26 @@ export default async function ProfilePage() {
   // question with one answer per screen instead of one per component.
   const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || null;
 
+  // Read server-side, and NOT a NEXT_PUBLIC_* variable on purpose: the flag must
+  // never be inlined into the browser bundle where a client could read or fake
+  // it. This decides which form to DRAW; `demoSignInAction` checks the same
+  // variable again before it will issue anything, and that second check is the
+  // actual gate (docs/decisions/0018). Production leaves it unset and ships the
+  // real OTP form.
+  const demoLoginEnabled = process.env.DEMO_LOGIN_ENABLED === "true";
+
   return (
     <div className="px-4 py-6">
       <h1 className="font-display text-3xl font-black">{he.profile.heading}</h1>
       {user === null ? (
-        <PhoneSignIn siteKey={turnstileSiteKey} />
+        // One sign-in surface per build, never both: a demo build shows the demo
+        // form so whoever is presenting is not asked to choose between two ways
+        // in, and a production build has no demo path rendered at all.
+        demoLoginEnabled ? (
+          <DemoSignIn />
+        ) : (
+          <PhoneSignIn siteKey={turnstileSiteKey} />
+        )
       ) : (
         <SignedIn userId={user.id} phone={user.phone} />
       )}
@@ -93,9 +116,17 @@ async function SignedIn({ userId, phone }: { userId: string; phone: string | nul
   // no profile row until it is answered. A screen with no way out is exactly the
   // dead end AGENTS.md §2.7 is about.
   if (profile === null) {
+    // Ticking "אני מרקיד/ה" at sign-in leaves an intent this step is about to
+    // act on, so the step has to SAY the name will also be public — the default
+    // copy promises the opposite, and docs/decisions/0004 forbids promoting the
+    // private name into the public one without asking.
+    const jar = await cookies();
+    const becomingInstructor =
+      jar.get(INSTRUCTOR_INTENT_COOKIE)?.value === INSTRUCTOR_INTENT_VALUE;
+
     return (
       <div className="flex flex-col gap-6 pt-4">
-        <ProfileNameForm />
+        <ProfileNameForm becomingInstructor={becomingInstructor} />
         <SignOutButton />
       </div>
     );
@@ -108,6 +139,18 @@ async function SignedIn({ userId, phone }: { userId: string; phone: string | nul
     // The first page of halls; the picker searches server-side from here on.
     searchVenues(client, ""),
   ]);
+
+  // The role is DERIVED from that instructor row — the same row `owns_instructor()`
+  // reads when it decides whether a write is allowed (docs/decisions/0018). So the
+  // menu below and the database cannot disagree about who is a מרקיד; they are
+  // reading the same fact.
+  //
+  // What follows is presentation ONLY. Hiding the publish form does not protect
+  // anything: `publishDanceAction` re-derives the actor from the session and the
+  // insert is still checked by `dance_events_insert_own`, so a dancer who calls it
+  // directly is refused by Postgres, not by this branch. That is asserted live in
+  // tests/rls/roleAndDemoLogin.test.ts rather than assumed.
+  const role = roleFor(instructor);
 
   // Only for someone who has actually published. A dancer with no instructor row
   // has no nights to manage, and the query needs an instructor id to filter by —
@@ -123,27 +166,41 @@ async function SignedIn({ userId, phone }: { userId: string; phone: string | nul
       <p className="font-bold">{he.profile.greeting(profile.displayName)}</p>
       <p>{he.profile.signedInAs(phone === null ? "" : formatIsraeliPhone(phone))}</p>
 
-      {/*
-        The public name is prefilled from the private one but asked for
-        explicitly, because they are different things (docs/decisions/0004) and
-        promoting one to the other silently would publish a name nobody agreed to
-        show. Once an instructor row exists, its own name is authoritative and the
-        field disappears.
-      */}
-      <CreateDanceForm
-        venues={venues}
-        mapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || null}
-        instructorName={instructor?.displayName ?? profile.displayName}
-        needsInstructorName={instructor === null}
-      />
+      {showsInstructorTools(role) ? (
+        <>
+          {/*
+            The public name is prefilled from the private one but asked for
+            explicitly, because they are different things (docs/decisions/0004)
+            and promoting one to the other silently would publish a name nobody
+            agreed to show.
 
-      {/*
-        Below the publish form, not above it. Publishing is what brings an
-        instructor to this screen the first time and stays the more common
-        errand; managing a night is what they come back for, and a list of
-        twelve nights between the greeting and the form would bury it.
-      */}
-      {instructor !== null && <ManageNights nights={nights} />}
+            `needsInstructorName` is now always false here — this branch only
+            renders for somebody who already has an instructor row, so the row's
+            own name is authoritative. The prop stays because the form still
+            takes it; it is the role gate, not the form, that changed.
+          */}
+          <CreateDanceForm
+            venues={venues}
+            mapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || null}
+            instructorName={instructor?.displayName ?? profile.displayName}
+            needsInstructorName={instructor === null}
+          />
+
+          {/*
+            Below the publish form, not above it. Publishing is what brings an
+            instructor to this screen the first time and stays the more common
+            errand; managing a night is what they come back for, and a list of
+            twelve nights between the greeting and the form would bury it.
+          */}
+          <ManageNights nights={nights} />
+        </>
+      ) : (
+        // A רוקד gets an invitation in the same place, not an empty gap and not
+        // a message about a permission they lack. Ticking "אני מרקיד/ה" at
+        // sign-in would have led here too; this is the way back for anyone who
+        // did not (docs/decisions/0018).
+        <BecomeInstructor />
+      )}
 
       <SignOutButton />
     </div>

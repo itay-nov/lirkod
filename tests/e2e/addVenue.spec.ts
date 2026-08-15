@@ -167,6 +167,12 @@ async function resetTestUser(): Promise<void> {
 async function signInAndName(page: Page): Promise<void> {
   await page.goto("/profile");
   await page.getByLabel(he.signIn.phoneLabel).fill(PHONE_LOCAL);
+  // Declares the מרקיד role on the way in (Phase 4.2, docs/decisions/0018).
+  // Every test in this file publishes or manages a dance, and those surfaces are
+  // now offered to instructors only — so this box IS the flow under test, not
+  // setup around it. Before 4.2 the role was a side effect of publishing, which
+  // is why these helpers used not to need it.
+  await page.getByLabel(he.signIn.instructorLabel).check();
   await page.getByRole("button", { name: he.signIn.sendCode }).click();
 
   const code = page.getByLabel(he.signIn.codeLabel);

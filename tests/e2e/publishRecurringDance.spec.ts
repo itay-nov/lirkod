@@ -121,6 +121,12 @@ async function resetTestUser(): Promise<void> {
 async function signIn(page: Page): Promise<void> {
   await page.goto("/profile");
   await page.getByLabel(he.signIn.phoneLabel).fill(PHONE_LOCAL);
+  // Declares the מרקיד role on the way in (Phase 4.2, docs/decisions/0018).
+  // Every test in this file publishes or manages a dance, and those surfaces are
+  // now offered to instructors only — so this box IS the flow under test, not
+  // setup around it. Before 4.2 the role was a side effect of publishing, which
+  // is why these helpers used not to need it.
+  await page.getByLabel(he.signIn.instructorLabel).check();
   await page.getByRole("button", { name: he.signIn.sendCode }).click();
 
   const codeField = page.getByLabel(he.signIn.codeLabel);
@@ -145,7 +151,13 @@ function dateInDays(days: number): string {
 }
 
 async function fillDance(page: Page, date: string): Promise<void> {
-  await page.getByLabel(he.publishDance.instructorNameLabel).fill(PUBLIC_NAME);
+  // Only when the form actually asks. Since Phase 4.2 the role is declared at
+  // sign-in (docs/decisions/0018), so an instructor row usually exists by now and
+  // its own name is authoritative — the field is absent in that case. It still
+  // renders for anyone who became an instructor some other way, and this helper
+  // has to work for both.
+  const publicName = page.getByLabel(he.publishDance.instructorNameLabel);
+  if ((await publicName.count()) > 0) await publicName.fill(PUBLIC_NAME);
   await page.getByRole("radio", { name: /היכל התרבות חולון/ }).check();
   await page.getByLabel(he.publishDance.dateLabel).fill(date);
   await page.getByLabel(he.publishDance.startTimeLabel).fill("20:00");
@@ -212,8 +224,15 @@ test("publishing a weekly dance creates a whole series a visitor can see", async
 
     // More than one night on the schedule under this instructor's name is the
     // whole difference between a series and a single dance.
-    await expect(visitor.getByText(PUBLIC_NAME).first()).toBeVisible({ timeout: 20_000 });
-    expect(await visitor.getByText(PUBLIC_NAME).count()).toBeGreaterThan(1);
+    //
+    // PROFILE_NAME, not PUBLIC_NAME: since Phase 4.2 the role is declared at
+    // sign-in, and the instructor row is created there from the profile name —
+    // so that is the name a visitor sees. The name step discloses this before
+    // it happens (`profileName.introInstructor`); docs/decisions/0018 records
+    // the trade-off, and letting an instructor edit their public name
+    // afterwards is noted there as follow-up.
+    await expect(visitor.getByText(PROFILE_NAME).first()).toBeVisible({ timeout: 20_000 });
+    expect(await visitor.getByText(PROFILE_NAME).count()).toBeGreaterThan(1);
   } finally {
     await anonymous.close();
   }

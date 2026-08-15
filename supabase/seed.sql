@@ -448,12 +448,26 @@ insert into public.dance_events (
     'weekly', date '2024-01-11', null, time '21:00', time '23:00'
   ),
   ( -- Tel Aviv, Tuesday, biweekly — a second series at the originally-seeded venue
+    --
+    -- 21:15, NOT the 20:00 this series originally carried. tests/rls/
+    -- publishRecurringDance.test.ts builds its own fixture at 32.0853/34.7818 —
+    -- byte-identical to this venue's coordinates — and publishes it at 20:00,
+    -- then asserts that exactly one night exists at that instant. A seeded
+    -- series at the same point and the same wall clock made that two, so the
+    -- suite failed on the weeks this biweekly series happened to coincide and
+    -- passed on the weeks it did not. Calendar-dependent, which is why 4.0.1
+    -- shipped green and this only surfaced days later.
+    --
+    -- Moved rather than deleted: the central cluster wants a Tel Aviv night
+    -- (docs/decisions/0018 is not what this is about — see the 4.0.1 note above
+    -- on why the cluster exists). Any time no fixture uses would do; 21:15 is
+    -- clear of the 20:00 every recurring-publish fixture in the suite uses.
     'f4000000-0000-0000-0000-000000000007',
     'a0000000-0000-0000-0000-000000000002',
     'b0000000-0000-0000-0000-000000000002',
     array['ריקודי עם', 'זוגות'],
     3500,
-    'biweekly', date '2024-01-09', null, time '20:00', time '22:30'
+    'biweekly', date '2024-01-09', null, time '21:15', time '23:45'
   ),
   ( -- Bat Yam, Sunday, weekly
     'f4000000-0000-0000-0000-000000000008',
@@ -490,3 +504,97 @@ insert into public.dance_events (
 select public.generate_occurrences_for_event(id)
 from public.dance_events
 where recurrence_freq is not null;
+
+-- Demo-login cast (Phase 4.2, docs/decisions/0018) --------------------------
+--
+-- The FIXED set of accounts `demoSignInAction` can sign in as, and the fourth
+-- of the four barriers that ADR describes: this file runs on `supabase db
+-- reset` against a local stack and never against the hosted database, so these
+-- people do not exist in production at all. A demo build there would have
+-- nobody to sign in as even if the server flag and the id table were both
+-- wrong.
+--
+-- The three places these phones appear — here, `[auth.sms.test_otp]` in
+-- supabase/config.toml, and DEMO_USERS in src/lib/auth/demoUsers.ts — must stay
+-- in step. tests/unit/demoUsers.test.ts pins the order; the RLS suite proves a
+-- real session comes back for index 0 and 1.
+--
+-- Ids use a d1/d2 prefix, distinct from the a0/f1-f4 ranges above, so nothing
+-- here can collide with a fixture another suite depends on.
+--
+-- Same two-step insert as the seeded instructor at the top of this file, and
+-- the same four empty-string token columns — see the long note there for why
+-- they are not padding.
+--
+-- ONE DIFFERENCE, and it is load-bearing: `auth.users.phone` here has NO leading
+-- "+". GoTrue stores and looks up phones in that form (which is also why
+-- `SignedInUser.phone` is documented as "E.164 without the leading +"), so a
+-- seeded row written as "+9725..." is a row GoTrue's lookup MISSES — it then
+-- treats the sign-in as a brand-new person and creates a second user with the
+-- same number and a random id. The demo would have quietly signed in as an empty
+-- auto-created account instead of this cast: no profile, no instructor row, and
+-- none of the fixed ids the whole design depends on. Caught by
+-- tests/rls/roleAndDemoLogin.test.ts, which is why it asserts the resolved id
+-- rather than merely that a session came back.
+--
+-- `profiles.phone` below keeps the "+" — that is our own column and AGENTS.md §7
+-- specifies E.164 there. The two formats are deliberate, not a slip.
+
+insert into auth.users (
+  instance_id, id, aud, role, phone, phone_confirmed_at,
+  confirmation_token, recovery_token, email_change_token_new, email_change,
+  raw_app_meta_data, raw_user_meta_data, created_at, updated_at
+) values
+  (
+    '00000000-0000-0000-0000-000000000000',
+    'd1000000-0000-0000-0000-000000000000',
+    'authenticated', 'authenticated', '972500009000', now(),
+    '', '', '', '',
+    '{"provider":"phone","providers":["phone"]}', '{}', now(), now()
+  ),
+  (
+    '00000000-0000-0000-0000-000000000000',
+    'd1000000-0000-0000-0000-000000000001',
+    'authenticated', 'authenticated', '972500009001', now(),
+    '', '', '', '',
+    '{"provider":"phone","providers":["phone"]}', '{}', now(), now()
+  ),
+  (
+    '00000000-0000-0000-0000-000000000000',
+    'd1000000-0000-0000-0000-000000000002',
+    'authenticated', 'authenticated', '972500009002', now(),
+    '', '', '', '',
+    '{"provider":"phone","providers":["phone"]}', '{}', now(), now()
+  ),
+  (
+    '00000000-0000-0000-0000-000000000000',
+    'd1000000-0000-0000-0000-000000000003',
+    'authenticated', 'authenticated', '972500009003', now(),
+    '', '', '', '',
+    '{"provider":"phone","providers":["phone"]}', '{}', now(), now()
+  );
+
+-- Every demo account gets a profile, so none of them lands on the "set a name"
+-- step — a demo should open on the screen being demonstrated, not on a form.
+insert into public.profiles (id, display_name, phone) values
+  ('d1000000-0000-0000-0000-000000000000', 'אורי מרקיד', '+972500009000'),
+  ('d1000000-0000-0000-0000-000000000001', 'נועה', '+972500009001'),
+  ('d1000000-0000-0000-0000-000000000002', 'דוד', '+972500009002'),
+  ('d1000000-0000-0000-0000-000000000003', 'רותי', '+972500009003');
+
+-- ONLY the first one gets an instructors row, and that row is the entire
+-- difference between the two demo roles: `roleFor()` derives "מרקיד" from its
+-- existence, and `owns_instructor()` — the actual write policy — reads the same
+-- row (docs/decisions/0018). The רוקדים below have no such row, which is why
+-- the RLS suite can prove they are refused an instructor write.
+--
+-- `verified` is left at its default false. Unverified instructors can publish
+-- (docs/decisions/0004); nothing gates on the flag, and a seeded demo account
+-- is not something we have checked.
+insert into public.instructors (id, profile_id, display_name, bio) values
+  (
+    'd2000000-0000-0000-0000-000000000000',
+    'd1000000-0000-0000-0000-000000000000',
+    'אורי מרקיד',
+    'מרקיד לדוגמה, לשימוש בהדגמות בלבד.'
+  );
