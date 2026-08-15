@@ -2,7 +2,27 @@
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DanceMap, type DanceMapLabels } from "@/components/DanceMap";
+import { resetFavoritesStoreForTests } from "@/lib/favorites/favoritesStore";
 import type { MapDance } from "@/lib/maps/mapDance";
+
+/**
+ * The preview panel now carries a `FavoriteButton` (Phase 4.5), which needs
+ * `next/navigation`'s router — real only inside a Next.js request, never
+ * available in a bare RTL render — and the favorites Server Actions, which
+ * reach for `cookies()` the same way and would otherwise fail this test for a
+ * reason that has nothing to do with what it checks. Neither mock is a
+ * simplification of behaviour this suite cares about: what a signed-in
+ * dancer's heart does is FavoriteButton.test.tsx's job, not this file's.
+ */
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: vi.fn() }),
+}));
+
+vi.mock("@/app/(public)/profile/favoritesActions", () => ({
+  getOwnFavoritesAction: vi.fn(() => Promise.resolve({ signedIn: false, favoriteEventIds: [] })),
+  addFavoriteAction: vi.fn(),
+  removeFavoriteAction: vi.fn(),
+}));
 
 /**
  * The map's behaviour that is ours rather than Google's: what happens with no
@@ -99,6 +119,7 @@ const LABELS: DanceMapLabels = {
 
 function mapDance(overrides: Partial<MapDance> = {}): MapDance {
   return {
+    eventId: "event-1",
     occurrenceId: "occurrence-1",
     lat: 32.0114,
     lng: 34.7736,
@@ -174,6 +195,7 @@ async function markers(): Promise<InstanceType<typeof maps.FakeMarker>[]> {
 }
 
 beforeEach(() => {
+  resetFavoritesStoreForTests();
   maps.created.length = 0;
   resizeFires.length = 0;
   stubSize = { width: 375, height: 325 };

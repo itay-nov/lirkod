@@ -1,5 +1,6 @@
 import { DanceRow } from "@/components/DanceRow";
 import { DemoVisibilityGate } from "@/components/DemoVisibilityGate";
+import { FavoriteButton } from "@/components/FavoriteButton";
 import { anonClient } from "@/lib/db/client";
 import { findDancesNear } from "@/lib/db/dances";
 import {
@@ -62,7 +63,12 @@ export default async function SchedulePage() {
               <ul aria-label={he.schedule.dayListLabel(heading)} className="pt-2">
                 {day.dances.map((dance) => (
                   <li key={dance.occurrenceId}>
-                    <DanceRow dance={dance} />
+                    <DanceRow
+                      dance={dance}
+                      action={
+                        <FavoriteButton eventId={dance.eventId} venueName={dance.venueName} />
+                      }
+                    />
                   </li>
                 ))}
               </ul>

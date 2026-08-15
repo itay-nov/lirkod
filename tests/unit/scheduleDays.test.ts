@@ -12,6 +12,7 @@ import { groupDancesByDay } from "@/lib/domain/scheduleDays";
  */
 function danceAt(startsAt: string, occurrenceId = startsAt): NearbyDance {
   return {
+    eventId: "c0000000-0000-0000-0000-000000000001",
     occurrenceId,
     startsAt,
     originalStartsAt: null,

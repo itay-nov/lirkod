@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { appearanceFor } from "@/components/danceStatusAppearance";
 import type { NearbyDance } from "@/lib/db/dances";
 import { formatStartTime } from "@/lib/domain/occurrenceTime";
@@ -13,14 +14,25 @@ import { formatStartTime } from "@/lib/domain/occurrenceTime";
  * the status logic lives in a module both import rather than being reimplemented
  * here — a dashed ring has to mean "הועבר" on every screen that draws one.
  *
- * Also non-interactive, for the same reason the ring is — see the comment on
- * DanceRing, including where the detail route that turns both into links is
- * meant to land. The two must change together; a row that navigates and a ring
- * that does not would be two screens disagreeing about what a dance is.
+ * Non-interactive on its OWN account, for the same reason the ring is — see
+ * the comment on DanceRing, including where the detail route that turns both
+ * into links is meant to land. The two must change together; a row that
+ * navigates and a ring that does not would be two screens disagreeing about
+ * what a dance is.
  *
- * No `"use client"` — this renders on the server and ships no JavaScript.
+ * `action` is the one exception, added in Phase 4.5, and it is not that same
+ * kind of control: the heart toggle is a real, fully-functional action in its
+ * own right, not a stub waiting on a route that does not exist yet — the
+ * exact distinction that comment draws. A caller that omits `action` gets a
+ * row with zero interactive elements, unchanged from before.
+ *
+ * Still no `"use client"` on this file — the row itself renders on the server
+ * and ships no JavaScript. `action` is typed `ReactNode` rather than imported
+ * as a component, so a server caller can hand this a client element (a
+ * `FavoriteButton`) without this file needing to know that, or ship its
+ * client bundle.
  */
-export function DanceRow({ dance }: { dance: NearbyDance }) {
+export function DanceRow({ dance, action }: { dance: NearbyDance; action?: ReactNode }) {
   const { ringClassName, statusLabel, statusBadgeClassName, timeClassName } = appearanceFor(
     dance.status,
     dance.originalStartsAt,
@@ -38,7 +50,17 @@ export function DanceRow({ dance }: { dance: NearbyDance }) {
       // w-full and text-start, not text-right: the row must fill the list and
       // align to the reading direction, which is a logical property so it
       // follows dir="rtl" rather than hardcoding a side (AGENTS.md §7).
-      className="flex w-full items-center gap-3 rounded-2xl p-2 text-start"
+      //
+      // flex-wrap, added alongside the heart in Phase 4.5: the ring, the
+      // status badge and the heart are all shrink-0 (fixed, deliberately —
+      // shrinking a 48px control below its own tap-target floor to make room
+      // is not a legal move under §5 either), and at 200% text on a 375px
+      // phone their combined width can exceed the row. Wrapping the trailing
+      // badge+heart cluster onto its own line is what stands in for shrinking
+      // them; the alternative — letting the venue name's column absorb the
+      // deficit — is the exact "clientWidth: 7px" bug this comment exists to
+      // explain, found live rather than reasoned about in the abstract.
+      className="flex w-full flex-wrap items-center gap-3 rounded-2xl p-2 text-start"
     >
       <span
         // shrink-0 so the ring keeps its shape when a long venue name pushes
@@ -58,21 +80,30 @@ export function DanceRow({ dance }: { dance: NearbyDance }) {
         low-vision readers the rule exists for. Wrapping costs vertical space on
         a list that already scrolls.
 
-        min-w-0 is still needed: without it a flex item's automatic minimum size
-        is its content width, so a long name would push the row wider instead of
-        wrapping inside it.
+        min-w-24, not min-w-0: a genuine floor below which this column refuses
+        to shrink further, so at 200% it is the trailing badge+heart cluster
+        that wraps to its own line once space runs out — never this column
+        being squeezed down to an unreadable sliver. A long venue name still
+        wraps freely inside that floor; the floor only stops the DEFICIT from
+        landing here instead of there.
       */}
-      <span className="flex min-w-0 flex-1 flex-col">
+      <span className="flex min-w-24 flex-1 flex-col">
         <span className="font-semibold">{dance.venueName}</span>
         <span className="text-secondary">{dance.instructorDisplayName}</span>
       </span>
 
-      {statusLabel !== null && (
-        <span
-          className={`shrink-0 rounded-full px-3 py-1 font-bold ${statusBadgeClassName}`}
-        >
-          {statusLabel}
-        </span>
+      {(statusLabel !== null || action) && (
+        // ms-auto keeps this cluster pinned to the row's trailing edge
+        // whether it shares the first line with the ring and venue or, once
+        // that line is full, wraps onto a line of its own beneath them.
+        <div className="ms-auto flex shrink-0 items-center gap-2">
+          {statusLabel !== null && (
+            <span className={`rounded-full px-3 py-1 font-bold ${statusBadgeClassName}`}>
+              {statusLabel}
+            </span>
+          )}
+          {action}
+        </div>
       )}
     </div>
   );

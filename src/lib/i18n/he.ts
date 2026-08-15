@@ -215,13 +215,32 @@ export const he = {
   favorites: {
     heading: "מועדפים",
     /**
-     * Real favorites (saving a dance) is Phase 4.5 — nothing to list yet
-     * either way, so this section is two honest empty-states, never
-     * `common.screenNotReady`. Which one shows depends on whether signing in
-     * would actually change anything for the person reading it.
+     * Phase 4.5 gave this section a real list — this stays for the genuinely
+     * empty case, i.e. a signed-in dancer with nothing saved yet, never
+     * `common.screenNotReady`.
+     */
+    empty: "עדיין אין מועדפים.",
+    /**
+     * Doubles as the guest's reply to tapping a heart, on the map, the
+     * schedule, or here — never an error, per AGENTS.md §2.2: a guest is not
+     * missing a permission, they are one sign-in away. Reused rather than
+     * duplicated, so the two moments a guest meets favorites say the same
+     * thing.
      */
     signedOutEmpty: "התחברו כדי לשמור הרקדות מועדפות.",
-    empty: "עדיין אין מועדפים.",
+    /** Names the list of favorited nights for a screen reader. */
+    listLabel: "ההרקדות המועדפות שלכם",
+    /**
+     * The heart's accessible name, naming the dance it acts on the same way
+     * `manageNights.manage` names the night its control opens — a screen
+     * reader user tabbing between several hearts needs each one to say which
+     * dance it is, not just "הוספה למועדפים" ×12.
+     */
+    add: (venue: string): string => `הוספה למועדפים: ${venue}`,
+    remove: (venue: string): string => `הסרה מהמועדפים: ${venue}`,
+    errors: {
+      failed: "לא הצלחנו לשמור. אפשר לנסות שוב.",
+    },
   },
   profile: {
     /** Phase 4.1: matches nav.profile so the tab and the screen it opens agree. */

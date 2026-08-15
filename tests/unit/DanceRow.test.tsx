@@ -24,6 +24,7 @@ const ORIGINALLY_AT = "2025-06-02T16:30:00.000Z";
 
 function dance(status: OccurrenceStatus, originalStartsAt: string | null = null): NearbyDance {
   return {
+    eventId: "c0000000-0000-0000-0000-000000000001",
     occurrenceId: "d0000000-0000-0000-0000-000000000001",
     startsAt: STARTS_AT,
     originalStartsAt,
@@ -49,6 +50,23 @@ describe("DanceRow", () => {
     expect(screen.queryByRole("button")).toBeNull();
     expect(screen.queryByRole("link")).toBeNull();
     expect(container.querySelector("button, a, [tabindex], [role]")).toBeNull();
+  });
+
+  it("renders exactly the action it was handed, and nothing else interactive (Phase 4.5)", () => {
+    // The one exception to the test above — see the comment on `action` in
+    // DanceRow.tsx. A caller opting in gets exactly what it passed, not a
+    // control the row invented on its own.
+    render(
+      <DanceRow
+        dance={dance("scheduled")}
+        action={<button type="button">חבר בדיקה</button>}
+      />,
+    );
+
+    const button = screen.getByRole("button", { name: "חבר בדיקה" });
+    expect(button).toBeInTheDocument();
+    expect(screen.getAllByRole("button")).toHaveLength(1);
+    expect(screen.queryByRole("link")).toBeNull();
   });
 
   it("leaves its text to be read in place, with no aria-label to override it", () => {

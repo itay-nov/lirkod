@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { FavoriteButton } from "@/components/FavoriteButton";
 import { loadGoogleMaps, type GoogleMapsApi } from "@/lib/maps/loadGoogleMaps";
 import type { MapDance } from "@/lib/maps/mapDance";
 import { PIN_HEIGHT_PX, PIN_WIDTH_PX, pinSvg } from "@/lib/maps/pinAppearance";
@@ -461,21 +462,43 @@ export function DanceMap({
               }}
               className="mx-4 mt-2 flex flex-col gap-3 rounded-2xl border-2 border-secondary bg-surface p-4 focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-secondary"
             >
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex min-w-0 flex-col gap-1">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                {/*
+                  min-w-24, not min-w-0 — the same floor DanceRow.tsx uses and
+                  for the same reason (see its own comment): without one, the
+                  status+heart column on the far side of this flex-wrap row
+                  can squeeze the venue name down to an unreadable sliver at
+                  200% text on a 375px phone instead of wrapping onto its own
+                  line. flex-wrap is what lets that column actually wrap below
+                  once the floor is hit, rather than merely stopping short of
+                  zero.
+                */}
+                <div className="flex min-w-24 flex-col gap-1">
                   <span className="font-display text-xl font-bold">
                     {selected.venueName}
                   </span>
                   <span>{selected.timeText}</span>
                   <span className="text-secondary">{selected.instructorText}</span>
                 </div>
-                {selected.statusLabel !== null && (
-                  <span
-                    className={`shrink-0 rounded-full px-3 py-1 font-bold ${selected.statusBadgeClassName}`}
-                  >
-                    {selected.statusLabel}
-                  </span>
-                )}
+                {/*
+                  The status pill and the heart share this right-aligned
+                  column rather than sitting apart, so a keyboard user moving
+                  through the panel meets them together instead of the heart
+                  landing somewhere unrelated. The heart is the panel's
+                  answer to "the dance detail" in the Phase 4.5 task — see
+                  docs/decisions/0020 for why it lives here and not on the
+                  pin itself.
+                */}
+                <div className="flex shrink-0 flex-col items-end gap-2">
+                  {selected.statusLabel !== null && (
+                    <span
+                      className={`rounded-full px-3 py-1 font-bold ${selected.statusBadgeClassName}`}
+                    >
+                      {selected.statusLabel}
+                    </span>
+                  )}
+                  <FavoriteButton eventId={selected.eventId} venueName={selected.venueName} />
+                </div>
               </div>
 
               {/*

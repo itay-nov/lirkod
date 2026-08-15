@@ -27,6 +27,8 @@ import { he } from "@/lib/i18n/he";
  * Pure and DOM-free, so it is testable without jsdom (AGENTS.md §3).
  */
 export interface MapDance {
+  /** The series this night belongs to — what the heart toggle favorites, not the occurrence. */
+  eventId: string;
   occurrenceId: string;
   lat: number;
   lng: number;
@@ -77,6 +79,7 @@ export function toMapDance(dance: NearbyDance): MapDance {
   const target = { lat: dance.venueLat, lng: dance.venueLng };
 
   return {
+    eventId: dance.eventId,
     occurrenceId: dance.occurrenceId,
     lat: dance.venueLat,
     lng: dance.venueLng,

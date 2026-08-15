@@ -130,6 +130,32 @@ export type Database = {
           },
         ]
       }
+      favorites: {
+        Row: {
+          created_at: string
+          event_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "favorites_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "dance_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       instructors: {
         Row: {
           bio: string | null
@@ -240,6 +266,24 @@ export type Database = {
         Args: { p_lat: number; p_lng: number; p_radius_meters: number }
         Returns: {
           dance_types: string[]
+          event_id: string
+          instructor_display_name: string
+          occurrence_id: string
+          original_starts_at: string
+          price_agorot: number
+          starts_at: string
+          status: Database["public"]["Enums"]["occurrence_status"]
+          venue_id: string
+          venue_lat: number
+          venue_lng: number
+          venue_name: string
+        }[]
+      }
+      find_favorite_nights: {
+        Args: { p_event_ids: string[] }
+        Returns: {
+          dance_types: string[]
+          event_id: string
           instructor_display_name: string
           occurrence_id: string
           original_starts_at: string
