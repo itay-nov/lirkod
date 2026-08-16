@@ -38,6 +38,9 @@ function dance(status: OccurrenceStatus, originalStartsAt: string | null = null)
     instructorDisplayName: "רונית מרקידה",
     danceTypes: ["ריקודי עם"],
     priceAgorot: 3000,
+    level: "all_levels",
+    danceFormations: [],
+    womenOnly: false,
   };
 }
 

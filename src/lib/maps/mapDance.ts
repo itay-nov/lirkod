@@ -1,4 +1,4 @@
-import type { NearbyDance, OccurrenceStatus } from "@/lib/db/dances";
+import type { DanceFormation, DanceLevel, NearbyDance, OccurrenceStatus } from "@/lib/db/dances";
 import { formatStartTime, formatStartWeekday } from "@/lib/domain/occurrenceTime";
 import { appearanceFor } from "@/components/danceStatusAppearance";
 import { googleMapsNavigationUrl, wazeNavigationUrl } from "@/lib/maps/navigationLinks";
@@ -93,6 +93,21 @@ export interface MapDance {
   icsUrl: string | null;
   icsFilename: string;
   calendarLabel: string;
+  /** Phase 4.6b — raw values, for the filter (src/lib/domain/danceFilter.ts). */
+  level: DanceLevel;
+  danceFormations: DanceFormation[];
+  womenOnly: boolean;
+  /**
+   * The type/level tag the map preview card left unused (docs/decisions/0022)
+   * — the formations' labels, then the level's, e.g. `["מעגלים", "זוגות",
+   * "בינוני"]`. Always at least one entry: level always has a real value, so
+   * showing it is truthful even when nothing was explicitly chosen (ADR
+   * 0022's own "don't invent data" standard — this is not invented, it is
+   * the stored default).
+   */
+  attributeTags: string[];
+  /** "הרקדה לנשים בלבד", or null when the dance is not women_only — nothing renders when null. */
+  womenOnlyLabel: string | null;
 }
 
 export function toMapDance(dance: NearbyDance): MapDance {
@@ -167,6 +182,14 @@ export function toMapDance(dance: NearbyDance): MapDance {
     icsUrl,
     icsFilename: `${dance.occurrenceId}.ics`,
     calendarLabel: he.map.preview.addToCalendar,
+    level: dance.level,
+    danceFormations: dance.danceFormations,
+    womenOnly: dance.womenOnly,
+    attributeTags: [
+      ...dance.danceFormations.map((formation) => he.dance.formation[formation]),
+      he.dance.level[dance.level],
+    ],
+    womenOnlyLabel: dance.womenOnly ? he.dance.womenOnly : null,
   };
 }
 

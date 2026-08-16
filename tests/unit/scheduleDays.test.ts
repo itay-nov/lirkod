@@ -26,6 +26,9 @@ function danceAt(startsAt: string, occurrenceId = startsAt): NearbyDance {
     instructorDisplayName: "רונית מרקידה",
     danceTypes: ["ריקודי עם"],
     priceAgorot: 3000,
+    level: "all_levels",
+    danceFormations: [],
+    womenOnly: false,
   };
 }
 

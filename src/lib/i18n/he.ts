@@ -204,6 +204,37 @@ export const he = {
     dayListLabel: (day: string): string => `הרקדות ב${day}`,
   },
   /**
+   * The level/type/women-only filter (Phase 4.6b), shared by the map and the
+   * schedule — one dictionary, one client component, so the two screens do
+   * not drift into two different filter vocabularies. Always visible rather
+   * than behind a toggle (AGENTS.md §2 — fewer steps, even at the cost of
+   * more vertical space) and client-side on the set the server already
+   * queried (docs/decisions/0005 covers why the proximity query itself stays
+   * server-side; filtering that result further is a display concern).
+   */
+  filters: {
+    heading: "סינון הרקדות",
+    /**
+     * Collapsed by default (Phase 4.6b): the panel starts behind this one
+     * button rather than always open. Ten extra always-visible controls
+     * ahead of the map/ring list and the nav tabs is a real keyboard-reach
+     * cost on the busiest screen in the app — a guest arriving from a
+     * WhatsApp link (AGENTS.md §2.1) meets the filter before the dances it
+     * filters. One toggle, and `close` below to put it away again — the same
+     * disclosure shape `publishDance.addVenueToggle`/`profileEdit.toggle`
+     * already use.
+     */
+    toggle: "סינון הרקדות",
+    close: "סגירת הסינון",
+    levelLabel: "רמה",
+    /** The default, unfiltered level option — distinct from `dance.level.all_levels`, which is a dance's OWN attribute, not "no filter". */
+    anyLevel: "הכול",
+    typeLabel: "סוג ההרקדה",
+    womenOnlyLabel: "רק הרקדות לנשים בלבד",
+    /** Shown when a filter narrows a non-empty result down to nothing. */
+    emptyFiltered: "אין הרקדות שמתאימות לסינון שבחרתם.",
+  },
+  /**
    * Managing the nights you already published — cancelling one, or moving it to
    * a different hour. One night at a time; changing the pattern of a whole
    * series is not something this screen offers.
@@ -479,6 +510,16 @@ export const he = {
       `ההרקדה תחזור ב${weekday}, לפי התאריך שבחרתם.`,
     untilDateLabel: "תאריך אחרון (אפשר להשאיר ריק)",
     untilDateHint: "אם ההרקדה ממשיכה ללא תאריך סיום, אפשר להשאיר את השדה ריק.",
+    /**
+     * Level, type(s) and women-only (Phase 4.6b) — set once at publish time,
+     * shown to dancers on the map and the schedule. `levelLegend` reuses
+     * `he.dance.level`'s four labels and `typeLegend` reuses
+     * `he.dance.formation`'s four, so a level or a type is worded identically
+     * whether it is being set here or read on the preview card.
+     */
+    levelLegend: "רמת ההרקדה",
+    typeLegend: "סוג ההרקדה (אפשר לבחור יותר מאחד)",
+    womenOnlyLabel: "הרקדה לנשים בלבד",
     submit: "פרסום ההרקדה",
     submitting: "מפרסמים…",
     published: "ההרקדה פורסמה ומופיעה עכשיו במפה ובלוח.",
@@ -595,6 +636,27 @@ export const he = {
     securityCheckLabel: "בדיקת אבטחה",
   },
   dance: {
+    /**
+     * Labels for `public.dance_level` (Phase 4.6b). Keyed by the English enum
+     * value, the same convention `avatars` above uses for `avatar_choice` —
+     * one Hebrew word per database value, checked at the type level by
+     * `Record<DanceLevel, string>` wherever this is consumed.
+     */
+    level: {
+      beginner: "מתחילים",
+      intermediate: "בינוני",
+      advanced: "מתקדמים",
+      all_levels: "כל הרמות",
+    },
+    /** Labels for `public.dance_formation` (Phase 4.6b) — how the dancers are arranged. */
+    formation: {
+      circle: "מעגלים",
+      couples: "זוגות",
+      line: "ליין",
+      mixed: "מעורב",
+    },
+    /** The badge for a dance marked women_only — dignified, not an afterthought. */
+    womenOnly: "הרקדה לנשים בלבד",
     status: {
       moved: "הועבר",
       cancelled: "בוטל",

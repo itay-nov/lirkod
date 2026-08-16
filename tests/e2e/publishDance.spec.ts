@@ -251,6 +251,65 @@ test("publishing a dance makes it visible to an anonymous visitor", async ({
   }
 });
 
+test("the map/schedule filter (Phase 4.6b) narrows to a published dance's real level/type/women-only", async ({
+  page,
+  browser,
+}) => {
+  await signIn(page);
+  await setName(page);
+
+  // A dance with distinctive, non-default attributes — the whole point is to
+  // prove the filter reads what was actually published, not the DEFAULT
+  // every other fixture in this suite leaves untouched.
+  const date = dateInDays(12);
+  const publicName = page.getByLabel(he.publishDance.instructorNameLabel);
+  if ((await publicName.count()) > 0) await publicName.fill(PUBLIC_NAME);
+  await page.getByRole("radio", { name: /היכל התרבות חולון/ }).check();
+  await page.getByLabel(he.publishDance.dateLabel).fill(date);
+  await page.getByLabel(he.publishDance.startTimeLabel).fill("20:00");
+  await page.getByLabel(he.publishDance.endTimeLabel).fill("23:00");
+  await page.getByRole("radio", { name: he.dance.level.advanced }).check();
+  await page.getByRole("checkbox", { name: he.dance.formation.circle }).check();
+  await page.getByRole("checkbox", { name: he.publishDance.womenOnlyLabel }).check();
+  await page.getByRole("button", { name: he.publishDance.submit }).click();
+  await expect(page.getByText(he.publishDance.published)).toBeVisible({ timeout: 20_000 });
+
+  const anonymous = await browser.newContext();
+  try {
+    const visitor = await anonymous.newPage();
+    await visitor.goto("/schedule");
+
+    // PROFILE_NAME, not PUBLIC_NAME: since Phase 4.2 the role is declared at
+    // sign-in (docs/decisions/0018), so the instructor row already exists by
+    // the time this form renders and keeps ITS OWN name — the same reason
+    // "naming yourself unlocks the publish form" above asserts the public-name
+    // field is absent from this exact flow. supabase/seed.sql reuses "רונית
+    // מרקידה" (PUBLIC_NAME) for several unrelated fixture dances, so matching
+    // on it here would risk passing against a seeded row instead of the one
+    // this test just published; PROFILE_NAME is this test's own, unique name.
+    const row = visitor.getByText(PROFILE_NAME).first();
+    await expect(row).toBeVisible({ timeout: 20_000 });
+
+    await visitor.getByRole("button", { name: he.filters.toggle }).click();
+
+    // Matches: it IS women_only.
+    await visitor.getByRole("checkbox", { name: he.filters.womenOnlyLabel }).check();
+    await expect(row).toBeVisible();
+
+    // Narrowed further to a level the dance was NOT published at — the
+    // filter's AND-across-axes behaviour (src/lib/domain/danceFilter.ts)
+    // means it now has to disappear even though women-only still matches.
+    await visitor.getByRole("radio", { name: he.dance.level.beginner }).check();
+    await expect(row).not.toBeVisible();
+
+    // Back to "הכול" for level — the dance reappears.
+    await visitor.getByRole("radio", { name: he.filters.anyLevel }).check();
+    await expect(row).toBeVisible();
+  } finally {
+    await anonymous.close();
+  }
+});
+
 test("the public name field disappears once you are already a מרקיד", async ({ page }) => {
   await signIn(page);
   await setName(page);
