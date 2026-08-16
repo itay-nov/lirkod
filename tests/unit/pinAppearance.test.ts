@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
 import type { OccurrenceStatus } from "@/lib/db/dances";
 import { PIN_HEIGHT_PX, PIN_WIDTH_PX, pinSvg } from "@/lib/maps/pinAppearance";
@@ -7,6 +8,20 @@ import { PIN_HEIGHT_PX, PIN_WIDTH_PX, pinSvg } from "@/lib/maps/pinAppearance";
  * coloured shape, and "make cancelled red" is the obvious implementation and
  * the wrong one. These assert the non-colour cues specifically — strip every
  * fill out of the markup and the three statuses must still be different.
+ *
+ * One test below runs under jsdom rather than this file's default node
+ * environment, on purpose: a `.toContain()` substring match on the raw markup
+ * cannot tell a well-formed `viewBox="..."` from one a browser's HTML parser
+ * will mangle — both contain the substring. A real DOM parse is what would
+ * have caught (this was found live, after the fact) that the opening `<svg>`
+ * tag used to be built from two adjacent template literals joined by `+`,
+ * and a production build (Next.js 16.2.12 / Turbopack) was dropping the
+ * space+quote at that exact seam when folding them into one constant,
+ * shipping `viewBox="0 0 52 66width="52"...` to every real browser —
+ * `width`/`height` never parsed, so every pin rendered at the browser's
+ * 300px SVG default and overflowed its anchored container, landing every pin
+ * off its true position by the same offset. The fix was structural (one
+ * literal, no `+` seam to corrupt); this test is what would have caught it.
  */
 
 const STATUSES: readonly OccurrenceStatus[] = ["scheduled", "moved", "cancelled"];
@@ -23,6 +38,29 @@ describe("pinSvg", () => {
     expect(markup.startsWith("<svg")).toBe(true);
     expect(markup).toContain(`viewBox="0 0 ${PIN_WIDTH_PX} ${PIN_HEIGHT_PX}"`);
   });
+
+  it.each(STATUSES)(
+    "parses as a real %s SVG element with intact viewBox/width/height (not a mangled attribute string)",
+    (status) => {
+      // AdvancedMarkerElement anchors its content at the bottom-centre of the
+      // content element's rendered box by default — the whole reason this
+      // pin's silhouette tip sits at the bottom centre of its own viewBox
+      // (see SILHOUETTE's comment). That anchoring only lands on the venue's
+      // real coordinates if the SVG actually renders at PIN_WIDTH_PX ×
+      // PIN_HEIGHT_PX. A `width`/`height` attribute that failed to parse —
+      // the exact defect this regresses against — makes the browser fall
+      // back to its 300×150 SVG default, which is how every pin ended up
+      // rendered off its true position by the same fixed amount.
+      const div = document.createElement("div");
+      div.innerHTML = pinSvg(status, false);
+      const svg = div.querySelector("svg");
+
+      expect(svg).not.toBeNull();
+      expect(svg?.getAttribute("viewBox")).toBe(`0 0 ${PIN_WIDTH_PX} ${PIN_HEIGHT_PX}`);
+      expect(svg?.getAttribute("width")).toBe(String(PIN_WIDTH_PX));
+      expect(svg?.getAttribute("height")).toBe(String(PIN_HEIGHT_PX));
+    },
+  );
 
   it("gives every status a different silhouette, not just a different colour", () => {
     const shapes = STATUSES.map((status) => withoutColour(pinSvg(status, false)));

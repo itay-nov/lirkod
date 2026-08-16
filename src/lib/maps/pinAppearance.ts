@@ -98,9 +98,18 @@ const SELECTION_HALO =
   '<circle cx="26" cy="26" r="22.5" fill="none" stroke="var(--color-secondary)" stroke-width="4" />';
 
 function svg(body: string, selected: boolean): string {
+  // The opening tag is ONE template literal, not two joined by `+`. It used to
+  // be split across the viewBox/width boundary, and a production build (Next.js
+  // 16.2.12 / Turbopack) was silently dropping the space+quote at that exact
+  // seam when folding the two adjacent literals into one constant — shipping
+  // `viewBox="0 0 52 66width="52"...` to the browser. The `width`/`height`
+  // attributes never parsed as a result, so every pin's SVG rendered at the
+  // browser's 300px replaced-element default instead of 52×66 and overflowed
+  // its anchored container by ~250px — every pin visually displaced by the same
+  // amount, off the coast (see this file's own commit message for how this was
+  // diagnosed). A single literal has no such seam for a minifier to corrupt.
   return (
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${PIN_WIDTH_PX} ${PIN_HEIGHT_PX}" ` +
-    `width="${PIN_WIDTH_PX}" height="${PIN_HEIGHT_PX}" aria-hidden="true" focusable="false">` +
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${PIN_WIDTH_PX} ${PIN_HEIGHT_PX}" width="${PIN_WIDTH_PX}" height="${PIN_HEIGHT_PX}" aria-hidden="true" focusable="false">` +
     (selected ? SELECTION_HALO : "") +
     body +
     "</svg>"
