@@ -82,10 +82,14 @@ const MAP_LABELS: DanceMapLabels = {
   previewLabel: "פרטי ההרקדה שנבחרה",
   previewClose: "סגירת הפרטים",
   previewHint: "בחרו סימון על המפה.",
+  navigateShort: "ניווט",
+  shareShort: "שיתוף",
+  calendarShort: "יומן",
 };
 
 const LABELS: NearbyDancesLabels = {
   heading: "הרקדות קרובות",
+  tagline: "מה קורה הערב לידך?",
   empty: "לא נמצאו הרקדות באזור הזה בימים הקרובים.",
   listLabel: "רשימת ההרקדות הקרובות",
   prevLabel: "הרקדות קודמות",
@@ -105,8 +109,10 @@ function dance(venueName: string, overrides: Partial<MapDance> = {}): MapDance {
     time: "20:30",
     weekday: "יום שני",
     timeText: "יום שני, 20:30",
+    timeRangeText: "יום שני, 20:30–22:30",
     instructorName: "רונית מרקידה",
     instructorText: "עם רונית מרקידה",
+    danceTitle: `הרקדה עם רונית מרקידה`,
     status: "scheduled",
     statusLabel: null,
     ringClassName: "border-solid border-accent",

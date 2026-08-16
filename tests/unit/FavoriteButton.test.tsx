@@ -124,3 +124,39 @@ describe("FavoriteButton", () => {
     expect(await screen.findByText(he.favorites.errors.failed)).toBeInTheDocument();
   });
 });
+
+describe('FavoriteButton variant="pill" (Phase 4.6c — the map preview panel)', () => {
+  it("shows the short save caption while carrying the same full aria-label", async () => {
+    actions.getOwnFavoritesAction.mockResolvedValue({ signedIn: true, favoriteEventIds: [] });
+    render(<FavoriteButton eventId={EVENT_ID} venueName={VENUE} variant="pill" />);
+
+    const button = await screen.findByRole("button", { name: he.favorites.add(VENUE) });
+    expect(button).toHaveTextContent(he.favorites.saveShort);
+  });
+
+  it("switches to the short remove caption once favorited, same toggle as the icon variant", async () => {
+    actions.getOwnFavoritesAction.mockResolvedValue({
+      signedIn: true,
+      favoriteEventIds: [EVENT_ID],
+    });
+    render(<FavoriteButton eventId={EVENT_ID} venueName={VENUE} variant="pill" />);
+
+    const button = await screen.findByRole("button", { name: he.favorites.remove(VENUE) });
+    expect(button).toHaveTextContent(he.favorites.removeShort);
+    expect(button).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("still favorites for real when pressed — the pill is a restyle, not a second control", async () => {
+    actions.getOwnFavoritesAction.mockResolvedValue({ signedIn: true, favoriteEventIds: [] });
+    actions.addFavoriteAction.mockResolvedValue({ ok: true });
+    render(<FavoriteButton eventId={EVENT_ID} venueName={VENUE} variant="pill" />);
+
+    const button = await screen.findByRole("button", { name: he.favorites.add(VENUE) });
+    await waitFor(() => expect(button).not.toBeDisabled());
+
+    button.click();
+
+    expect(actions.addFavoriteAction).toHaveBeenCalledWith(EVENT_ID);
+    await waitFor(() => expect(button).toHaveAttribute("aria-pressed", "true"));
+  });
+});

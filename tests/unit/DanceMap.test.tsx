@@ -3,6 +3,7 @@ import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DanceMap, type DanceMapLabels } from "@/components/DanceMap";
 import { resetFavoritesStoreForTests } from "@/lib/favorites/favoritesStore";
+import { he } from "@/lib/i18n/he";
 import type { MapDance } from "@/lib/maps/mapDance";
 
 /**
@@ -115,6 +116,9 @@ const LABELS: DanceMapLabels = {
   previewLabel: "פרטי ההרקדה שנבחרה",
   previewClose: "סגירת הפרטים",
   previewHint: "בחרו סימון על המפה.",
+  navigateShort: "ניווט",
+  shareShort: "שיתוף",
+  calendarShort: "יומן",
 };
 
 function mapDance(overrides: Partial<MapDance> = {}): MapDance {
@@ -127,8 +131,10 @@ function mapDance(overrides: Partial<MapDance> = {}): MapDance {
     time: "20:30",
     weekday: "יום שני",
     timeText: "יום שני, 20:30",
+    timeRangeText: "יום שני, 20:30–22:30",
     instructorName: "רונית מרקידה",
     instructorText: "עם רונית מרקידה",
+    danceTitle: "הרקדה עם רונית מרקידה",
     status: "scheduled",
     statusLabel: null,
     ringClassName: "border-solid border-accent",
@@ -291,7 +297,71 @@ describe("DanceMap pins", () => {
   });
 });
 
-describe("DanceMap preview", () => {
+describe("DanceMap preview — Phase 4.6c restyle", () => {
+  it("shows the dance title, venue, day/time-range and the full action cluster, in order", async () => {
+    const dance = mapDance();
+    renderMap({ dances: [dance] });
+    const [marker] = await markers();
+
+    marker?.activate();
+    const preview = await screen.findByRole("region", { name: LABELS.previewLabel });
+
+    expect(preview).toHaveTextContent(dance.danceTitle);
+    expect(preview).toHaveTextContent(dance.venueName);
+    expect(preview).toHaveTextContent(dance.timeRangeText);
+
+    // Reading order matters here (AGENTS.md §2 — a keyboard/screen-reader
+    // user meets controls in this order): the heading first, then the wide
+    // favorite pill, then the three tinted squares, before the Google Maps
+    // fallback and the close control.
+    const texts = preview.textContent ?? "";
+    const order = [
+      dance.danceTitle,
+      he.favorites.saveShort,
+      LABELS.navigateShort,
+      LABELS.shareShort,
+      LABELS.calendarShort,
+      dance.googleMapsLabel,
+      LABELS.previewClose,
+    ].map((needle) => texts.indexOf(needle));
+
+    expect(order.every((index) => index >= 0)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+  });
+
+  it("gives every control in the action cluster a real, focusable element (keyboard reach)", async () => {
+    const dance = mapDance();
+    renderMap({ dances: [dance] });
+    const [marker] = await markers();
+
+    marker?.activate();
+    const preview = await screen.findByRole("region", { name: LABELS.previewLabel });
+
+    // Native <a href> and <button> — no role="link"/"button" simulated on a
+    // <div>, and no tabIndex=-1 anywhere in here, which is the whole of what
+    // makes Tab reach each one (AGENTS.md §2.7).
+    const controls = [
+      ...preview.querySelectorAll<HTMLElement>("a[href], button"),
+    ];
+    expect(controls.length).toBeGreaterThanOrEqual(6); // favorite, waze, share, calendar, googleMaps, close
+    for (const control of controls) {
+      expect(control.tabIndex).not.toBe(-1);
+    }
+  });
+
+  it("clears the 48px tap-target floor via min-h-12 on every action control (AGENTS.md §5)", async () => {
+    const dance = mapDance();
+    renderMap({ dances: [dance] });
+    const [marker] = await markers();
+
+    marker?.activate();
+    const preview = await screen.findByRole("region", { name: LABELS.previewLabel });
+
+    for (const link of preview.querySelectorAll("a[href]")) {
+      expect(link.className).toContain("min-h-12");
+    }
+  });
+
   it("opens with the venue, time, instructor and both navigation links", async () => {
     const dance = mapDance();
     renderMap({ dances: [dance] });
@@ -351,9 +421,15 @@ describe("DanceMap preview", () => {
     marker?.activate();
     await screen.findByRole("region", { name: LABELS.previewLabel });
 
+    // Not links[0]/links[1]: Phase 4.6c's action cluster sits three more
+    // links (share, calendar, and Google Maps itself) between the squares
+    // and nothing — the guarantee is Waze's DOM position relative to Google
+    // Maps specifically, not that they are the only two links in the panel.
     const links = screen.getAllByRole("link").map((link) => link.getAttribute("href") ?? "");
-    expect(links[0]).toContain("waze.com");
-    expect(links[1]).toContain("google.com/maps");
+    const wazeIndex = links.findIndex((href) => href.includes("waze.com"));
+    const googleMapsIndex = links.findIndex((href) => href.includes("google.com/maps"));
+    expect(wazeIndex).toBeGreaterThanOrEqual(0);
+    expect(googleMapsIndex).toBeGreaterThan(wazeIndex);
   });
 
   it("states a cancelled dance in words, not by colour (§2.6)", async () => {

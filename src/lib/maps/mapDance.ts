@@ -45,10 +45,23 @@ export interface MapDance {
    * decisions live on this side of the boundary.
    */
   timeText: string;
+  /**
+   * "יום שני, 20:30–22:30" — `timeText` with the end time appended (Phase
+   * 4.6c: the preview panel's day/time line, next to a clock icon). A
+   * separate field rather than a replacement for `timeText`, which other
+   * callers still use for the start time alone.
+   */
+  timeRangeText: string;
   /** "רונית מרקידה" — the ring shows the bare name. */
   instructorName: string;
   /** "עם רונית מרקידה" — the preview reads as a sentence. */
   instructorText: string;
+  /**
+   * "הרקדה עם רונית מרקידה" — the preview panel's heading (Phase 4.6c). The
+   * same string `he.dance.title` already builds for the calendar event's
+   * SUMMARY (Phase 4.6a); this just also reaches the screen now.
+   */
+  danceTitle: string;
   /** Drives the pin's silhouette. The client redraws from this, so it stays typed. */
   status: OccurrenceStatus;
   /** "בוטל" / "הועבר", or null for a night with nothing to warn about. */
@@ -129,8 +142,10 @@ export function toMapDance(dance: NearbyDance): MapDance {
     time,
     weekday,
     timeText: `${weekday}, ${time}`,
+    timeRangeText: `${weekday}, ${time}–${endTime}`,
     instructorName: dance.instructorDisplayName,
     instructorText: he.dance.withInstructor(dance.instructorDisplayName),
+    danceTitle: he.dance.title(dance.instructorDisplayName),
     status: dance.status,
     statusLabel,
     ringClassName,
