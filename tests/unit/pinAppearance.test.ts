@@ -64,6 +64,25 @@ describe("pinSvg", () => {
     expect(PIN_HEIGHT_PX).toBeGreaterThanOrEqual(48);
   });
 
+  it("draws the warm ring-pin band on every status (Phase 4.6c)", () => {
+    // Purely decorative and identical across all three statuses — the
+    // ring must not become a fourth cue any status leans on, or a screen
+    // reader-equivalent reading of "one more circle" would start meaning
+    // something. withoutColour already proves the three stay distinct
+    // regardless (the test above), so this only checks the band exists.
+    for (const status of STATUSES) {
+      expect(withoutColour(pinSvg(status, false))).toContain('<circle cx="26" cy="24" r="13"');
+    }
+  });
+
+  it("gives a normal night its own centre dot, not just an empty ring", () => {
+    // The dot carries no status information (still zero <path> glyphs on a
+    // scheduled pin — see "marks the two exceptional statuses" above), but a
+    // scheduled pin should not be the only one of the three with a bare ring
+    // at its centre once moved/cancelled have their arrow and cross there.
+    expect(pinSvg("scheduled", false)).toContain('<circle cx="26" cy="24" r="4"');
+  });
+
   it("references colour tokens by role, never a literal hex (docs/decisions/0006)", () => {
     for (const status of STATUSES) {
       const markup = pinSvg(status, true);

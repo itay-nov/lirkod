@@ -133,11 +133,16 @@ test("the preview names the venue, the time, the instructor and a way to drive t
   expect(time).not.toBe("");
   await expect(preview).toContainText(time);
 
-  // Waze first (AGENTS.md §9), Google Maps second.
-  const links = preview.getByRole("link");
-  await expect(links).toHaveCount(2);
-  expect(await links.nth(0).getAttribute("href")).toContain("waze.com");
-  expect(await links.nth(1).getAttribute("href")).toContain("google.com/maps");
+  // Waze first (AGENTS.md §9), Google Maps second — among the panel's full
+  // action cluster (Phase 4.6c added a favorite pill, share and calendar
+  // squares alongside these two), not the only two links in the panel.
+  const hrefs = await preview.getByRole("link").evaluateAll((links) =>
+    links.map((link) => link.getAttribute("href") ?? ""),
+  );
+  const wazeIndex = hrefs.findIndex((href) => href.includes("waze.com"));
+  const googleMapsIndex = hrefs.findIndex((href) => href.includes("google.com/maps"));
+  expect(wazeIndex).toBeGreaterThanOrEqual(0);
+  expect(googleMapsIndex).toBeGreaterThan(wazeIndex);
 });
 
 test("closing the preview puts focus back on the pin it came from", async ({ page }) => {
@@ -156,7 +161,7 @@ test("closing the preview puts focus back on the pin it came from", async ({ pag
   ).toBe(true);
 });
 
-test("both navigation links clear the 48x48 minimum tap target (AGENTS.md §5)", async ({
+test("every action link in the preview clears the 48x48 minimum tap target (AGENTS.md §5)", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 375, height: 812 });
@@ -168,7 +173,13 @@ test("both navigation links clear the 48x48 minimum tap target (AGENTS.md §5)",
   for (const link of await preview.getByRole("link").all()) {
     const box = await link.boundingBox();
     expect(box?.height ?? 0).toBeGreaterThanOrEqual(48);
+    expect(box?.width ?? 0).toBeGreaterThanOrEqual(48);
   }
+
+  // The favorite pill (Phase 4.6c) is a <button>, not a <link>, so it needs
+  // its own check — everything else in the panel is an anchor.
+  const favoriteBox = await preview.getByRole("button", { name: /מועדפים/ }).boundingBox();
+  expect(favoriteBox?.height ?? 0).toBeGreaterThanOrEqual(48);
 });
 
 test("never asks for location until the visible control is pressed (AGENTS.md §9)", async ({

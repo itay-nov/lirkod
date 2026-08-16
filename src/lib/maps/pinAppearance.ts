@@ -51,6 +51,26 @@ const OUTLINE = 'stroke="var(--color-ink)" stroke-width="3" stroke-linejoin="rou
 const GLYPH = 'fill="none" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"';
 
 /**
+ * The "ring-pin" band (Phase 4.6c): a paper-coloured circle sitting inside
+ * every silhouette regardless of status, between the outer ink outline and
+ * whatever glyph sits at the centre. Purely decorative — every status still
+ * differs by fill, edge and glyph exactly as before, so this is one more
+ * layer added to all three rather than a fourth cue any of them depends on.
+ * `var(--color-surface)` rather than a literal hex, same reason as OUTLINE.
+ */
+const RING = '<circle cx="26" cy="24" r="13" fill="none" stroke="var(--color-surface)" stroke-width="4.5" />';
+
+/**
+ * A normal night's own centre mark. `pinSvg`'s header comment explains why
+ * "nothing is wrong" used to mean a fully unmarked pin; a plain dot keeps
+ * that true — it carries no status information (moved and cancelled still
+ * get the arrow and the cross, the only glyphs that mean anything) and exists
+ * only so a scheduled pin is not the sole one with an empty ring at its
+ * centre once the other two have theirs.
+ */
+const CENTER_DOT = '<circle cx="26" cy="24" r="4" fill="var(--color-surface)" />';
+
+/**
  * Points to the reading direction's "forward", which is leftwards in this RTL
  * app — mirrored from the LTR convention rather than borrowed from it, the same
  * call DanceRingScroller makes for its chevrons (AGENTS.md §7).
@@ -101,18 +121,25 @@ function svg(body: string, selected: boolean): string {
 export function pinSvg(status: OccurrenceStatus, selected: boolean): string {
   switch (status) {
     case "scheduled":
-      // Unmarked on purpose: "nothing is wrong" is the absence of a mark, which
-      // is what makes the other two read as exceptions at a glance.
-      return svg(`<path d="${SILHOUETTE}" fill="var(--color-accent)" ${OUTLINE} />`, selected);
+      // No EXCEPTION mark on purpose: "nothing is wrong" is still the absence
+      // of an arrow or a cross, which is what makes the other two read as
+      // exceptions at a glance. The ring and the centre dot are on every
+      // status, this one included, so their presence here says nothing.
+      return svg(
+        `<path d="${SILHOUETTE}" fill="var(--color-accent)" ${OUTLINE} />` + RING + CENTER_DOT,
+        selected,
+      );
     case "moved":
       return svg(
         `<path d="${SILHOUETTE}" fill="var(--color-highlight)" ${OUTLINE} stroke-dasharray="7 5" />` +
+          RING +
           `<path d="${MOVED_ARROW}" stroke="var(--color-ink)" ${GLYPH} />`,
         selected,
       );
     case "cancelled":
       return svg(
         `<path d="${SILHOUETTE}" fill="var(--color-ink)" ${OUTLINE} />` +
+          RING +
           `<path d="${CANCELLED_CROSS}" stroke="var(--color-surface)" ${GLYPH} />`,
         selected,
       );

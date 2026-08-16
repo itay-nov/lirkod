@@ -57,9 +57,13 @@ export default async function HomePage() {
         previewLabel: he.map.preview.label,
         previewClose: he.map.preview.close,
         previewHint: he.map.preview.hint,
+        navigateShort: he.map.preview.navigateShort,
+        shareShort: he.map.preview.shareShort,
+        calendarShort: he.map.preview.calendarShort,
       }}
       labels={{
         heading: he.home.heading,
+        tagline: he.home.tagline,
         empty: he.home.empty,
         listLabel: he.home.listLabel,
         prevLabel: he.home.prevLabel,

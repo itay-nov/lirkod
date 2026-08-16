@@ -20,8 +20,24 @@ import { he } from "@/lib/i18n/he";
  * `eventId` is the SERIES, not the occurrence a pin or row happens to be
  * showing right now (docs/decisions/0002) — favoriting has to keep meaning
  * "this recurring dance" as new nights are generated ahead of it.
+ *
+ * `variant` (Phase 4.6c) picks between two renderings of the SAME control —
+ * the round icon used on `DanceRow` and the /profile favorites list, and a
+ * wide filled pill for the map preview panel's restyled action cluster. Every
+ * other line in this file (state, the click handler, the sign-in prompt, the
+ * error message, both `aria-*` attributes) is shared: only the two `return`
+ * branches differ, so a filled heart still means the same thing everywhere it
+ * appears, exactly as the paragraph above already promises.
  */
-export function FavoriteButton({ eventId, venueName }: { eventId: string; venueName: string }) {
+export function FavoriteButton({
+  eventId,
+  venueName,
+  variant = "icon",
+}: {
+  eventId: string;
+  venueName: string;
+  variant?: "icon" | "pill";
+}) {
   const router = useRouter();
   const { loaded, signedIn, favoriteEventIds, pendingEventIds } = useFavorites();
   const [showSignInPrompt, setShowSignInPrompt] = useState(false);
@@ -53,6 +69,58 @@ export function FavoriteButton({ eventId, venueName }: { eventId: string; venueN
     });
   }
 
+  const ariaLabel = favorited ? he.favorites.remove(venueName) : he.favorites.add(venueName);
+  const heart = (filled: boolean, className: string) => (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className={className}
+      fill={filled ? "currentColor" : "none"}
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 20.5s-7-4.6-9.4-8.8C1 8.7 2 5.5 5.2 5.5c2 0 3.4 1.1 4.1 2.3.7-1.2 2.1-2.3 4.1-2.3 3.2 0 4.2 3.2 2.6 6.2-2.4 4.2-9.4 8.8-9.4 8.8z" />
+    </svg>
+  );
+
+  // assertive: a live region that only ever appears to report a problem the
+  // dancer's tap just caused, so it should interrupt the same way
+  // NightControls' error message does.
+  const messageText = showSignInPrompt
+    ? he.favorites.signedOutEmpty
+    : error
+      ? he.favorites.errors.failed
+      : null;
+
+  if (variant === "pill") {
+    return (
+      <div className="flex flex-col gap-1">
+        <button
+          type="button"
+          onClick={handleClick}
+          disabled={!loaded || pending}
+          aria-pressed={favorited}
+          aria-label={ariaLabel}
+          // Always filled pomegranate regardless of state (the task's "wide
+          // filled pomegranate pill") — the heart's own fill and the visible
+          // text are what change, so state is never colour alone (AGENTS.md
+          // §2.6) even though the pill's background never does.
+          className="flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-accent px-4 py-3 font-bold text-surface transition-transform duration-150 ease-out active:scale-[0.98] focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-secondary disabled:opacity-70"
+        >
+          {heart(favorited, "size-6 shrink-0")}
+          {favorited ? he.favorites.removeShort : he.favorites.saveShort}
+        </button>
+        {messageText !== null && (
+          <p role="status" aria-live="assertive" className="text-secondary">
+            {messageText}
+          </p>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col items-end gap-1">
       <button
@@ -66,31 +134,17 @@ export function FavoriteButton({ eventId, venueName }: { eventId: string; venueN
         // the way `SignOutButton`'s own disabled-while-busy state is.
         disabled={!loaded || pending}
         aria-pressed={favorited}
-        aria-label={favorited ? he.favorites.remove(venueName) : he.favorites.add(venueName)}
+        aria-label={ariaLabel}
         className={`flex size-12 shrink-0 items-center justify-center rounded-full transition-transform duration-150 ease-out active:scale-90 focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-secondary disabled:opacity-70 ${
           favorited ? "text-accent" : "text-secondary"
         }`}
       >
-        <svg
-          aria-hidden="true"
-          viewBox="0 0 24 24"
-          className="size-7"
-          fill={favorited ? "currentColor" : "none"}
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M12 20.5s-7-4.6-9.4-8.8C1 8.7 2 5.5 5.2 5.5c2 0 3.4 1.1 4.1 2.3.7-1.2 2.1-2.3 4.1-2.3 3.2 0 4.2 3.2 2.6 6.2-2.4 4.2-9.4 8.8-9.4 8.8z" />
-        </svg>
+        {heart(favorited, "size-7")}
       </button>
 
-      {/* assertive: a live region that only ever appears to report a problem
-          the dancer's tap just caused, so it should interrupt the same way
-          NightControls' error message does. */}
-      {(showSignInPrompt || error) && (
+      {messageText !== null && (
         <p role="status" aria-live="assertive" className="max-w-40 text-end text-secondary">
-          {showSignInPrompt ? he.favorites.signedOutEmpty : he.favorites.errors.failed}
+          {messageText}
         </p>
       )}
     </div>

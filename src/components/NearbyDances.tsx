@@ -9,6 +9,8 @@ import type { MapDance } from "@/lib/maps/mapDance";
 
 export interface NearbyDancesLabels {
   heading: string;
+  /** The light map-screen framing above the map itself (Phase 4.6c). */
+  tagline: string;
   empty: string;
   listLabel: string;
   prevLabel: string;
@@ -82,6 +84,16 @@ export function NearbyDances({
     // nested <main> is invalid while a second dvh box would overflow the scroll
     // container it sits in by exactly the height of the header and bar.
     <div className="flex min-h-full flex-col">
+      {/*
+        Light map-screen framing (Phase 4.6c) — sits between AppHeader (every
+        screen) and the map itself (this screen only), so a dancer opening a
+        link from WhatsApp lands on a question the map then answers, rather
+        than a wordmark directly over a grey box.
+      */}
+      <p className="px-4 pb-1 pt-3 font-display text-lg font-bold text-secondary">
+        {labels.tagline}
+      </p>
+
       <DanceMap
         dances={visibleDances}
         apiKey={apiKey}

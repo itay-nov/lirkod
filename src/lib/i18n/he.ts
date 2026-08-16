@@ -42,6 +42,13 @@ export const he = {
   },
   home: {
     heading: "הרקדות קרובות",
+    /**
+     * Phase 4.6c's light map-screen framing — sits between the app header and
+     * the map itself, so the screen reads as an answer to a question rather
+     * than opening cold on a grey box (AGENTS.md §2: this audience should not
+     * have to infer what the map is for).
+     */
+    tagline: "מה קורה הערב לידך?",
     /** Shown when the proximity query comes back empty — not an error state. */
     empty: "לא נמצאו הרקדות באזור הזה בימים הקרובים.",
     listLabel: "רשימת ההרקדות הקרובות",
@@ -88,6 +95,18 @@ export const he = {
       googleMaps: (venue: string): string => `ניווט ל${venue} עם גוגל מפות`,
       shareWhatsapp: "שיתוף בוואטסאפ",
       addToCalendar: "הוספה ליומן",
+      /**
+       * Phase 4.6c: the visible captions on the panel's three tinted square
+       * buttons. Short on purpose — the full sentence (`waze`, `shareWhatsapp`,
+       * `addToCalendar` above) stays the control's `aria-label`, so a screen
+       * reader still hears the whole thing; these three are only what a
+       * sighted dancer reads next to the icon. "ניווט" rather than "וייז":
+       * Waze is what the link opens, but the WORD on the button names the
+       * action, the same way the aria-label already leads with "ניווט".
+       */
+      navigateShort: "ניווט",
+      shareShort: "שיתוף",
+      calendarShort: "יומן",
       /**
        * The WhatsApp share message (Phase 4.6a). Plain text, one fact per
        * line, so it reads cleanly if pasted anywhere and not only inside a
@@ -268,6 +287,15 @@ export const he = {
      */
     add: (venue: string): string => `הוספה למועדפים: ${venue}`,
     remove: (venue: string): string => `הסרה מהמועדפים: ${venue}`,
+    /**
+     * Phase 4.6c: the VISIBLE text on the map preview panel's wide favorite
+     * pill (`FavoriteButton`'s `variant="pill"`). Short, unlike `add`/`remove`
+     * above, because the pill sits right under the venue name it would
+     * otherwise repeat — `add`/`remove` stay the button's `aria-label`, which
+     * is what still names the venue for a screen reader.
+     */
+    saveShort: "שמירה למועדפים",
+    removeShort: "הסרה מהמועדפים",
     errors: {
       failed: "לא הצלחנו לשמור. אפשר לנסות שוב.",
     },

@@ -17,6 +17,15 @@ export interface DanceMapLabels {
   previewLabel: string;
   previewClose: string;
   previewHint: string;
+  /**
+   * The visible captions on the preview panel's three tinted square buttons
+   * (Phase 4.6c) — static across every dance, unlike `MapDance`'s own
+   * `wazeLabel`/`shareLabel`/`calendarLabel`, which name the venue and stay
+   * each control's full `aria-label`.
+   */
+  navigateShort: string;
+  shareShort: string;
+  calendarShort: string;
 }
 
 /** Roughly a 15km radius on a phone — the default region, framed. */
@@ -68,6 +77,23 @@ function whenIdle(work: () => void): () => void {
   return () => window.clearTimeout(handle);
 }
 
+/**
+ * Scales and lifts the SELECTED pin (Phase 4.6c), on the container rather
+ * than inside the SVG: `pinSvg` stays the closed, argument-free set of
+ * constants its own header comment insists on, and the anchor point (the
+ * tip, at this element's bottom-centre — see the note where this is called)
+ * is unaffected by a CSS transform whose origin is that same bottom-centre.
+ */
+function applySelectionStyle(element: HTMLElement, selected: boolean): void {
+  element.style.transform = selected ? "scale(1.18)" : "scale(1)";
+  element.style.transformOrigin = "50% 100%";
+  // color-mix against the ink token rather than a literal rgba — no new hex
+  // enters the app for a shadow that only ever needs to be "ink, faded".
+  element.style.filter = selected
+    ? "drop-shadow(0 4px 6px color-mix(in srgb, var(--color-ink) 35%, transparent))"
+    : "none";
+}
+
 function pinElement(dance: MapDance, selected: boolean): HTMLElement {
   const element = document.createElement("div");
   element.style.width = `${PIN_WIDTH_PX}px`;
@@ -75,6 +101,7 @@ function pinElement(dance: MapDance, selected: boolean): HTMLElement {
   // Without this the inline SVG sits on a text baseline and the descender space
   // below it pushes the pin's tip off the venue by a few pixels.
   element.style.lineHeight = "0";
+  applySelectionStyle(element, selected);
   // `pinSvg` returns one of a closed set of constants with nothing interpolated
   // into it — see the note on that function. No venue name reaches this.
   element.innerHTML = pinSvg(dance.status, selected);
@@ -276,6 +303,7 @@ export function DanceMap({
 
       const selected = dance.occurrenceId === selectedId;
       content.innerHTML = pinSvg(dance.status, selected);
+      applySelectionStyle(content, selected);
       // The chosen pin sits above its neighbours so its halo is never half
       // hidden under the pin next door.
       marker.zIndex = selected ? 1 : null;
@@ -414,8 +442,10 @@ export function DanceMap({
               aria-busy={locateState === "locating"}
               // Never asked silently on load (AGENTS.md §9): this is the only
               // thing in the app that reaches for the geolocation permission,
-              // and a dancer has to press it.
-              className="flex min-h-12 items-center justify-center gap-2 self-start rounded-full border-2 border-secondary px-4 py-2 font-semibold text-secondary focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-secondary"
+              // and a dancer has to press it. Filled paper rather than plain
+              // transparent (Phase 4.6c) so it reads as a control floating
+              // over the map rather than a label printed under it.
+              className="flex min-h-12 items-center justify-center gap-2 self-start rounded-full border-2 border-secondary bg-surface px-4 py-2 font-semibold text-secondary shadow-[0_2px_6px_color-mix(in_srgb,var(--color-ink)_15%,transparent)] focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-secondary"
             >
               <svg
                 aria-hidden="true"
@@ -460,95 +490,181 @@ export function DanceMap({
               onKeyDown={(event) => {
                 if (event.key === "Escape") closePreview();
               }}
-              className="mx-4 mt-2 flex flex-col gap-3 rounded-2xl border-2 border-secondary bg-surface p-4 focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-secondary"
+              // A warm bottom sheet (Phase 4.6c), the same rounded-top-only,
+              // no-border, shadow-lifted shape NearbyDances.tsx already draws
+              // for the ring list directly below this one — one shape reused
+              // for "a surface that peels up from whatever is above it"
+              // rather than a second convention invented here. Edge-to-edge
+              // (no mx-4) is what makes it read as a sheet rather than a
+              // floating card.
+              className="mt-2 flex flex-col gap-4 rounded-t-3xl bg-surface p-5 shadow-[0_-2px_12px_color-mix(in_srgb,var(--color-ink)_15%,transparent)] focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-secondary"
             >
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                {/*
-                  min-w-24, not min-w-0 — the same floor DanceRow.tsx uses and
-                  for the same reason (see its own comment): without one, the
-                  status+heart column on the far side of this flex-wrap row
-                  can squeeze the venue name down to an unreadable sliver at
-                  200% text on a 375px phone instead of wrapping onto its own
-                  line. flex-wrap is what lets that column actually wrap below
-                  once the floor is hit, rather than merely stopping short of
-                  zero.
-                */}
-                <div className="flex min-w-24 flex-col gap-1">
-                  <span className="font-display text-xl font-bold">
-                    {selected.venueName}
+              {/* Decorative only — the panel already has a real close button
+                  and an Escape handler, so this is not a drag handle a
+                  dancer can act on, only the visual cue a bottom sheet has
+                  more above it than a plain card would. */}
+              <div aria-hidden="true" className="mx-auto h-1.5 w-12 shrink-0 rounded-full bg-muted/50" />
+
+              <div className="flex flex-col gap-2">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  {/*
+                    min-w-24, not min-w-0 — the same floor DanceRow.tsx uses
+                    and for the same reason (see its own comment): without
+                    one, the status badge on the far side of this
+                    flex-wrap row can squeeze the heading down to an
+                    unreadable sliver at 200% text on a 375px phone instead
+                    of wrapping onto its own line.
+                  */}
+                  <span className="min-w-24 font-display text-xl font-bold">
+                    {selected.danceTitle}
                   </span>
-                  <span>{selected.timeText}</span>
-                  <span className="text-secondary">{selected.instructorText}</span>
-                </div>
-                {/*
-                  The status pill and the heart share this right-aligned
-                  column rather than sitting apart, so a keyboard user moving
-                  through the panel meets them together instead of the heart
-                  landing somewhere unrelated. The heart is the panel's
-                  answer to "the dance detail" in the Phase 4.5 task — see
-                  docs/decisions/0020 for why it lives here and not on the
-                  pin itself.
-                */}
-                <div className="flex shrink-0 flex-col items-end gap-2">
                   {selected.statusLabel !== null && (
                     <span
-                      className={`rounded-full px-3 py-1 font-bold ${selected.statusBadgeClassName}`}
+                      className={`shrink-0 rounded-full px-3 py-1 font-bold ${selected.statusBadgeClassName}`}
                     >
                       {selected.statusLabel}
                     </span>
                   )}
-                  <FavoriteButton eventId={selected.eventId} venueName={selected.venueName} />
                 </div>
+
+                <span className="flex items-center gap-2 text-secondary">
+                  <svg
+                    aria-hidden="true"
+                    viewBox="0 0 24 24"
+                    className="size-5 shrink-0"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M12 21s-7-5.686-7-11a7 7 0 1 1 14 0c0 5.314-7 11-7 11z" />
+                    <circle cx="12" cy="10" r="2.5" />
+                  </svg>
+                  {selected.venueName}
+                </span>
+
+                <span className="flex items-center gap-2 text-secondary">
+                  <svg
+                    aria-hidden="true"
+                    viewBox="0 0 24 24"
+                    className="size-5 shrink-0"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <circle cx="12" cy="12" r="9" />
+                    <path d="M12 7v5l3.5 2" />
+                  </svg>
+                  {selected.timeRangeText}
+                </span>
               </div>
 
               {/*
-                Waze first — it is what this audience drives with in Israel
-                (AGENTS.md §9), so it gets the filled treatment and the first
-                position. Both are plain links handing off to another app, not
-                something we route through ourselves.
+                The heart is the panel's answer to "the dance detail" in the
+                Phase 4.5 task — see docs/decisions/0020 for why it lives
+                here and not on the pin itself. Wide and filled (Phase
+                4.6c), the same visual weight as the primary action used to
+                give Waze, because saving the dance is the one action here a
+                dancer might take before ever leaving this screen.
               */}
-              <a
-                href={selected.wazeUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex min-h-12 items-center justify-center rounded-full bg-accent px-4 py-2 text-center font-bold text-surface focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-secondary"
+              <FavoriteButton
+                eventId={selected.eventId}
+                venueName={selected.venueName}
+                variant="pill"
+              />
+
+              {/*
+                Three tinted squares: navigate (Waze — AGENTS.md §9 wants it
+                first and it is what this audience drives with in Israel),
+                share, calendar. Each keeps its full descriptive sentence as
+                `aria-label` — the same string this control has always had —
+                so nothing about what a screen reader hears changes; only
+                the visible caption is new and short. Google Maps, offered
+                for a dancer with no Waze installed, sits below as a plain
+                text link rather than a fourth square: a fallback, not one
+                of the three primary actions.
+              */}
+              <div
+                className={`grid gap-3 ${selected.icsUrl !== null ? "grid-cols-3" : "grid-cols-2"}`}
               >
-                {selected.wazeLabel}
-              </a>
+                <a
+                  href={selected.wazeUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={selected.wazeLabel}
+                  className="flex min-h-12 w-full flex-col items-center justify-center gap-1 rounded-2xl bg-secondary/15 px-2 py-4 text-center font-semibold text-secondary focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-secondary"
+                >
+                  <svg
+                    aria-hidden="true"
+                    viewBox="0 0 24 24"
+                    className="size-6 shrink-0"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M12 3l7 15-7-4-7 4 7-15z" />
+                  </svg>
+                  {labels.navigateShort}
+                </a>
+                <a
+                  href={selected.shareUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={selected.shareLabel}
+                  className="flex min-h-12 w-full flex-col items-center justify-center gap-1 rounded-2xl bg-accent/15 px-2 py-4 text-center font-semibold text-accent focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-secondary"
+                >
+                  <svg
+                    aria-hidden="true"
+                    viewBox="0 0 24 24"
+                    className="size-6 shrink-0"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 20l.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+                  </svg>
+                  {labels.shareShort}
+                </a>
+                {selected.icsUrl !== null && (
+                  <a
+                    href={selected.icsUrl}
+                    download={selected.icsFilename}
+                    aria-label={selected.calendarLabel}
+                    className="flex min-h-12 w-full flex-col items-center justify-center gap-1 rounded-2xl bg-highlight/30 px-2 py-4 text-center font-semibold text-ink focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-secondary"
+                  >
+                    <svg
+                      aria-hidden="true"
+                      viewBox="0 0 24 24"
+                      className="size-6 shrink-0"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <rect x="3.5" y="5.5" width="17" height="15" rx="2" />
+                      <path d="M3.5 9.5h17M8 3v4M16 3v4" />
+                    </svg>
+                    {labels.calendarShort}
+                  </a>
+                )}
+              </div>
+
               <a
                 href={selected.googleMapsUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex min-h-12 items-center justify-center rounded-full border-2 border-secondary px-4 py-2 text-center font-semibold text-secondary focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-secondary"
+                className="flex min-h-12 items-center justify-center rounded-full px-4 py-2 text-center font-semibold text-secondary underline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-secondary"
               >
                 {selected.googleMapsLabel}
               </a>
-
-              {/*
-                Two plain links, not buttons with a click handler — the same
-                "hand off to another app" shape Waze and Google Maps already
-                use above. WhatsApp opens in a new tab like the navigation
-                links; the calendar link downloads instead, via `download`
-                rather than `target="_blank"`, so it never replaces the panel
-                a dancer is looking at with a browser's raw .ics preview.
-              */}
-              <a
-                href={selected.shareUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex min-h-12 items-center justify-center rounded-full border-2 border-secondary px-4 py-2 text-center font-semibold text-secondary focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-secondary"
-              >
-                {selected.shareLabel}
-              </a>
-              {selected.icsUrl !== null && (
-                <a
-                  href={selected.icsUrl}
-                  download={selected.icsFilename}
-                  className="flex min-h-12 items-center justify-center rounded-full border-2 border-secondary px-4 py-2 text-center font-semibold text-secondary focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-secondary"
-                >
-                  {selected.calendarLabel}
-                </a>
-              )}
 
               <button
                 type="button"
