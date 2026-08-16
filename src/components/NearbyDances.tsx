@@ -2,9 +2,11 @@
 
 import { useCallback, useState } from "react";
 import { DanceMap, type DanceMapLabels } from "@/components/DanceMap";
+import { DanceFilters, type DanceFiltersLabels } from "@/components/DanceFilters";
 import { DanceRing } from "@/components/DanceRing";
 import { DanceRingScroller } from "@/components/DanceRingScroller";
 import { useDemoHidden } from "@/lib/demo/demoVisibility";
+import { EMPTY_DANCE_FILTER, filterDances, type DanceAttributeFilter } from "@/lib/domain/danceFilter";
 import type { MapDance } from "@/lib/maps/mapDance";
 
 export interface NearbyDancesLabels {
@@ -12,6 +14,8 @@ export interface NearbyDancesLabels {
   /** The light map-screen framing above the map itself (Phase 4.6c). */
   tagline: string;
   empty: string;
+  /** Shown when the filter (Phase 4.6b), not the query, is what leaves the list empty. */
+  emptyFiltered: string;
   listLabel: string;
   prevLabel: string;
   nextLabel: string;
@@ -46,6 +50,7 @@ export function NearbyDances({
   mapId,
   locatedRadiusMeters,
   mapLabels,
+  filterLabels,
   labels,
   demoMode = false,
 }: {
@@ -55,12 +60,14 @@ export function NearbyDances({
   mapId: string;
   locatedRadiusMeters: number;
   mapLabels: DanceMapLabels;
+  filterLabels: DanceFiltersLabels;
   labels: NearbyDancesLabels;
   /** DEMO_MODE only (AGENTS.md §13 Phase 4.0) — see the note on `demoHidden` below. */
   demoMode?: boolean;
 }) {
   const [dances, setDances] = useState(initialDances);
   const [center, setCenter] = useState(initialCenter);
+  const [filter, setFilter] = useState<DanceAttributeFilter>(EMPTY_DANCE_FILTER);
 
   const handleLocated = useCallback(
     (located: MapDance[], locatedCenter: { lat: number; lng: number }) => {
@@ -76,7 +83,12 @@ export function NearbyDances({
   // ever flip `demoHidden`, `dances` always shows untouched. Display only — the
   // query result itself never changes.
   const demoHidden = useDemoHidden();
-  const visibleDances = demoMode && demoHidden ? [] : dances;
+  const regionDances = demoMode && demoHidden ? [] : dances;
+  // Filtering runs on the set the server (or "near me") already queried —
+  // never a second query (docs/decisions/0005, and src/lib/domain/danceFilter.ts's
+  // own header on why client-side is fine for v1). No useMemo: the 200-row
+  // cap (migration 0003) bounds this to a cheap filter every render.
+  const visibleDances = filterDances(regionDances, filter);
 
   return (
     // min-h-full, not min-h-dvh, and a div rather than a <main>: the shell in
@@ -93,6 +105,10 @@ export function NearbyDances({
       <p className="px-4 pb-1 pt-3 font-display text-lg font-bold text-secondary">
         {labels.tagline}
       </p>
+
+      <div className="px-4 pb-2">
+        <DanceFilters filter={filter} onChange={setFilter} labels={filterLabels} />
+      </div>
 
       <DanceMap
         dances={visibleDances}
@@ -113,7 +129,12 @@ export function NearbyDances({
           // looking at the previous region's list under an empty map. Also
           // what the DEMO_MODE toggle shows while it is on — the same honest
           // empty state, not a separate "demo" message.
-          <p className="px-4 pt-4">{labels.empty}</p>
+          //
+          // Two different reasons for "nothing to show" (Phase 4.6b): the
+          // region itself has no dances, or a filter narrowed a real result
+          // to nothing. Conflating them would tell a dancer with an active
+          // filter that there is nothing near them at all, which is not true.
+          <p className="px-4 pt-4">{regionDances.length === 0 ? labels.empty : labels.emptyFiltered}</p>
         ) : (
           <DanceRingScroller
             listLabel={labels.listLabel}

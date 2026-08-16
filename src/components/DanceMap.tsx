@@ -527,6 +527,38 @@ export function DanceMap({
                   )}
                 </div>
 
+                {/*
+                  The type/level tag slot 4.6c left unused (docs/decisions/0022)
+                  — filled in Phase 4.6b now that dance_events carries the data.
+                  Warm, not status-coded: `bg-highlight/30` is the same tint the
+                  calendar square already uses, so a plain descriptive tag reads
+                  as calmer than the status badge above it rather than competing
+                  with it (AGENTS.md §2.6 — colour is never the only carrier of
+                  status, and these tags are not status).
+                */}
+                <div className="flex flex-wrap gap-2">
+                  {selected.attributeTags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="rounded-full bg-highlight/30 px-3 py-1 font-semibold text-ink"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+
+                {/*
+                  A clear, dignified badge rather than a corner icon — the task
+                  is explicit that this must not read as an afterthought. Its
+                  own line, its own accent colour, distinct from both the status
+                  badge and the plain attribute tags above.
+                */}
+                {selected.womenOnlyLabel !== null && (
+                  <span className="w-fit rounded-full bg-accent/15 px-3 py-1 font-bold text-accent">
+                    {selected.womenOnlyLabel}
+                  </span>
+                )}
+
                 <span className="flex items-center gap-2 text-secondary">
                   <svg
                     aria-hidden="true"

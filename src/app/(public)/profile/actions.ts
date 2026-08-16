@@ -21,6 +21,13 @@ import {
 } from "@/lib/db/publisher";
 import { findOrCreateVenue, type VenueOption } from "@/lib/db/venues";
 import { isAvatarId } from "@/lib/domain/avatar";
+import {
+  DEFAULT_DANCE_LEVEL,
+  isDanceLevel,
+  toDanceFormations,
+  type DanceFormation,
+  type DanceLevel,
+} from "@/lib/domain/danceAttributes";
 import { buildNewDance } from "@/lib/domain/newDance";
 import { buildNightTimes, type NightTimesField } from "@/lib/domain/nightTimes";
 import {
@@ -271,6 +278,15 @@ export interface PublishDanceInput {
   untilDate: string;
   /** The public name to publish under. Only read when there is no instructor row yet. */
   instructorName: string;
+  /**
+   * Phase 4.6b. `level` arrives as a plain string from a radio value and is
+   * narrowed with `isDanceLevel` below — the checkboxes and radios only ever
+   * send values from the closed sets, so this is the same "client input,
+   * never trusted" caution `isAvatarId` above is for (AGENTS.md §8).
+   */
+  level: string;
+  danceFormations: string[];
+  womenOnly: boolean;
 }
 
 /**
@@ -320,6 +336,14 @@ export async function publishDanceAction(
     };
   }
 
+  // Narrowed rather than refused on a bad value (unlike the fields above): a
+  // client only ever renders these from the closed sets, so anything else is
+  // a forged request, not a mistake worth a form error — the same reasoning
+  // toDanceFormations gives for the array. dance_events.level's own DEFAULT
+  // (migration 0013) is what a valid form always sends anyway.
+  const level: DanceLevel = isDanceLevel(input.level) ? input.level : DEFAULT_DANCE_LEVEL;
+  const danceFormations: DanceFormation[] = toDanceFormations(input.danceFormations);
+
   const client = await serverClient();
 
   // Re-read rather than trust: the profile row is what `instructors.profile_id`
@@ -346,6 +370,9 @@ export async function publishDanceAction(
       venueId: command.venueId,
       startsAtUtc: command.startsAtUtc,
       endsAtUtc: command.endsAtUtc,
+      level,
+      danceFormations,
+      womenOnly: input.womenOnly,
     });
   } else {
     const series = await publishRecurringDance(client, {
@@ -356,6 +383,9 @@ export async function publishDanceAction(
       localStartTime: command.localStartTime,
       localEndTime: command.localEndTime,
       untilDate: command.untilDate,
+      level,
+      danceFormations,
+      womenOnly: input.womenOnly,
     });
 
     // Nothing was written — the whole RPC rolled back — so there is nothing to

@@ -3,6 +3,7 @@ import { cleanup, render, screen, waitFor, within } from "@testing-library/react
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NearbyDances, type NearbyDancesLabels } from "@/components/NearbyDances";
 import type { DanceMapLabels } from "@/components/DanceMap";
+import type { DanceFiltersLabels } from "@/components/DanceFilters";
 import type { MapDance } from "@/lib/maps/mapDance";
 
 /**
@@ -91,9 +92,32 @@ const LABELS: NearbyDancesLabels = {
   heading: "הרקדות קרובות",
   tagline: "מה קורה הערב לידך?",
   empty: "לא נמצאו הרקדות באזור הזה בימים הקרובים.",
+  emptyFiltered: "אין הרקדות שמתאימות לסינון שבחרתם.",
   listLabel: "רשימת ההרקדות הקרובות",
   prevLabel: "הרקדות קודמות",
   nextLabel: "הרקדות נוספות",
+};
+
+const FILTER_LABELS: DanceFiltersLabels = {
+  heading: "סינון הרקדות",
+  toggle: "סינון הרקדות",
+  close: "סגירת הסינון",
+  levelLabel: "רמה",
+  anyLevel: "הכול",
+  typeLabel: "סוג ההרקדה",
+  womenOnlyLabel: "רק הרקדות לנשים בלבד",
+  levelOptions: [
+    { value: "beginner", label: "מתחילים" },
+    { value: "intermediate", label: "בינוני" },
+    { value: "advanced", label: "מתקדמים" },
+    { value: "all_levels", label: "כל הרמות" },
+  ],
+  formationOptions: [
+    { value: "circle", label: "מעגלים" },
+    { value: "couples", label: "זוגות" },
+    { value: "line", label: "ליין" },
+    { value: "mixed", label: "מעורב" },
+  ],
 };
 
 const DEFAULT_VENUE = "היכל התרבות חולון";
@@ -130,6 +154,11 @@ function dance(venueName: string, overrides: Partial<MapDance> = {}): MapDance {
     icsUrl: "data:text/calendar;charset=utf-8,test",
     icsFilename: `occurrence-${venueName}.ics`,
     calendarLabel: "הוספה ליומן",
+    level: "all_levels",
+    danceFormations: [],
+    womenOnly: false,
+    attributeTags: ["כל הרמות"],
+    womenOnlyLabel: null,
     ...overrides,
   };
 }
@@ -173,6 +202,7 @@ function renderScreen(initialDances: MapDance[]) {
       mapId="TEST_MAP_ID"
       locatedRadiusMeters={10_000}
       mapLabels={MAP_LABELS}
+      filterLabels={FILTER_LABELS}
       labels={LABELS}
     />,
   );

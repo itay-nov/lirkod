@@ -12,9 +12,11 @@ export type Database = {
       dance_events: {
         Row: {
           created_at: string
+          dance_formations: Database["public"]["Enums"]["dance_formation"][]
           dance_types: string[]
           id: string
           instructor_id: string
+          level: Database["public"]["Enums"]["dance_level"]
           price_agorot: number
           recurrence_freq: Database["public"]["Enums"]["recurrence_freq"] | null
           recurrence_local_end_time: string | null
@@ -23,12 +25,15 @@ export type Database = {
           recurrence_start_date: string | null
           recurrence_until_date: string | null
           venue_id: string
+          women_only: boolean
         }
         Insert: {
           created_at?: string
+          dance_formations?: Database["public"]["Enums"]["dance_formation"][]
           dance_types?: string[]
           id?: string
           instructor_id: string
+          level?: Database["public"]["Enums"]["dance_level"]
           price_agorot: number
           recurrence_freq?:
             | Database["public"]["Enums"]["recurrence_freq"]
@@ -39,12 +44,15 @@ export type Database = {
           recurrence_start_date?: string | null
           recurrence_until_date?: string | null
           venue_id: string
+          women_only?: boolean
         }
         Update: {
           created_at?: string
+          dance_formations?: Database["public"]["Enums"]["dance_formation"][]
           dance_types?: string[]
           id?: string
           instructor_id?: string
+          level?: Database["public"]["Enums"]["dance_level"]
           price_agorot?: number
           recurrence_freq?:
             | Database["public"]["Enums"]["recurrence_freq"]
@@ -55,6 +63,7 @@ export type Database = {
           recurrence_start_date?: string | null
           recurrence_until_date?: string | null
           venue_id?: string
+          women_only?: boolean
         }
         Relationships: [
           {
@@ -265,9 +274,11 @@ export type Database = {
       find_dances_near: {
         Args: { p_lat: number; p_lng: number; p_radius_meters: number }
         Returns: {
+          dance_formations: Database["public"]["Enums"]["dance_formation"][]
           dance_types: string[]
           event_id: string
           instructor_display_name: string
+          level: Database["public"]["Enums"]["dance_level"]
           occurrence_id: string
           original_starts_at: string
           price_agorot: number
@@ -277,14 +288,17 @@ export type Database = {
           venue_lat: number
           venue_lng: number
           venue_name: string
+          women_only: boolean
         }[]
       }
       find_favorite_nights: {
         Args: { p_event_ids: string[] }
         Returns: {
+          dance_formations: Database["public"]["Enums"]["dance_formation"][]
           dance_types: string[]
           event_id: string
           instructor_display_name: string
+          level: Database["public"]["Enums"]["dance_level"]
           occurrence_id: string
           original_starts_at: string
           price_agorot: number
@@ -294,6 +308,7 @@ export type Database = {
           venue_lat: number
           venue_lng: number
           venue_name: string
+          women_only: boolean
         }[]
       }
       find_or_create_venue: {
@@ -319,10 +334,13 @@ export type Database = {
       owns_instructor: { Args: { p_instructor_id: string }; Returns: boolean }
       publish_dance: {
         Args: {
+          p_dance_formations?: Database["public"]["Enums"]["dance_formation"][]
           p_ends_at: string
           p_instructor_id: string
+          p_level?: Database["public"]["Enums"]["dance_level"]
           p_starts_at: string
           p_venue_id: string
+          p_women_only?: boolean
         }
         Returns: {
           event_id: string
@@ -331,13 +349,16 @@ export type Database = {
       }
       publish_recurring_dance: {
         Args: {
+          p_dance_formations?: Database["public"]["Enums"]["dance_formation"][]
           p_freq: Database["public"]["Enums"]["recurrence_freq"]
           p_instructor_id: string
+          p_level?: Database["public"]["Enums"]["dance_level"]
           p_local_end_time: string
           p_local_start_time: string
           p_start_date: string
           p_until_date?: string
           p_venue_id: string
+          p_women_only?: boolean
         }
         Returns: {
           event_id: string
@@ -359,6 +380,8 @@ export type Database = {
         | "circle_dance"
         | "pomegranate"
         | "musical_notes"
+      dance_formation: "circle" | "couples" | "line" | "mixed"
+      dance_level: "beginner" | "intermediate" | "advanced" | "all_levels"
       occurrence_status: "scheduled" | "cancelled" | "moved"
       recurrence_freq: "weekly" | "biweekly"
     }
@@ -502,6 +525,8 @@ export const Constants = {
         "pomegranate",
         "musical_notes",
       ],
+      dance_formation: ["circle", "couples", "line", "mixed"],
+      dance_level: ["beginner", "intermediate", "advanced", "all_levels"],
       occurrence_status: ["scheduled", "cancelled", "moved"],
       recurrence_freq: ["weekly", "biweekly"],
     },

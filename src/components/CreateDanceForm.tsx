@@ -7,6 +7,13 @@ import {
   type PublishDanceResult,
 } from "@/app/(public)/profile/actions";
 import type { VenueOption } from "@/lib/db/venues";
+import {
+  DANCE_FORMATIONS,
+  DANCE_LEVELS,
+  DEFAULT_DANCE_LEVEL,
+  type DanceFormation,
+  type DanceLevel,
+} from "@/lib/domain/danceAttributes";
 import type { Repeat, RecurringField } from "@/lib/domain/newRecurringDance";
 import { formatCalendarDateWeekday } from "@/lib/domain/occurrenceTime";
 import { VenuePicker } from "./VenuePicker";
@@ -74,6 +81,9 @@ export function CreateDanceForm({
   const [endTime, setEndTime] = useState("");
   const [repeat, setRepeat] = useState<Repeat>("once");
   const [untilDate, setUntilDate] = useState("");
+  const [level, setLevel] = useState<DanceLevel>(DEFAULT_DANCE_LEVEL);
+  const [danceFormations, setDanceFormations] = useState<DanceFormation[]>([]);
+  const [womenOnly, setWomenOnly] = useState(false);
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -111,6 +121,9 @@ export function CreateDanceForm({
         repeat,
         untilDate,
         instructorName: publicName,
+        level,
+        danceFormations,
+        womenOnly,
       });
 
       if (!result.ok) {
@@ -131,6 +144,9 @@ export function CreateDanceForm({
       setEndTime("");
       setRepeat("once");
       setUntilDate("");
+      setLevel(DEFAULT_DANCE_LEVEL);
+      setDanceFormations([]);
+      setWomenOnly(false);
       // The map and the schedule were revalidated server-side; this is what makes
       // the current screen reflect it too.
       router.refresh();
@@ -294,6 +310,64 @@ export function CreateDanceForm({
             </p>
           </div>
         )}
+
+        {/*
+          Level, type(s) and women-only (Phase 4.6b). A visible radio list for
+          level (one value, never a dropdown — AGENTS.md §2.7, same reasoning
+          as the repeat choice above) and real checkboxes for type, which is
+          genuinely multi-valued.
+        */}
+        <fieldset>
+          <legend className={LABEL_CLASS}>{he.publishDance.levelLegend}</legend>
+          <div className="flex flex-col gap-2">
+            {DANCE_LEVELS.map((option) => (
+              <label key={option} className={RADIO_OPTION_CLASS}>
+                <input
+                  type="radio"
+                  name="level"
+                  value={option}
+                  checked={level === option}
+                  onChange={() => setLevel(option)}
+                  className="size-6 shrink-0 accent-[var(--color-secondary)]"
+                />
+                <span className="font-bold">{he.dance.level[option]}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend className={LABEL_CLASS}>{he.publishDance.typeLegend}</legend>
+          <div className="flex flex-col gap-2">
+            {DANCE_FORMATIONS.map((option) => (
+              <label key={option} className={RADIO_OPTION_CLASS}>
+                <input
+                  type="checkbox"
+                  checked={danceFormations.includes(option)}
+                  onChange={(event) =>
+                    setDanceFormations((current) =>
+                      event.target.checked
+                        ? [...current, option]
+                        : current.filter((value) => value !== option),
+                    )
+                  }
+                  className="size-6 shrink-0 accent-[var(--color-secondary)]"
+                />
+                <span className="font-bold">{he.dance.formation[option]}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+
+        <label className={RADIO_OPTION_CLASS}>
+          <input
+            type="checkbox"
+            checked={womenOnly}
+            onChange={(event) => setWomenOnly(event.target.checked)}
+            className="size-6 shrink-0 accent-[var(--color-secondary)]"
+          />
+          <span className="font-bold">{he.publishDance.womenOnlyLabel}</span>
+        </label>
 
         <button type="submit" disabled={busy} className={PRIMARY_BUTTON_CLASS}>
           {busy ? he.publishDance.submitting : he.publishDance.submit}

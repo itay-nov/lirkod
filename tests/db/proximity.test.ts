@@ -123,6 +123,22 @@ describe("find_dances_near bounds — an anonymous, unauthenticated RPC (migrati
     }
   });
 
+  it("returns level/danceFormations/womenOnly (Phase 4.6b, migration 0013) alongside the existing fields", async () => {
+    // Proves the clamp/horizon/limit tests above and this one run against the
+    // SAME function: migration 0013 dropped and recreated find_dances_near
+    // rather than widening a copy, so if this passed the guards above still
+    // hold for it.
+    const dances = await findDancesNear(anonClient(), HOLON_LAT, HOLON_LNG, 5_000);
+    const holon = dances.find((d) => d.venueName === HOLON_VENUE);
+
+    expect(holon).toBeDefined();
+    // The seeded fixture never sets these, so this is the migration's own
+    // DEFAULT (`all_levels` / `{}` / false), read back through the RPC.
+    expect(holon?.level).toBe("all_levels");
+    expect(holon?.danceFormations).toEqual([]);
+    expect(holon?.womenOnly).toBe(false);
+  });
+
   it("excludes an occurrence beyond the 60-day horizon, even inside the radius", async () => {
     const service = serviceClient();
     const farStartsAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);

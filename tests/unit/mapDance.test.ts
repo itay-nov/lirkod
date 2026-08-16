@@ -30,6 +30,9 @@ function dance(status: OccurrenceStatus): NearbyDance {
     instructorDisplayName: "רונית מרקידה",
     danceTypes: ["ריקודי עם"],
     priceAgorot: 3000,
+    level: "intermediate",
+    danceFormations: ["circle", "couples"],
+    womenOnly: false,
   };
 }
 
@@ -142,6 +145,36 @@ describe("toMapDance", () => {
   it("names the .ics file by occurrence, so two downloads from one session never collide", () => {
     const mapped = toMapDance(dance("scheduled"));
     expect(mapped.icsFilename).toBe("d0000000-0000-0000-0000-000000000001.ics");
+  });
+
+  it("builds the type/level tag from formations then level (Phase 4.6b)", () => {
+    const mapped = toMapDance(dance("scheduled"));
+
+    expect(mapped.attributeTags).toEqual(["מעגלים", "זוגות", "בינוני"]);
+  });
+
+  it("tags a dance with no chosen formations by level alone, not an empty tag", () => {
+    const mapped = toMapDance({ ...dance("scheduled"), danceFormations: [] });
+
+    expect(mapped.attributeTags).toEqual([he.dance.level.intermediate]);
+  });
+
+  it("gives no women-only badge when the dance is not women_only", () => {
+    expect(toMapDance(dance("scheduled")).womenOnlyLabel).toBeNull();
+  });
+
+  it("labels a women_only dance with the dignified badge text", () => {
+    const mapped = toMapDance({ ...dance("scheduled"), womenOnly: true });
+
+    expect(mapped.womenOnlyLabel).toBe(he.dance.womenOnly);
+  });
+
+  it("carries the raw level/formations/womenOnly for the filter", () => {
+    const mapped = toMapDance(dance("scheduled"));
+
+    expect(mapped.level).toBe("intermediate");
+    expect(mapped.danceFormations).toEqual(["circle", "couples"]);
+    expect(mapped.womenOnly).toBe(false);
   });
 
   it("leaves nothing for the client to format", () => {

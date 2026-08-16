@@ -1,6 +1,5 @@
-import { DanceRow } from "@/components/DanceRow";
 import { DemoVisibilityGate } from "@/components/DemoVisibilityGate";
-import { FavoriteButton } from "@/components/FavoriteButton";
+import { ScheduleList, type ScheduleDayGroup } from "@/components/ScheduleList";
 import { anonClient } from "@/lib/db/client";
 import { findDancesNear } from "@/lib/db/dances";
 import {
@@ -8,9 +7,11 @@ import {
   DEFAULT_LNG,
   DEFAULT_RADIUS_METERS,
 } from "@/lib/domain/defaultRegion";
+import { danceFiltersLabels } from "@/lib/domain/danceFiltersLabels";
 import { formatDayHeading } from "@/lib/domain/occurrenceTime";
 import { groupDancesByDay } from "@/lib/domain/scheduleDays";
 import { he } from "@/lib/i18n/he";
+import { toMapDances } from "@/lib/maps/mapDance";
 
 /**
  * Never prerendered, for the same reason the map is not (AGENTS.md §10): a
@@ -43,38 +44,30 @@ export default async function SchedulePage() {
 
   const emptyState = <p className="pt-4">{he.schedule.empty}</p>;
 
+  // Headings are formatted here, server-side (formatDayHeading uses Intl —
+  // see its own note) — ScheduleList (Phase 4.6b) only filters and renders
+  // the already-complete MapDance[] this produces, the same discipline
+  // toMapDances/MapDance follow for the map (docs/decisions/0007).
+  const dayGroups: ScheduleDayGroup[] = days.map((day) => {
+    const heading = formatDayHeading(day.dances[0].startsAt);
+    return {
+      dayKey: day.dayKey,
+      heading,
+      dayListLabel: he.schedule.dayListLabel(heading),
+      dances: toMapDances(day.dances),
+    };
+  });
+
   const scheduleContent =
-    days.length === 0
-      ? emptyState
-      : days.map((day) => {
-          const heading = formatDayHeading(day.dances[0].startsAt);
-
-          return (
-            <section key={day.dayKey} className="pt-6">
-              {/*
-                A real heading, not a styled div: the day headers are how a
-                screen reader user skims this screen, and heading navigation
-                only reaches actual heading elements.
-              */}
-              <h2 className="border-b-2 border-muted pb-1 font-display text-xl font-bold">
-                {heading}
-              </h2>
-
-              <ul aria-label={he.schedule.dayListLabel(heading)} className="pt-2">
-                {day.dances.map((dance) => (
-                  <li key={dance.occurrenceId}>
-                    <DanceRow
-                      dance={dance}
-                      action={
-                        <FavoriteButton eventId={dance.eventId} venueName={dance.venueName} />
-                      }
-                    />
-                  </li>
-                ))}
-              </ul>
-            </section>
-          );
-        });
+    days.length === 0 ? (
+      emptyState
+    ) : (
+      <ScheduleList
+        days={dayGroups}
+        filterLabels={danceFiltersLabels()}
+        emptyFilteredLabel={he.filters.emptyFiltered}
+      />
+    );
 
   return (
     <div className="px-4 pb-8 pt-5">

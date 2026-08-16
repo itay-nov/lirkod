@@ -3,6 +3,9 @@ import type { Database } from "@/types/database";
 import type { Client } from "./client";
 
 export type OccurrenceStatus = Database["public"]["Enums"]["occurrence_status"];
+/** Phase 4.6b — see migration 0013. */
+export type DanceLevel = Database["public"]["Enums"]["dance_level"];
+export type DanceFormation = Database["public"]["Enums"]["dance_formation"];
 
 export interface NearbyDance {
   /** The series this night belongs to — what a dancer favorites, not the occurrence. */
@@ -29,6 +32,10 @@ export interface NearbyDance {
   instructorDisplayName: string;
   danceTypes: string[];
   priceAgorot: number;
+  /** Phase 4.6b — set by the instructor at publish time, migration 0013. */
+  level: DanceLevel;
+  danceFormations: DanceFormation[];
+  womenOnly: boolean;
 }
 
 /**
@@ -49,6 +56,9 @@ interface NearbyDanceRow {
   instructor_display_name: string;
   dance_types: string[];
   price_agorot: number;
+  level: DanceLevel;
+  dance_formations: DanceFormation[];
+  women_only: boolean;
 }
 
 function toNearbyDance(row: NearbyDanceRow): NearbyDance {
@@ -73,6 +83,9 @@ function toNearbyDance(row: NearbyDanceRow): NearbyDance {
     instructorDisplayName: row.instructor_display_name,
     danceTypes: row.dance_types,
     priceAgorot: row.price_agorot,
+    level: row.level,
+    danceFormations: row.dance_formations,
+    womenOnly: row.women_only,
   };
 }
 
@@ -206,6 +219,9 @@ export async function publishDance(
     venueId: string;
     startsAtUtc: string;
     endsAtUtc: string;
+    level: DanceLevel;
+    danceFormations: DanceFormation[];
+    womenOnly: boolean;
   },
 ): Promise<PublishedDance> {
   const { data, error } = await client
@@ -214,6 +230,9 @@ export async function publishDance(
       p_venue_id: dance.venueId,
       p_starts_at: dance.startsAtUtc,
       p_ends_at: dance.endsAtUtc,
+      p_level: dance.level,
+      p_dance_formations: dance.danceFormations,
+      p_women_only: dance.womenOnly,
     })
     .single();
 
@@ -259,6 +278,9 @@ export async function publishRecurringDance(
     localStartTime: string;
     localEndTime: string;
     untilDate: string | null;
+    level: DanceLevel;
+    danceFormations: DanceFormation[];
+    womenOnly: boolean;
   },
 ): Promise<PublishedSeries> {
   const { data, error } = await client
@@ -270,6 +292,9 @@ export async function publishRecurringDance(
       p_local_start_time: dance.localStartTime,
       p_local_end_time: dance.localEndTime,
       p_until_date: dance.untilDate ?? undefined,
+      p_level: dance.level,
+      p_dance_formations: dance.danceFormations,
+      p_women_only: dance.womenOnly,
     })
     .single();
 

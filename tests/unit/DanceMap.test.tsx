@@ -150,6 +150,11 @@ function mapDance(overrides: Partial<MapDance> = {}): MapDance {
     icsUrl: "data:text/calendar;charset=utf-8,test",
     icsFilename: "occurrence-1.ics",
     calendarLabel: "הוספה ליומן",
+    level: "all_levels",
+    danceFormations: [],
+    womenOnly: false,
+    attributeTags: ["כל הרמות"],
+    womenOnlyLabel: null,
     ...overrides,
   };
 }
@@ -430,6 +435,41 @@ describe("DanceMap preview — Phase 4.6c restyle", () => {
     const googleMapsIndex = links.findIndex((href) => href.includes("google.com/maps"));
     expect(wazeIndex).toBeGreaterThanOrEqual(0);
     expect(googleMapsIndex).toBeGreaterThan(wazeIndex);
+  });
+
+  it("fills the type/level tag slot 4.6c left unused (Phase 4.6b, docs/decisions/0022)", async () => {
+    const dance = mapDance({ attributeTags: ["מעגלים", "זוגות", "בינוני"] });
+    renderMap({ dances: [dance] });
+    const [marker] = await markers();
+
+    marker?.activate();
+    const preview = await screen.findByRole("region", { name: LABELS.previewLabel });
+
+    expect(preview).toHaveTextContent("מעגלים");
+    expect(preview).toHaveTextContent("זוגות");
+    expect(preview).toHaveTextContent("בינוני");
+  });
+
+  it("shows a dignified women-only badge when the dance is women_only", async () => {
+    const dance = mapDance({ womenOnlyLabel: "הרקדה לנשים בלבד" });
+    renderMap({ dances: [dance] });
+    const [marker] = await markers();
+
+    marker?.activate();
+    const preview = await screen.findByRole("region", { name: LABELS.previewLabel });
+
+    expect(preview).toHaveTextContent("הרקדה לנשים בלבד");
+  });
+
+  it("shows no women-only badge when the dance is not women_only", async () => {
+    const dance = mapDance({ womenOnlyLabel: null });
+    renderMap({ dances: [dance] });
+    const [marker] = await markers();
+
+    marker?.activate();
+    const preview = await screen.findByRole("region", { name: LABELS.previewLabel });
+
+    expect(preview).not.toHaveTextContent("הרקדה לנשים בלבד");
   });
 
   it("states a cancelled dance in words, not by colour (§2.6)", async () => {

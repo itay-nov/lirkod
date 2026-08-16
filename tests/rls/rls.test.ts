@@ -118,6 +118,96 @@ describe("dance_events — public read, owner-only write", () => {
     expect(data?.find((e) => e.id === fixtures.eventAId)?.price_agorot).toBe(4000);
   });
 
+  // Phase 4.6b (migration 0013). docs/decisions/0023 explains why these three
+  // columns get exactly the SAME table-wide-grant-plus-ownership-RLS boundary
+  // every other dance_events column already has, rather than a column-scoped
+  // grant — these tests are what proves that boundary actually holds for the
+  // new columns, the same way the price_agorot tests above prove it for an
+  // existing one.
+  it("lets a visitor with no account read the new level/type/women-only columns", async () => {
+    const { data, error } = await anon
+      .from("dance_events")
+      .select("id, level, dance_formations, women_only")
+      .eq("id", fixtures.eventAId)
+      .single();
+
+    expect(error).toBeNull();
+    // Fixtures never set these, so this also proves the column DEFAULTs
+    // (migration 0013) rather than only that the columns are readable.
+    expect(data?.level).toBe("all_levels");
+    expect(data?.dance_formations).toEqual([]);
+    expect(data?.women_only).toBe(false);
+  });
+
+  it("lets an instructor set level/type(s)/women-only on their own dance", async () => {
+    const { data, error } = await instructorA
+      .from("dance_events")
+      .update({ level: "advanced", dance_formations: ["circle", "line"], women_only: true })
+      .eq("id", fixtures.eventAId)
+      .select("level, dance_formations, women_only");
+
+    expect(error).toBeNull();
+    expect(data).toEqual([
+      { level: "advanced", dance_formations: ["circle", "line"], women_only: true },
+    ]);
+
+    await service
+      .from("dance_events")
+      .update({ level: "all_levels", dance_formations: [], women_only: false })
+      .eq("id", fixtures.eventAId);
+  });
+
+  it("denies setting another instructor's level/type/women-only, and they stay unchanged", async () => {
+    const { data, error } = await instructorA
+      .from("dance_events")
+      .update({ level: "advanced", dance_formations: ["mixed"], women_only: true })
+      .eq("id", fixtures.eventBId)
+      .select();
+
+    expect(error).toBeNull();
+    expect(data).toEqual([]);
+
+    const { data: after } = await service
+      .from("dance_events")
+      .select("level, dance_formations, women_only")
+      .eq("id", fixtures.eventBId)
+      .single();
+    expect(after).toEqual({ level: "all_levels", dance_formations: [], women_only: false });
+  });
+
+  it("denies an anonymous write of the new columns too", async () => {
+    const { error } = await anon
+      .from("dance_events")
+      .update({ level: "advanced" })
+      .eq("id", fixtures.eventAId)
+      .select();
+
+    expect(error?.code).toBe("42501");
+  });
+
+  // The canary docs/decisions/0023 promises: this migration touches only
+  // dance_events, so instructors.verified — the project's existing
+  // "did a grant statement leak privilege" indicator (migrations 0004, 0011)
+  // — must still be exactly as unwritable as it always was. Not a claim that
+  // verified is related to dance attributes; a regression check that it
+  // wasn't collaterally reopened.
+  it("leaves instructors.verified exactly as unwritable as before this migration", async () => {
+    const { error } = await instructorA
+      .from("instructors")
+      .update({ verified: true })
+      .eq("id", fixtures.instructorAId)
+      .select();
+
+    expect(error).not.toBeNull();
+
+    const { data: after } = await service
+      .from("instructors")
+      .select("verified")
+      .eq("id", fixtures.instructorAId)
+      .single();
+    expect(after?.verified).toBe(false);
+  });
+
   it("denies an anonymous insert", async () => {
     const { error } = await anon.from("dance_events").insert({
       instructor_id: fixtures.instructorAId,

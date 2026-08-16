@@ -255,6 +255,9 @@ describe("publishing a series", () => {
       localStartTime: "20:00",
       localEndTime: "23:00",
       untilDate: null,
+      level: "intermediate",
+      danceFormations: ["circle", "couples"],
+      womenOnly: false,
     });
 
     expect(result.ok).toBe(true);
@@ -268,13 +271,20 @@ describe("publishing a series", () => {
 
     const { data: event } = await service
       .from("dance_events")
-      .select("recurrence_freq, recurrence_rule, recurrence_start_date, price_agorot")
+      .select(
+        "recurrence_freq, recurrence_rule, recurrence_start_date, price_agorot, level, dance_formations, women_only",
+      )
       .eq("id", eventId)
       .single();
 
     expect(event?.recurrence_freq).toBe("weekly");
     expect(event?.recurrence_rule).toMatch(/^FREQ=WEEKLY;BYDAY=[A-Z]{2}$/);
     expect(event?.price_agorot).toBe(0);
+    // Phase 4.6b: publish_recurring_dance's three new parameters land in the
+    // same insert as the rest of the series.
+    expect(event?.level).toBe("intermediate");
+    expect(event?.dance_formations).toEqual(["circle", "couples"]);
+    expect(event?.women_only).toBe(false);
 
     const { data: occurrences } = await service
       .from("event_occurrences")
@@ -361,6 +371,9 @@ describe("publishing a series", () => {
       venueId,
       freq: "weekly",
       startDate: dateFromToday(-90),
+      level: "all_levels",
+      danceFormations: [],
+      womenOnly: false,
       localStartTime: "20:00",
       localEndTime: "23:00",
       untilDate: dateFromToday(-30),
