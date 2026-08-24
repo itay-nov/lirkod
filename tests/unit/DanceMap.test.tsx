@@ -160,7 +160,7 @@ function mapDance(overrides: Partial<MapDance> = {}): MapDance {
 }
 
 function renderMap(
-  props: { apiKey?: string; dances?: MapDance[]; onLocated?: () => void } = {},
+  props: { apiKey?: string; dances?: MapDance[]; onLocate?: () => Promise<boolean> } = {},
 ) {
   return render(
     <DanceMap
@@ -168,9 +168,8 @@ function renderMap(
       apiKey={props.apiKey ?? "test-key"}
       mapId="TEST_MAP_ID"
       center={{ lat: 32.0809, lng: 34.7806 }}
-      locatedRadiusMeters={10_000}
       labels={LABELS}
-      onLocated={props.onLocated ?? (() => undefined)}
+      onLocate={props.onLocate ?? (() => Promise.resolve(true))}
     />,
   );
 }

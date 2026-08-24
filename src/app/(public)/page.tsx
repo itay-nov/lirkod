@@ -2,12 +2,8 @@ import { NearbyDances } from "@/components/NearbyDances";
 import { anonClient } from "@/lib/db/client";
 import { findDancesNear } from "@/lib/db/dances";
 import { danceFiltersLabels } from "@/lib/domain/danceFiltersLabels";
-import {
-  DEFAULT_LAT,
-  DEFAULT_LNG,
-  DEFAULT_RADIUS_METERS,
-  LOCATED_RADIUS_METERS,
-} from "@/lib/domain/defaultRegion";
+import { DEFAULT_LAT, DEFAULT_LNG, DEFAULT_RADIUS_METERS } from "@/lib/domain/defaultRegion";
+import { distanceFilterLabels } from "@/lib/domain/distanceFilterLabels";
 import { he } from "@/lib/i18n/he";
 import { toMapDances } from "@/lib/maps/mapDance";
 
@@ -43,11 +39,12 @@ export default async function HomePage() {
     <NearbyDances
       initialDances={toMapDances(dances)}
       initialCenter={{ lat: DEFAULT_LAT, lng: DEFAULT_LNG }}
+      initialRadiusMeters={DEFAULT_RADIUS_METERS}
       apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? ""}
       mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID ?? "DEMO_MAP_ID"}
-      locatedRadiusMeters={LOCATED_RADIUS_METERS}
       demoMode={process.env.NEXT_PUBLIC_DEMO_MODE === "true"}
       filterLabels={danceFiltersLabels()}
+      distanceFilterLabels={distanceFilterLabels()}
       mapLabels={{
         regionLabel: he.map.regionLabel,
         loading: he.map.loading,

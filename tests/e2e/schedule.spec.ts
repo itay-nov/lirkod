@@ -119,6 +119,23 @@ test("states a moved or cancelled dance in words, not only in colour", async ({
   await expect(main.getByText(he.dance.status.cancelled).first()).toBeVisible();
 });
 
+test("the schedule radius is URL-backed and re-runs the bounded server query", async ({
+  page,
+}) => {
+  await page.goto("/schedule");
+  const main = page.locator("main");
+  await expect(main).toContainText("היכל התרבות חולון");
+
+  await page.getByRole("radio", { name: he.distanceFilter.option(5) }).check();
+  await expect(page).toHaveURL(/\/schedule\?radius=5000$/);
+  await expect(main).toContainText("בית ציוני אמריקה");
+  await expect(main).not.toContainText("היכל התרבות חולון");
+
+  await page.getByRole("radio", { name: he.distanceFilter.option(50) }).check();
+  await expect(page).toHaveURL(/\/schedule\?radius=50000$/);
+  await expect(main).toContainText("היכל התרבות חולון");
+});
+
 // The 48x48 tap-target check that used to be here went with the rows' button
 // semantics: §5 sizes controls, and a row is no longer one. The rows are still
 // sized by their content and the ring inside them, which the 200% tests below

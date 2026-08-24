@@ -1,13 +1,12 @@
 import { DemoVisibilityGate } from "@/components/DemoVisibilityGate";
+import { ScheduleDistanceFilter } from "@/components/ScheduleDistanceFilter";
 import { ScheduleList, type ScheduleDayGroup } from "@/components/ScheduleList";
 import { anonClient } from "@/lib/db/client";
 import { findDancesNear } from "@/lib/db/dances";
-import {
-  DEFAULT_LAT,
-  DEFAULT_LNG,
-  DEFAULT_RADIUS_METERS,
-} from "@/lib/domain/defaultRegion";
+import { DEFAULT_LAT, DEFAULT_LNG } from "@/lib/domain/defaultRegion";
 import { danceFiltersLabels } from "@/lib/domain/danceFiltersLabels";
+import { distanceRadiusFromSearchParam } from "@/lib/domain/distanceFilter";
+import { distanceFilterLabels } from "@/lib/domain/distanceFilterLabels";
 import { formatDayHeading } from "@/lib/domain/occurrenceTime";
 import { groupDancesByDay } from "@/lib/domain/scheduleDays";
 import { he } from "@/lib/i18n/he";
@@ -29,14 +28,19 @@ export const dynamic = "force-dynamic";
  * not a national listing. An unbounded global query would also drop the radius
  * clamp, row limit and 60-day horizon that migration 0003 exists to enforce.
  */
-export default async function SchedulePage() {
+export default async function SchedulePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ radius?: string | string[] }>;
+}) {
+  const radiusMeters = distanceRadiusFromSearchParam((await searchParams).radius);
   // Errors are not caught here on purpose — a failed read must surface, not
   // render as an empty schedule (AGENTS.md §6).
   const dances = await findDancesNear(
     anonClient(),
     DEFAULT_LAT,
     DEFAULT_LNG,
-    DEFAULT_RADIUS_METERS,
+    radiusMeters,
   );
 
   const days = groupDancesByDay(dances);
@@ -72,6 +76,13 @@ export default async function SchedulePage() {
   return (
     <div className="px-4 pb-8 pt-5">
       <h1 className="font-display text-3xl font-black">{he.schedule.heading}</h1>
+
+      <div className="pt-4">
+        <ScheduleDistanceFilter
+          radiusMeters={radiusMeters}
+          labels={distanceFilterLabels()}
+        />
+      </div>
 
       {demoMode ? (
         // Only mounted when NEXT_PUBLIC_DEMO_MODE is set, so this route never

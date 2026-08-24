@@ -59,6 +59,49 @@ test("states a moved or cancelled dance in words, not only in colour", async ({
   await expect(list.getByText(he.dance.status.cancelled)).toBeVisible();
 });
 
+test("changing the distance re-queries PostGIS and updates the visible region", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const list = page.getByRole("list", { name: he.home.listLabel });
+  await expect(list).toContainText("היכל התרבות חולון");
+
+  await page.getByRole("radio", { name: he.distanceFilter.option(5) }).check();
+
+  await expect(list).toContainText("בית ציוני אמריקה");
+  await expect(list).not.toContainText("היכל התרבות חולון");
+});
+
+test("distance choices are keyboard reachable and clear the 48px tap target", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto("/");
+
+  const checked = page.getByRole("radio", { name: he.distanceFilter.option(15) });
+  for (
+    let i = 0;
+    i < 12 && !(await checked.evaluate((element) => element === document.activeElement));
+    i++
+  ) {
+    await page.keyboard.press("Tab");
+  }
+  await expect(checked).toBeFocused();
+
+  await page.keyboard.press("ArrowLeft");
+  await expect(checked).not.toBeChecked();
+
+  for (const radio of await page
+    .getByRole("group", { name: he.distanceFilter.legend })
+    .getByRole("radio")
+    .all()) {
+    const target = radio.locator("xpath=..");
+    const box = await target.boundingBox();
+    expect(box?.width ?? 0).toBeGreaterThanOrEqual(48);
+    expect(box?.height ?? 0).toBeGreaterThanOrEqual(48);
+  }
+});
+
 // The 48x48 tap-target check that used to live here went with the rings' button
 // semantics — §5 is a rule about controls, and a ring is no longer one. The
 // controls it still applies to on this screen are prev/next, asserted below.
