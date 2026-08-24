@@ -10,9 +10,9 @@ import { he } from "../../src/lib/i18n/he";
  *   * NEXT_PUBLIC_GOOGLE_MAPS_API_KEY in .env.local, and
  *   * the dev server on a port that key's HTTP-referrer allowlist includes.
  *     Google rejects the script with RefererNotAllowedMapError otherwise, and
- *     these tests will fail with no pins. That is the one place AGENTS.md §12's
- *     "own PORT per worktree" collides with something outside the repo — if you
- *     run this on a custom PORT, add that origin to the key's allowlist first.
+ *     these tests will fail with no pins. Port 3000 is the default and is
+ *     allowlisted; if you deliberately override PORT for a parallel run, add
+ *     that exact origin to the key's allowlist first.
  *
  * Everything here drives the real Maps library rather than a stub, because the
  * whole question these tests answer — can a dancer who is not holding a mouse

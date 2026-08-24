@@ -76,14 +76,15 @@ reset first before assuming it's a real regression.
 
 ## Ports across worktrees
 
-AGENTS.md §12 uses one git worktree per task, so several dev servers can be
-running on this machine at once. Each worktree must use its own `PORT` —
-never rely on the shared default of 3000, or Playwright in one worktree may
-silently attach to a dev server started by another branch's task instead of
-its own.
+Both `npm run dev` and `npm run test:e2e` use port 3000 by default. Keep that
+default for ordinary work: it is the origin allowlisted for the browser Maps
+key, and Playwright refuses to reuse a server from another worktree.
+
+Only override `PORT` when two worktrees deliberately need to run at the same
+time. The exact custom origin must also be added to the Maps key's HTTP-referrer
+allowlist or the real-map tests will fail with `RefererNotAllowedMapError`.
 
 ```bash
 PORT=3001 npm run dev
 PORT=3001 npm run test:e2e
 ```
-
