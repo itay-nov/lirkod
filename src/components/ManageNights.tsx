@@ -1,4 +1,5 @@
 import type { ManageableNight } from "@/lib/domain/manageNight";
+import type { VenueOption } from "@/lib/db/venues";
 import { NightControls } from "./NightControls";
 import { he } from "@/lib/i18n/he";
 
@@ -16,7 +17,17 @@ import { he } from "@/lib/i18n/he";
  * generator means most instructors will have one or two series and a lot of
  * nights.
  */
-export function ManageNights({ nights }: { nights: readonly ManageableNight[] }) {
+export function ManageNights({
+  nights,
+  venues,
+  recentVenues,
+  mapsApiKey,
+}: {
+  nights: readonly ManageableNight[];
+  venues: readonly VenueOption[];
+  recentVenues: readonly VenueOption[];
+  mapsApiKey: string | null;
+}) {
   return (
     <section className="pt-8">
       <h2 className="font-display text-2xl font-black">{he.manageNights.heading}</h2>
@@ -51,7 +62,12 @@ export function ManageNights({ nights }: { nights: readonly ManageableNight[] })
                 <p className="pt-1">{night.cancellationText}</p>
               )}
 
-              <NightControls night={night} />
+              <NightControls
+                night={night}
+                venues={venues}
+                recentVenues={recentVenues}
+                mapsApiKey={mapsApiKey}
+              />
             </li>
           ))}
         </ul>

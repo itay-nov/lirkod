@@ -277,7 +277,12 @@ async function SignedIn({ userId, phone }: { userId: string; phone: string | nul
             errand; managing a night is what they come back for, and a list of
             twelve nights between the greeting and the form would bury it.
           */}
-          <ManageNights nights={nights} />
+          <ManageNights
+            nights={nights}
+            venues={venues}
+            recentVenues={recentVenues}
+            mapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || null}
+          />
         </>
       ) : (
         // A רוקד gets an invitation in the same place, not an empty gap and not

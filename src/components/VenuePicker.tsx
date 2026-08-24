@@ -55,6 +55,8 @@ export function VenuePicker({
   recentVenues,
   mapsApiKey,
   venueId,
+  idPrefix,
+  legend = he.publishDance.venueLabel,
   onVenueChange,
 }: {
   /** Rendered by the server so the list is populated before any JS runs. */
@@ -64,8 +66,17 @@ export function VenuePicker({
   /** Null when NEXT_PUBLIC_GOOGLE_MAPS_API_KEY is unset; adding a venue is then off. */
   mapsApiKey: string | null;
   venueId: string;
+  /** Keeps labels, headings and radio groups unique when several pickers share a page. */
+  idPrefix: string;
+  /** The publish and per-night edit flows name the same picker for their own context. */
+  legend?: string;
   onVenueChange: (venueId: string) => void;
 }) {
+  const placeSearchId = `${idPrefix}-place-search`;
+  const venueSearchId = `${idPrefix}-venue-search`;
+  const recentHeadingId = `${idPrefix}-recent-venues-heading`;
+  const venueErrorId = `${idPrefix}-venue-error`;
+  const venueRadioName = `${idPrefix}-venueId`;
   const [query, setQuery] = useState("");
   const [venues, setVenues] = useState<readonly VenueOption[]>(initialVenues);
   const [searching, setSearching] = useState(false);
@@ -234,18 +245,18 @@ export function VenuePicker({
 
   return (
     <fieldset>
-      <legend className={LABEL_CLASS}>{he.publishDance.venueLabel}</legend>
+      <legend className={LABEL_CLASS}>{legend}</legend>
 
       {adding ? (
         <div className="pt-2">
           <h3 className="font-bold">{he.publishDance.addVenueHeading}</h3>
           <p className={HINT_CLASS}>{he.publishDance.addVenueIntro}</p>
 
-          <label htmlFor="place-search" className="block pb-2 pt-4">
+          <label htmlFor={placeSearchId} className="block pb-2 pt-4">
             {he.publishDance.addVenueSearchLabel}
           </label>
           <input
-            id="place-search"
+            id={placeSearchId}
             ref={placeInputRef}
             type="search"
             value={placeQuery}
@@ -256,8 +267,8 @@ export function VenuePicker({
           />
 
           {showRecentPlaceQuickPicks ? (
-            <section aria-labelledby="recent-venues-heading" className="pt-3">
-              <h3 id="recent-venues-heading" className="font-bold">
+            <section aria-labelledby={recentHeadingId} className="pt-3">
+              <h3 id={recentHeadingId} className="font-bold">
                 {he.publishDance.recentVenuesHeading}
               </h3>
               <ul className="flex flex-col gap-2 pt-2">
@@ -335,11 +346,11 @@ export function VenuePicker({
         </div>
       ) : (
         <>
-          <label htmlFor="venue-search" className="block pb-2">
+          <label htmlFor={venueSearchId} className="block pb-2">
             {he.publishDance.venueSearchLabel}
           </label>
           <input
-            id="venue-search"
+            id={venueSearchId}
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
@@ -348,8 +359,8 @@ export function VenuePicker({
           />
 
           {showRecentVenues ? (
-            <section aria-labelledby="recent-venues-heading" className="pt-3">
-              <h3 id="recent-venues-heading" className="font-bold">
+            <section aria-labelledby={recentHeadingId} className="pt-3">
+              <h3 id={recentHeadingId} className="font-bold">
                 {he.publishDance.recentVenuesHeading}
               </h3>
               <ul className="flex flex-col gap-2 pt-2">
@@ -358,7 +369,7 @@ export function VenuePicker({
                     <label className={OPTION_CLASS}>
                       <input
                         type="radio"
-                        name="venueId"
+                        name={venueRadioName}
                         value={venue.id}
                         checked={venueId === venue.id}
                         onChange={() => onVenueChange(venue.id)}
@@ -396,7 +407,7 @@ export function VenuePicker({
                 <label key={venue.id} className={OPTION_CLASS}>
                   <input
                     type="radio"
-                    name="venueId"
+                    name={venueRadioName}
                     value={venue.id}
                     checked={venueId === venue.id}
                     onChange={() => onVenueChange(venue.id)}
@@ -423,7 +434,12 @@ export function VenuePicker({
         </>
       )}
 
-      <p id="venue-error" role="alert" aria-live="assertive" className="pt-3 font-bold text-accent">
+      <p
+        id={venueErrorId}
+        role="alert"
+        aria-live="assertive"
+        className="pt-3 font-bold text-accent"
+      >
         {addError}
       </p>
       <p aria-live="polite" className="pt-1 font-bold">

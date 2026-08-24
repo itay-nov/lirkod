@@ -4,20 +4,23 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   cancelNightAction,
+  moveNightVenueAction,
   rescheduleNightAction,
   type ManageNightResult,
 } from "@/app/(public)/profile/actions";
 import type { ManageableNight } from "@/lib/domain/manageNight";
+import type { VenueOption } from "@/lib/db/venues";
+import { VenuePicker } from "./VenuePicker";
 import { FIELD_CLASS, HINT_CLASS, LABEL_CLASS, PRIMARY_BUTTON_CLASS } from "./formStyles";
 import { he } from "@/lib/i18n/he";
 
 /**
- * The controls for ONE night: move it to a different hour, or take it off.
+ * The controls for ONE night: move it to a different hour or venue, or take it off.
  *
  * Three shapes rather than one, all of them inline on the page:
  *
  *   closed  → a single button naming the night
- *   open    → the time fields, and a button that starts a cancellation
+ *   open    → the venue/time fields, and a button that starts a cancellation
  *   confirm → the reason box and an explicit yes/no
  *
  * **No dialog, native or otherwise.** `window.confirm` would be the two-line
@@ -50,12 +53,23 @@ const TIME_FIELD_CLASS = `${FIELD_CLASS} [color-scheme:light]`;
 
 type Mode = "closed" | "open" | "confirmCancel";
 
-export function NightControls({ night }: { night: ManageableNight }) {
+export function NightControls({
+  night,
+  venues,
+  recentVenues,
+  mapsApiKey,
+}: {
+  night: ManageableNight;
+  venues: readonly VenueOption[];
+  recentVenues: readonly VenueOption[];
+  mapsApiKey: string | null;
+}) {
   const router = useRouter();
 
   const [mode, setMode] = useState<Mode>("closed");
   const [startTime, setStartTime] = useState(night.startTimeField);
   const [endTime, setEndTime] = useState(night.endTimeField);
+  const [venueId, setVenueId] = useState(night.venueId);
   const [reason, setReason] = useState("");
 
   const [busy, setBusy] = useState(false);
@@ -64,6 +78,14 @@ export function NightControls({ night }: { night: ManageableNight }) {
 
   const panelId = `night-panel-${night.id}`;
   const statusId = `night-status-${night.id}`;
+  const currentVenue = {
+    id: night.venueId,
+    name: night.venueName,
+    address: night.venueAddress,
+  };
+  const pickerVenues = venues.some((venue) => venue.id === night.venueId)
+    ? venues
+    : [currentVenue, ...venues];
 
   function messageFor(result: ManageNightResult): string {
     if (result.ok) return "";
@@ -128,6 +150,32 @@ export function NightControls({ night }: { night: ManageableNight }) {
         <div id={panelId} className="flex flex-col gap-4 pt-4">
           {mode === "open" && (
             <>
+              <div className="flex flex-col gap-4">
+                <VenuePicker
+                  initialVenues={pickerVenues}
+                  recentVenues={recentVenues}
+                  mapsApiKey={mapsApiKey}
+                  venueId={venueId}
+                  idPrefix={`night-${night.id}`}
+                  legend={he.manageNights.changeVenueHeading}
+                  onVenueChange={setVenueId}
+                />
+
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() =>
+                    void run(
+                      () => moveNightVenueAction(night.id, venueId),
+                      he.manageNights.venueSaved,
+                    )
+                  }
+                  className={PRIMARY_BUTTON_CLASS}
+                >
+                  {busy ? he.manageNights.savingVenue : he.manageNights.saveVenue}
+                </button>
+              </div>
+
               <fieldset>
                 <legend className={LABEL_CLASS}>{he.manageNights.changeTimeHeading}</legend>
 

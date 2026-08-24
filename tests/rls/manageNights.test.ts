@@ -1,6 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { anonClient, runAsPostgres, serviceClient, signInAs, type Client } from "./helpers";
-import { cancelNight, findOwnNight, findOwnNights, rescheduleNight } from "@/lib/db/nights";
+import {
+  cancelNight,
+  findOwnNight,
+  findOwnNights,
+  moveNightVenue,
+  rescheduleNight,
+} from "@/lib/db/nights";
 
 /**
  * Per-night management (3.3b), against a real Postgres.
@@ -43,6 +49,7 @@ let venueId: string;
 let instructorId: string;
 let strangerInstructorId: string;
 let eventId: string;
+let alternateVenueId: string;
 
 /** "YYYY-MM-DD", `days` from today. */
 function dateFromToday(days: number): string {
@@ -57,6 +64,7 @@ interface OccurrenceRow {
   cancellation_reason: string | null;
   overridden_at: string | null;
   original_starts_at: string | null;
+  override_venue_id: string | null;
   series_date: string | null;
 }
 
@@ -64,7 +72,7 @@ async function nightsOf(event: string): Promise<OccurrenceRow[]> {
   const { data, error } = await service
     .from("event_occurrences")
     .select(
-      "id, starts_at, ends_at, status, cancellation_reason, overridden_at, original_starts_at, series_date",
+      "id, starts_at, ends_at, status, cancellation_reason, overridden_at, original_starts_at, override_venue_id, series_date",
     )
     .eq("event_id", event)
     .order("starts_at");
@@ -77,7 +85,7 @@ async function nightById(id: string): Promise<OccurrenceRow> {
   const { data, error } = await service
     .from("event_occurrences")
     .select(
-      "id, starts_at, ends_at, status, cancellation_reason, overridden_at, original_starts_at, series_date",
+      "id, starts_at, ends_at, status, cancellation_reason, overridden_at, original_starts_at, override_venue_id, series_date",
     )
     .eq("id", id)
     .single();
@@ -208,6 +216,18 @@ beforeAll(async () => {
   if (venueError) throw venueError;
   venueId = venue.id;
 
+  const { data: alternateVenue, error: alternateVenueError } = await owner
+    .rpc("find_or_create_venue", {
+      p_place_id: `${FIXTURE_PREFIX}alternate-place`,
+      p_name: `${FIXTURE_PREFIX}alternate-hall`,
+      p_address: "רחוב הבדיקה 8, תל אביב",
+      p_lat: 32.09,
+      p_lng: 34.79,
+    })
+    .single();
+  if (alternateVenueError) throw alternateVenueError;
+  alternateVenueId = alternateVenue.id;
+
   eventId = await freshSeries();
 });
 
@@ -333,6 +353,20 @@ describe("a stranger with a session can do nothing to somebody else's night", ()
     expect((await nightById(night!.id)).starts_at).toBe(night!.starts_at);
   });
 
+  it("cannot move its venue through direct PostgREST", async () => {
+    const [night] = await nightsOf(eventId);
+
+    const { data, error } = await stranger
+      .from("event_occurrences")
+      .update({ status: "moved", override_venue_id: alternateVenueId })
+      .eq("id", night!.id)
+      .select();
+
+    expect(error).toBeNull();
+    expect(data).toEqual([]);
+    expect((await nightById(night!.id)).override_venue_id).toBeNull();
+  });
+
   it("cannot reach it through the production write path either", async () => {
     // Through `cancelNight`, which is what the Server Action calls. The point is
     // that it reports the refusal rather than returning ok on a statement that
@@ -341,6 +375,13 @@ describe("a stranger with a session can do nothing to somebody else's night", ()
 
     await expect(
       cancelNight(stranger, { occurrenceId: night!.id, reason: "לא שלי" }),
+    ).resolves.toEqual({ ok: false, reason: "notYours" });
+
+    await expect(
+      moveNightVenue(stranger, {
+        occurrenceId: night!.id,
+        venueId: alternateVenueId,
+      }),
     ).resolves.toEqual({ ok: false, reason: "notYours" });
   });
 
@@ -379,6 +420,112 @@ describe("a stranger with a session can do nothing to somebody else's night", ()
     // `anon` holds SELECT and nothing else, so this is the privilege layer, not
     // a policy.
     expect(error?.code).toBe("42501");
+  });
+
+  it("cannot call the venue-move RPC anonymously", async () => {
+    const [night] = await nightsOf(eventId);
+
+    const { error } = await anon.rpc("move_occurrence_venue", {
+      p_occurrence_id: night!.id,
+      p_venue_id: alternateVenueId,
+    });
+
+    expect(error?.code).toBe("42501");
+  });
+});
+
+describe("moving one night to a different venue, end to end", () => {
+  let venueEventId: string;
+  let movedId: string;
+  let movedSlot: string | null;
+
+  beforeAll(async () => {
+    venueEventId = await freshSeries();
+  });
+
+  it("updates only one materialised occurrence and marks it as moved", async () => {
+    const rows = await nightsOf(venueEventId);
+    const target = rows.find((row) => row.status === "scheduled")!;
+    movedId = target.id;
+    movedSlot = target.series_date;
+
+    await expect(
+      moveNightVenue(owner, {
+        occurrenceId: target.id,
+        venueId: alternateVenueId,
+      }),
+    ).resolves.toEqual({ ok: true });
+
+    const after = await nightById(target.id);
+    expect(after.status).toBe("moved");
+    expect(after.override_venue_id).toBe(alternateVenueId);
+    expect(after.overridden_at).not.toBeNull();
+    expect(after.series_date).toBe(movedSlot);
+
+    const untouched = (await nightsOf(venueEventId)).filter((row) => row.id !== movedId);
+    expect(untouched.length).toBeGreaterThan(0);
+    expect(untouched.every((row) => row.override_venue_id === null)).toBe(true);
+  });
+
+  it("makes the effective venue and moved status anonymous-readable", async () => {
+    const { data, error } = await anon.rpc("find_dances_near", {
+      p_lat: 32.09,
+      p_lng: 34.79,
+      p_radius_meters: 5000,
+    });
+
+    expect(error).toBeNull();
+    const seen = (data ?? []).find((row) => row.occurrence_id === movedId);
+    expect(seen?.venue_id).toBe(alternateVenueId);
+    expect(seen?.status).toBe("moved");
+  });
+
+  it("rejects a venue id that does not exist", async () => {
+    const before = await nightById(movedId);
+
+    const { error } = await owner.rpc("move_occurrence_venue", {
+      p_occurrence_id: movedId,
+      p_venue_id: "00000000-0000-0000-0000-000000000000",
+    });
+
+    expect(error?.code).toBe("23503");
+    expect(await nightById(movedId)).toEqual(before);
+  });
+
+  it("clears the override when the series venue is selected again", async () => {
+    await expect(
+      moveNightVenue(owner, { occurrenceId: movedId, venueId }),
+    ).resolves.toEqual({ ok: true });
+
+    const after = await nightById(movedId);
+    expect(after.status).toBe("scheduled");
+    expect(after.override_venue_id).toBeNull();
+    expect(after.series_date).toBe(movedSlot);
+  });
+
+  it("keeps a cancelled night cancelled while correcting its venue", async () => {
+    const rows = await nightsOf(venueEventId);
+    const target = rows.find((row) => row.status === "scheduled")!;
+    await cancelNight(owner, { occurrenceId: target.id, reason: null });
+
+    await expect(
+      moveNightVenue(owner, {
+        occurrenceId: target.id,
+        venueId: alternateVenueId,
+      }),
+    ).resolves.toEqual({ ok: true });
+
+    const after = await nightById(target.id);
+    expect(after.status).toBe("cancelled");
+    expect(after.override_venue_id).toBe(alternateVenueId);
+  });
+
+  it("survives a generator pass without changing another series night", async () => {
+    const before = await nightsOf(venueEventId);
+    runAsPostgres("select public.generate_occurrences();");
+    const after = await nightsOf(venueEventId);
+
+    expect(after).toEqual(before);
   });
 });
 

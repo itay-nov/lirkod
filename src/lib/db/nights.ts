@@ -3,7 +3,7 @@ import { jerusalemDayKey } from "@/lib/domain/occurrenceTime";
 
 /**
  * The nights an instructor manages: reading their own, cancelling one, moving
- * one to a different hour.
+ * one to a different hour or venue.
  *
  * Every function here runs through the CALLER's session, never `service_role` —
  * the same stance `publisher.ts` takes and for the same reason (AGENTS.md §8).
@@ -46,7 +46,9 @@ export interface OwnNight {
    * date of the night itself for a one-off nobody generated.
    */
   dateKey: string;
+  venueId: string;
   venueName: string;
+  venueAddress: string;
 }
 
 /** The window and the cap on the manage list. */
@@ -75,9 +77,15 @@ const NIGHT_SELECT = `
   cancellation_reason,
   original_starts_at,
   series_date,
-  dance_events!inner(instructor_id, venues!inner(name)),
-  override_venue:venues(name)
+  dance_events!inner(instructor_id, venues!inner(id, name, address)),
+  override_venue:venues(id, name, address)
 `;
+
+interface NightVenueRow {
+  id: string;
+  name: string;
+  address: string;
+}
 
 interface NightRow {
   id: string;
@@ -87,11 +95,13 @@ interface NightRow {
   cancellation_reason: string | null;
   original_starts_at: string | null;
   series_date: string | null;
-  dance_events: { instructor_id: string; venues: { name: string } | null } | null;
-  override_venue: { name: string } | null;
+  dance_events: { instructor_id: string; venues: NightVenueRow | null } | null;
+  override_venue: NightVenueRow | null;
 }
 
 function toOwnNight(row: NightRow): OwnNight {
+  const venue = row.override_venue ?? row.dance_events?.venues;
+
   return {
     id: row.id,
     startsAt: row.starts_at,
@@ -102,7 +112,9 @@ function toOwnNight(row: NightRow): OwnNight {
     dateKey: row.series_date ?? jerusalemDayKey(row.original_starts_at ?? row.starts_at),
     // docs/decisions/0003: override_venue_id is authoritative for WHERE, and the
     // status is never consulted to work out a location.
-    venueName: row.override_venue?.name ?? row.dance_events?.venues?.name ?? "",
+    venueId: venue?.id ?? "",
+    venueName: venue?.name ?? "",
+    venueAddress: venue?.address ?? "",
   };
 }
 
@@ -165,6 +177,28 @@ export async function findOwnNight(
 }
 
 export type NightWriteResult = { ok: true } | { ok: false; reason: "notYours" };
+
+/**
+ * Moves one materialised night to another validated venue.
+ *
+ * The RPC in migration 0014 resolves whether this is a new override or a return
+ * to the series venue and changes the status in the same statement. It is
+ * SECURITY INVOKER, so a caller who does not own the event receives an empty
+ * result through the existing `event_occurrences_update_own` policy.
+ */
+export async function moveNightVenue(
+  client: Client,
+  night: { occurrenceId: string; venueId: string },
+): Promise<NightWriteResult> {
+  const { data, error } = await client.rpc("move_occurrence_venue", {
+    p_occurrence_id: night.occurrenceId,
+    p_venue_id: night.venueId,
+  });
+
+  if (error) throw error;
+
+  return data.length === 1 ? { ok: true } : { ok: false, reason: "notYours" };
+}
 
 /**
  * Takes one night off the board, leaving the row exactly where it is.

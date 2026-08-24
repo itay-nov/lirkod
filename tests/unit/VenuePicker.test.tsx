@@ -52,6 +52,7 @@ describe("VenuePicker recent venues", () => {
         recentVenues={RECENT}
         mapsApiKey="maps-key"
         venueId=""
+        idPrefix="test-recent"
         onVenueChange={vi.fn()}
       />,
     );
@@ -73,6 +74,7 @@ describe("VenuePicker recent venues", () => {
         recentVenues={RECENT}
         mapsApiKey="maps-key"
         venueId=""
+        idPrefix="test-search"
         onVenueChange={vi.fn()}
       />,
     );
@@ -99,6 +101,7 @@ describe("VenuePicker recent venues", () => {
         recentVenues={RECENT}
         mapsApiKey="maps-key"
         venueId=""
+        idPrefix="test-quick-pick"
         onVenueChange={onVenueChange}
       />,
     );
@@ -111,5 +114,42 @@ describe("VenuePicker recent venues", () => {
     expect(screen.getByLabelText(he.publishDance.venueSearchLabel)).toBeVisible();
     expect(maps.startAutocompleteSession).toHaveBeenCalledTimes(1);
     expect(maps.select).not.toHaveBeenCalled();
+  });
+
+  it("keeps form ids and radio groups separate when two edit pickers are open", () => {
+    const { container } = render(
+      <>
+        <VenuePicker
+          initialVenues={INITIAL}
+          recentVenues={[]}
+          mapsApiKey="maps-key"
+          venueId="other"
+          idPrefix="night-one"
+          onVenueChange={vi.fn()}
+        />
+        <VenuePicker
+          initialVenues={INITIAL}
+          recentVenues={[]}
+          mapsApiKey="maps-key"
+          venueId="other"
+          idPrefix="night-two"
+          onVenueChange={vi.fn()}
+        />
+      </>,
+    );
+
+    const searches = screen.getAllByLabelText(he.publishDance.venueSearchLabel);
+    expect(searches.map((field) => field.id)).toEqual([
+      "night-one-venue-search",
+      "night-two-venue-search",
+    ]);
+
+    const radioNames = new Set(screen.getAllByRole("radio").map((radio) => radio.getAttribute("name")));
+    expect(radioNames).toEqual(new Set(["night-one-venueId", "night-two-venueId"]));
+
+    const ids = Array.from(container.querySelectorAll("[id]"), (element) => element.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(ids).toContain("night-one-venue-error");
+    expect(ids).toContain("night-two-venue-error");
   });
 });
