@@ -25,6 +25,9 @@ const PHONE_E164 = "+972500000011";
 const PHONE_LOCAL = "050-0000011";
 const TEST_OTP = "123456";
 const PROFILE_NAME = "בודקת מקומות";
+const RECENT_FIXTURE_PREFIX = "recent-venue-e2e-";
+const FIXTURE_LAT = 32.0853;
+const FIXTURE_LNG = 34.7818;
 
 /** Broad enough that Israel-restricted Places always has something to say. */
 const PLACE_QUERY = "היכל התרבות";
@@ -189,6 +192,29 @@ async function signInAndName(page: Page): Promise<void> {
   });
 }
 
+async function instructorIdForTestUser(): Promise<string> {
+  const { apiUrl } = localStack();
+  const listed = await fetch(`${apiUrl}/auth/v1/admin/users?per_page=200`, {
+    headers: headers(),
+  });
+  const body = (await listed.json()) as { users?: Array<{ id: string; phone?: string }> };
+  const user = (body.users ?? []).find((candidate) => candidate.phone === PHONE_E164.replace("+", ""));
+  if (!user) throw new Error("The signed-in test user was not found");
+
+  const rows = (await (
+    await rest(`instructors?select=id&profile_id=eq.${user.id}`)
+  ).json()) as Array<{ id: string }>;
+  if (rows.length !== 1) throw new Error("The signed-in test instructor was not found");
+  return rows[0]!.id;
+}
+
+async function mustInsert(path: string, rows: unknown): Promise<void> {
+  const response = await rest(path, { method: "POST", body: JSON.stringify(rows) });
+  if (!response.ok) {
+    throw new Error(`fixture POST ${path} failed: ${response.status} ${await response.text()}`);
+  }
+}
+
 function dateInDays(days: number): string {
   return new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
 }
@@ -241,6 +267,110 @@ test("a search that matches nothing says so rather than showing every hall", asy
   // different question than the one this test is asking — "is the whole table
   // still being shipped to the browser".
   expect(await page.locator('input[name="venueId"]').count()).toBe(0);
+});
+
+test("shows only the instructor's three most recently used distinct venues", async ({ page }) => {
+  await signInAndName(page);
+  const ownInstructorId = await instructorIdForTestUser();
+  const otherRows = (await (
+    await rest(`instructors?select=id&id=neq.${ownInstructorId}&limit=1`)
+  ).json()) as Array<{ id: string }>;
+  const otherInstructorId = otherRows[0]?.id;
+  if (!otherInstructorId) throw new Error("A second instructor fixture is required");
+
+  const fixtureVenues = [
+    { id: crypto.randomUUID(), name: `${RECENT_FIXTURE_PREFIX}אחרון`, address: "רחוב ראשון 1" },
+    { id: crypto.randomUUID(), name: `${RECENT_FIXTURE_PREFIX}שני`, address: "רחוב שני 2" },
+    { id: crypto.randomUUID(), name: `${RECENT_FIXTURE_PREFIX}שלישי`, address: "רחוב שלישי 3" },
+    { id: crypto.randomUUID(), name: `${RECENT_FIXTURE_PREFIX}ישן`, address: "רחוב רביעי 4" },
+    { id: crypto.randomUUID(), name: `${RECENT_FIXTURE_PREFIX}של מרקיד אחר`, address: "רחוב חמישי 5" },
+  ] as const;
+  const venueIds = fixtureVenues.map((venue) => venue.id);
+  for (const venueId of venueIds) createdVenueIds.add(venueId);
+
+  try {
+    await mustInsert(
+      "venues",
+      fixtureVenues.map((venue, index) => ({
+        ...venue,
+        location: `POINT(${FIXTURE_LNG + index * 0.01} ${FIXTURE_LAT})`,
+        place_id: `${RECENT_FIXTURE_PREFIX}${venue.id}`,
+      })),
+    );
+
+    const now = Date.now();
+    await mustInsert("dance_events", [
+      // The newest two own publishes use the same venue. It must appear once,
+      // followed by the next two distinct venues rather than shortening the list.
+      {
+        id: crypto.randomUUID(),
+        instructor_id: ownInstructorId,
+        venue_id: fixtureVenues[0].id,
+        price_agorot: 0,
+        created_at: new Date(now - 1_000).toISOString(),
+      },
+      {
+        id: crypto.randomUUID(),
+        instructor_id: ownInstructorId,
+        venue_id: fixtureVenues[0].id,
+        price_agorot: 0,
+        created_at: new Date(now - 2_000).toISOString(),
+      },
+      {
+        id: crypto.randomUUID(),
+        instructor_id: ownInstructorId,
+        venue_id: fixtureVenues[1].id,
+        price_agorot: 0,
+        created_at: new Date(now - 3_000).toISOString(),
+      },
+      {
+        id: crypto.randomUUID(),
+        instructor_id: ownInstructorId,
+        venue_id: fixtureVenues[2].id,
+        price_agorot: 0,
+        created_at: new Date(now - 4_000).toISOString(),
+      },
+      {
+        id: crypto.randomUUID(),
+        instructor_id: ownInstructorId,
+        venue_id: fixtureVenues[3].id,
+        price_agorot: 0,
+        created_at: new Date(now - 5_000).toISOString(),
+      },
+      // Newer than every own event. An omitted ownership filter would put this
+      // other instructor's venue at the top of the shortlist.
+      {
+        id: crypto.randomUUID(),
+        instructor_id: otherInstructorId,
+        venue_id: fixtureVenues[4].id,
+        price_agorot: 0,
+        created_at: new Date(now).toISOString(),
+      },
+    ]);
+
+    await page.reload();
+    const recent = page.getByRole("region", { name: he.publishDance.recentVenuesHeading });
+    await expect(recent).toBeVisible();
+    const radios = recent.getByRole("radio");
+    await expect(radios).toHaveCount(3);
+    await expect(radios.nth(0)).toHaveValue(fixtureVenues[0].id);
+    await expect(radios.nth(1)).toHaveValue(fixtureVenues[1].id);
+    await expect(radios.nth(2)).toHaveValue(fixtureVenues[2].id);
+    await expect(recent.getByText(fixtureVenues[3].name)).toHaveCount(0);
+    await expect(recent.getByText(fixtureVenues[4].name)).toHaveCount(0);
+  } finally {
+    for (const venueId of venueIds) {
+      const events = (await (
+        await rest(`dance_events?select=id&venue_id=eq.${venueId}`)
+      ).json()) as Array<{ id: string }>;
+      for (const event of events) {
+        await mustDelete(`event_occurrences?event_id=eq.${event.id}`);
+        await mustDelete(`dance_events?id=eq.${event.id}`);
+      }
+      await mustDelete(`venues?id=eq.${venueId}`);
+      createdVenueIds.delete(venueId);
+    }
+  }
 });
 
 test("adds a hall from Google Places, publishes there, and a dancer with no account sees it", async ({

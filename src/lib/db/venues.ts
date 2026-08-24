@@ -19,6 +19,62 @@ export interface VenueOption {
  */
 const SEARCH_LIMIT = 20;
 
+/** Three is the promised quick-pick shortlist, not a pagination default. */
+const RECENT_VENUE_LIMIT = 3;
+
+interface RecentVenueRow {
+  venue_id: string;
+  venues: { id: string; name: string; address: string } | null;
+}
+
+/**
+ * The three distinct venues the instructor published most recently.
+ *
+ * `dance_events` is readable for the public map, so RLS intentionally does not
+ * narrow this query to the current instructor. The explicit `instructor_id`
+ * filter is therefore the privacy boundary here. Callers derive that id from
+ * `findOwnInstructor`; it never comes from the browser.
+ *
+ * Each read asks for one newest event while excluding venue ids already picked.
+ * That keeps the work bounded to three database requests even if ten years of
+ * events all used the same hall; fetching pages and deduplicating in JavaScript
+ * would otherwise scan that whole history on every profile render.
+ */
+export async function findRecentOwnVenues(
+  client: Client,
+  instructorId: string,
+): Promise<VenueOption[]> {
+  const recent: VenueOption[] = [];
+  const seen = new Set<string>();
+
+  while (recent.length < RECENT_VENUE_LIMIT) {
+    let request = client
+      .from("dance_events")
+      .select("venue_id, venues!inner(id, name, address)")
+      .eq("instructor_id", instructorId);
+
+    if (seen.size > 0) {
+      request = request.not("venue_id", "in", `(${[...seen].join(",")})`);
+    }
+
+    const { data, error } = await request
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (data === null) break;
+
+    const row = data as unknown as RecentVenueRow;
+    if (row.venues === null) break;
+    seen.add(row.venue_id);
+    recent.push(row.venues);
+  }
+
+  return recent;
+}
+
 /**
  * PostgREST's `or` filter takes a comma-separated list, and a comma or a
  * parenthesis inside the pattern would be read as syntax rather than as text.

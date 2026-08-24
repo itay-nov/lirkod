@@ -453,6 +453,7 @@ export const he = {
     /** Names the filter box above the list of halls, so it is not a mystery field. */
     venueSearchLabel: "חיפוש מקום",
     venueSearchPlaceholder: "אפשר להקליד חלק מהשם או מהכתובת",
+    recentVenuesHeading: "המקומות האחרונים שלכם",
     venueEmpty: "לא נמצא מקום שמתאים לחיפוש.",
     venueSearching: "מחפשים מקומות…",
     /** Announced when results change, so the list is not a silent update. */

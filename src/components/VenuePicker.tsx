@@ -52,12 +52,15 @@ const TOGGLE_CLASS =
 
 export function VenuePicker({
   initialVenues,
+  recentVenues,
   mapsApiKey,
   venueId,
   onVenueChange,
 }: {
   /** Rendered by the server so the list is populated before any JS runs. */
   initialVenues: readonly VenueOption[];
+  /** Own-instructor quick picks, newest use first. */
+  recentVenues: readonly VenueOption[];
   /** Null when NEXT_PUBLIC_GOOGLE_MAPS_API_KEY is unset; adding a venue is then off. */
   mapsApiKey: string | null;
   venueId: string;
@@ -66,9 +69,15 @@ export function VenuePicker({
   const [query, setQuery] = useState("");
   const [venues, setVenues] = useState<readonly VenueOption[]>(initialVenues);
   const [searching, setSearching] = useState(false);
+  const showRecentVenues = query.trim() === "" && recentVenues.length > 0;
+  const recentVenueIds = new Set(recentVenues.map((venue) => venue.id));
+  const visibleVenues = showRecentVenues
+    ? venues.filter((venue) => !recentVenueIds.has(venue.id))
+    : venues;
 
   const [adding, setAdding] = useState(false);
   const [placeQuery, setPlaceQuery] = useState("");
+  const showRecentPlaceQuickPicks = placeQuery.trim() === "" && recentVenues.length > 0;
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
   const [savingVenue, setSavingVenue] = useState(false);
   const [addedName, setAddedName] = useState<string | null>(null);
@@ -215,6 +224,14 @@ export function VenuePicker({
     }
   }
 
+  function chooseRecentVenue(recentVenueId: string): void {
+    onVenueChange(recentVenueId);
+    setAdding(false);
+    setAddError(null);
+    sessionRef.current = null;
+    setSessionReady(false);
+  }
+
   return (
     <fieldset>
       <legend className={LABEL_CLASS}>{he.publishDance.venueLabel}</legend>
@@ -237,6 +254,31 @@ export function VenuePicker({
             disabled={savingVenue}
             className={FIELD_CLASS}
           />
+
+          {showRecentPlaceQuickPicks ? (
+            <section aria-labelledby="recent-venues-heading" className="pt-3">
+              <h3 id="recent-venues-heading" className="font-bold">
+                {he.publishDance.recentVenuesHeading}
+              </h3>
+              <ul className="flex flex-col gap-2 pt-2">
+                {recentVenues.map((venue) => (
+                  <li key={venue.id}>
+                    <button
+                      type="button"
+                      onClick={() => chooseRecentVenue(venue.id)}
+                      disabled={savingVenue}
+                      className={SUGGESTION_CLASS}
+                    >
+                      <span>
+                        <span className="block font-bold">{venue.name}</span>
+                        <span className="block text-secondary">{venue.address}</span>
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
 
           {savingVenue ? (
             <p aria-live="polite" className="pt-3">
@@ -305,6 +347,34 @@ export function VenuePicker({
             className={FIELD_CLASS}
           />
 
+          {showRecentVenues ? (
+            <section aria-labelledby="recent-venues-heading" className="pt-3">
+              <h3 id="recent-venues-heading" className="font-bold">
+                {he.publishDance.recentVenuesHeading}
+              </h3>
+              <ul className="flex flex-col gap-2 pt-2">
+                {recentVenues.map((venue) => (
+                  <li key={venue.id}>
+                    <label className={OPTION_CLASS}>
+                      <input
+                        type="radio"
+                        name="venueId"
+                        value={venue.id}
+                        checked={venueId === venue.id}
+                        onChange={() => onVenueChange(venue.id)}
+                        className="mt-1 size-6 shrink-0 accent-[var(--color-secondary)]"
+                      />
+                      <span>
+                        <span className="block font-bold">{venue.name}</span>
+                        <span className="block text-secondary">{venue.address}</span>
+                      </span>
+                    </label>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
           {/*
             One live region for the result count rather than announcing the list
             itself: a screen reader user typing gets "נמצאו 3 מקומות" instead of
@@ -313,14 +383,16 @@ export function VenuePicker({
           <p aria-live="polite" className="pt-2 text-secondary">
             {searching
               ? he.publishDance.venueSearching
-              : he.publishDance.venueResultCount(venues.length)}
+              : he.publishDance.venueResultCount(
+                  visibleVenues.length + (showRecentVenues ? recentVenues.length : 0),
+                )}
           </p>
 
-          {venues.length === 0 ? (
+          {visibleVenues.length === 0 && !showRecentVenues ? (
             <p className="pt-1">{he.publishDance.venueEmpty}</p>
-          ) : (
+          ) : visibleVenues.length > 0 ? (
             <div className="flex flex-col gap-2 pt-1">
-              {venues.map((venue) => (
+              {visibleVenues.map((venue) => (
                 <label key={venue.id} className={OPTION_CLASS}>
                   <input
                     type="radio"
@@ -337,7 +409,7 @@ export function VenuePicker({
                 </label>
               ))}
             </div>
-          )}
+          ) : null}
 
           <div className="pt-4">
             <button

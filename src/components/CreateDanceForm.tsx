@@ -59,12 +59,15 @@ const REPEAT_OPTIONS: ReadonlyArray<{ value: Repeat; label: string }> = [
 
 export function CreateDanceForm({
   venues,
+  recentVenues,
   mapsApiKey,
   instructorName,
   needsInstructorName,
 }: {
   /** The first page of halls, rendered server-side so the list is not empty on arrival. */
   venues: readonly VenueOption[];
+  /** The instructor's own last three distinct publish locations, newest first. */
+  recentVenues: readonly VenueOption[];
   /** Passed through to the Places field; null turns adding a venue off. */
   mapsApiKey: string | null;
   /** Prefills the public name; the profile name when there is no instructor row yet. */
@@ -186,6 +189,7 @@ export function CreateDanceForm({
 
         <VenuePicker
           initialVenues={venues}
+          recentVenues={recentVenues}
           mapsApiKey={mapsApiKey}
           venueId={venueId}
           onVenueChange={setVenueId}

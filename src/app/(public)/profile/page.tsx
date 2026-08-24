@@ -9,7 +9,7 @@ import { findFavoriteNights } from "@/lib/db/dances";
 import { findOwnFavoriteEventIds } from "@/lib/db/favorites";
 import { findOwnNights } from "@/lib/db/nights";
 import { findOwnInstructor, findOwnProfile } from "@/lib/db/publisher";
-import { searchVenues } from "@/lib/db/venues";
+import { findRecentOwnVenues, searchVenues } from "@/lib/db/venues";
 import { toManageableNights } from "@/lib/domain/manageNight";
 import { Avatar } from "@/components/Avatar";
 import { BecomeInstructor } from "@/components/BecomeInstructor";
@@ -204,6 +204,11 @@ async function SignedIn({ userId, phone }: { userId: string; phone: string | nul
   // tests/rls/roleAndDemoLogin.test.ts rather than assumed.
   const role = roleFor(instructor);
 
+  // `dance_events` is publicly readable for the map, so the query itself (not
+  // RLS) explicitly filters to this server-derived instructor id.
+  const recentVenues =
+    instructor === null ? [] : await findRecentOwnVenues(client, instructor.id);
+
   // Only for someone who has actually published. A dancer with no instructor row
   // has no nights to manage, and the query needs an instructor id to filter by —
   // `event_occurrences_select_authenticated` is `using (true)`, so an unfiltered
@@ -260,6 +265,7 @@ async function SignedIn({ userId, phone }: { userId: string; phone: string | nul
           */}
           <CreateDanceForm
             venues={venues}
+            recentVenues={recentVenues}
             mapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || null}
             instructorName={instructor?.displayName ?? profile.displayName}
             needsInstructorName={instructor === null}
