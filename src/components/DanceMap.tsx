@@ -132,6 +132,7 @@ export function DanceMap({
   center,
   labels,
   onLocate,
+  onLocatePendingChange,
 }: {
   dances: MapDance[];
   apiKey: string;
@@ -146,6 +147,8 @@ export function DanceMap({
    * and the array now; this component only draws what it is given.
    */
   onLocate: (center: { lat: number; lng: number }) => Promise<boolean>;
+  /** Lets the query owner defer centre-dependent controls until locating settles. */
+  onLocatePendingChange: (pending: boolean) => void;
 }) {
   // Derived at first render rather than corrected by an effect: a build with no
   // key knows it has no map before it paints, so the honest message is in the
@@ -352,6 +355,7 @@ export function DanceMap({
     }
 
     setLocateState("locating");
+    onLocatePendingChange(true);
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const point = {
@@ -371,15 +375,19 @@ export function DanceMap({
             setSelectedId(null);
             setLocateState("located");
           })
-          .catch(() => setLocateState("failed"));
+          .catch(() => setLocateState("failed"))
+          .finally(() => onLocatePendingChange(false));
       },
       // Refusal, an unavailable sensor and a timeout are one message: they
       // differ only in a cause the dancer cannot act on, and the screen is
       // left working in all three.
-      () => setLocateState("failed"),
+      () => {
+        setLocateState("failed");
+        onLocatePendingChange(false);
+      },
       { enableHighAccuracy: false, timeout: GEOLOCATION_TIMEOUT_MS, maximumAge: 60_000 },
     );
-  }, [locateState, onLocate]);
+  }, [locateState, onLocate, onLocatePendingChange]);
 
   const locateMessage =
     locateState === "locating"

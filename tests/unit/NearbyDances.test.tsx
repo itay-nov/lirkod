@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NearbyDances, type NearbyDancesLabels } from "@/components/NearbyDances";
 import type { DanceMapLabels } from "@/components/DanceMap";
@@ -264,6 +264,21 @@ function stubGeolocationSucceeding() {
   });
 }
 
+function stubGeolocationDeferred() {
+  let resolve!: () => void;
+  vi.stubGlobal("navigator", {
+    geolocation: {
+      getCurrentPosition: (onSuccess: PositionCallback) => {
+        resolve = () =>
+          onSuccess({
+            coords: { latitude: 32.3215, longitude: 34.8532 },
+          } as GeolocationPosition);
+      },
+    },
+  });
+  return { resolve: () => resolve() };
+}
+
 /** Grants location and answers the route handler with `located`. */
 function stubLocateSucceedingWith(located: MapDance[]) {
   stubGeolocationSucceeding();
@@ -427,8 +442,8 @@ describe("NearbyDances with overlapping proximity requests", () => {
     expect(ringList()).not.toHaveTextContent("תוצאה ישנה מהמרכז הקבוע");
   });
 
-  it("does not let an older locate response overwrite a newer radius result", async () => {
-    stubGeolocationSucceeding();
+  it("queues a radius change until the pending GPS-centred request resolves", async () => {
+    const geolocation = stubGeolocationDeferred();
     const locateRequest = deferredResponse();
     const radiusRequest = deferredResponse();
     const fetchMock = vi
@@ -439,18 +454,28 @@ describe("NearbyDances with overlapping proximity requests", () => {
     renderScreen([dance(DEFAULT_VENUE)]);
 
     screen.getByRole("button", { name: MAP_LABELS.locate }).click();
+    await act(async () => geolocation.resolve());
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({
+      lat: 32.3215,
+      lng: 34.8532,
+      radiusMeters: 15_000,
+    });
+
     screen.getByRole("radio", { name: "עד 30 ק״מ" }).click();
+
+    await act(async () =>
+      locateRequest.resolve(responseWith([dance(LOCATED_VENUES[0] ?? "")]).response),
+    );
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body))).toEqual({
+      lat: 32.3215,
+      lng: 34.8532,
+      radiusMeters: 30_000,
+    });
 
-    radiusRequest.resolve(responseWith([dance("התוצאה האחרונה שביקשו")]).response);
-    await waitFor(() => expect(ringList()).toHaveTextContent("התוצאה האחרונה שביקשו"));
-
-    const stale = responseWith([dance(LOCATED_VENUES[0] ?? "")]);
-    locateRequest.resolve(stale.response);
-    await waitFor(() => expect(stale.json).toHaveBeenCalled());
-    expect(ringList()).toHaveTextContent("התוצאה האחרונה שביקשו");
-    expect(ringList()).not.toHaveTextContent(LOCATED_VENUES[0] ?? "");
-    expect(screen.queryByText(MAP_LABELS.located)).toBeNull();
+    radiusRequest.resolve(responseWith([dance("התוצאה ברדיוס החדש")]).response);
+    await waitFor(() => expect(ringList()).toHaveTextContent("התוצאה ברדיוס החדש"));
   });
 });
 

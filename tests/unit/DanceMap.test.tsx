@@ -160,7 +160,12 @@ function mapDance(overrides: Partial<MapDance> = {}): MapDance {
 }
 
 function renderMap(
-  props: { apiKey?: string; dances?: MapDance[]; onLocate?: () => Promise<boolean> } = {},
+  props: {
+    apiKey?: string;
+    dances?: MapDance[];
+    onLocate?: () => Promise<boolean>;
+    onLocatePendingChange?: (pending: boolean) => void;
+  } = {},
 ) {
   return render(
     <DanceMap
@@ -170,6 +175,7 @@ function renderMap(
       center={{ lat: 32.0809, lng: 34.7806 }}
       labels={LABELS}
       onLocate={props.onLocate ?? (() => Promise.resolve(true))}
+      onLocatePendingChange={props.onLocatePendingChange ?? (() => undefined)}
     />,
   );
 }

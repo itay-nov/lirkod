@@ -80,6 +80,8 @@ export function NearbyDances({
   const selectedRadiusRef = useRef(initialRadiusMeters);
   const appliedRadiusRef = useRef(initialRadiusMeters);
   const queryRequestRef = useRef(0);
+  const locatePendingRef = useRef(false);
+  const queuedRadiusRef = useRef<DistanceRadiusMeters | null>(null);
 
   const queryNear = useCallback(
     async (queryCenter: { lat: number; lng: number }, queryRadius: DistanceRadiusMeters) => {
@@ -103,29 +105,9 @@ export function NearbyDances({
     [],
   );
 
-  const handleLocate = useCallback(
-    async (locatedCenter: { lat: number; lng: number }) => {
-      setRadiusBusy(false);
-      setRadiusFailed(false);
-      try {
-        return await queryNear(locatedCenter, selectedRadiusRef.current);
-      } catch (error: unknown) {
-        selectedRadiusRef.current = appliedRadiusRef.current;
-        setRadiusMeters(appliedRadiusRef.current);
-        throw error;
-      }
-    },
-    [queryNear],
-  );
-
-  const changeRadius = useCallback(
-    (next: DistanceRadiusMeters) => {
-      selectedRadiusRef.current = next;
-      setRadiusMeters(next);
-      setRadiusBusy(true);
-      setRadiusFailed(false);
-
-      void queryNear(centerRef.current, next).then(
+  const applyRadius = useCallback(
+    (queryCenter: { lat: number; lng: number }, next: DistanceRadiusMeters) => {
+      void queryNear(queryCenter, next).then(
         (applied) => {
           if (!applied) return;
           setRadiusBusy(false);
@@ -139,6 +121,59 @@ export function NearbyDances({
       );
     },
     [queryNear],
+  );
+
+  const handleLocatePendingChange = useCallback(
+    (pending: boolean) => {
+      locatePendingRef.current = pending;
+      if (pending) return;
+
+      const queuedRadius = queuedRadiusRef.current;
+      if (queuedRadius === null) return;
+      queuedRadiusRef.current = null;
+      applyRadius(centerRef.current, queuedRadius);
+    },
+    [applyRadius],
+  );
+
+  const handleLocate = useCallback(
+    async (locatedCenter: { lat: number; lng: number }) => {
+      const queryRadius = selectedRadiusRef.current;
+      // A choice made while the browser was still resolving GPS is already
+      // included in this first located query. A later choice, made while this
+      // query awaits the server, will repopulate the queue and run afterwards.
+      queuedRadiusRef.current = null;
+      setRadiusFailed(false);
+      try {
+        const applied = await queryNear(locatedCenter, queryRadius);
+        if (applied && queuedRadiusRef.current === null) setRadiusBusy(false);
+        return applied;
+      } catch (error: unknown) {
+        queuedRadiusRef.current = null;
+        selectedRadiusRef.current = appliedRadiusRef.current;
+        setRadiusMeters(appliedRadiusRef.current);
+        setRadiusBusy(false);
+        throw error;
+      }
+    },
+    [queryNear],
+  );
+
+  const changeRadius = useCallback(
+    (next: DistanceRadiusMeters) => {
+      selectedRadiusRef.current = next;
+      setRadiusMeters(next);
+      setRadiusBusy(true);
+      setRadiusFailed(false);
+
+      if (locatePendingRef.current) {
+        queuedRadiusRef.current = next;
+        return;
+      }
+
+      applyRadius(centerRef.current, next);
+    },
+    [applyRadius],
   );
 
   // The DEMO_MODE toggle in AppHeader flips this via the shared store; `demoMode`
@@ -190,6 +225,7 @@ export function NearbyDances({
         center={center}
         labels={mapLabels}
         onLocate={handleLocate}
+        onLocatePendingChange={handleLocatePendingChange}
       />
 
       <section className="mt-3 rounded-t-3xl bg-surface pb-8 pt-5 shadow-[0_-2px_12px_rgba(43,36,32,0.15)]">
