@@ -131,13 +131,15 @@ describe("find_dances_near bounds — an anonymous, unauthenticated RPC (migrati
       const dances = await findDancesNear(anonClient(), HOLON_LAT, HOLON_LNG, 50_000);
       expect(dances.length).toBe(200);
     } finally {
-      await service
-        .from("event_occurrences")
-        .delete()
-        .in(
-          "id",
-          data.map((row) => row.id),
-        );
+      const occurrenceIds = data.map((row) => row.id);
+      for (let offset = 0; offset < occurrenceIds.length; offset += 50) {
+        const { error: deleteError } = await service
+          .from("event_occurrences")
+          .delete()
+          .in("id", occurrenceIds.slice(offset, offset + 50));
+
+        if (deleteError) throw deleteError;
+      }
     }
   });
 
