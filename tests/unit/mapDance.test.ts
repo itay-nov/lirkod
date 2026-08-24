@@ -71,7 +71,7 @@ describe("toMapDance", () => {
   });
 
   it.each([
-    ["moved", he.dance.status.moved],
+    ["moved", "המיקום שונה"],
     ["cancelled", he.dance.status.cancelled],
   ] as const)("labels %s in words for the preview badge (§2.6)", (status, word) => {
     expect(toMapDance(dance(status)).statusLabel).toBe(word);

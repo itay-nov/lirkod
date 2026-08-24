@@ -12,7 +12,7 @@ import { formatStartTime } from "@/lib/domain/occurrenceTime";
  * and differs from it only in layout: the ring sits beside the text on one line
  * rather than above a stacked card. That is the entire divergence, and it is why
  * the status logic lives in a module both import rather than being reimplemented
- * here — a dashed ring has to mean "הועבר" on every screen that draws one.
+ * here — a dashed ring has to mean "המיקום שונה" on every screen that draws one.
  *
  * Non-interactive on its OWN account, for the same reason the ring is — see
  * the comment on DanceRing, including where the detail route that turns both

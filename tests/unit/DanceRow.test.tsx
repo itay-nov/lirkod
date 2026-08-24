@@ -103,7 +103,7 @@ describe("DanceRow", () => {
   });
 
   it.each([
-    ["moved", he.dance.status.moved],
+    ["moved", "המיקום שונה"],
     ["cancelled", he.dance.status.cancelled],
   ] as const)(
     "renders %s as a visible word, not colour alone (AGENTS.md §2.6)",

@@ -115,7 +115,7 @@ test("states a moved or cancelled dance in words, not only in colour", async ({
   const main = page.locator("main");
 
   // Both are seeded within the default radius — see the note in supabase/seed.sql.
-  await expect(main.getByText(he.dance.status.moved).first()).toBeVisible();
+  await expect(main.getByText("המיקום שונה").first()).toBeVisible();
   await expect(main.getByText(he.dance.status.cancelled).first()).toBeVisible();
 });
 

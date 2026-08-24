@@ -111,7 +111,7 @@ export const he = {
        * The WhatsApp share message (Phase 4.6a). Plain text, one fact per
        * line, so it reads cleanly if pasted anywhere and not only inside a
        * WhatsApp bubble — no markup, no emoji standing in for a word.
-       * `status` carries the same "בוטל"/"הועבר" word the badge shows
+       * `status` carries the same "בוטל"/"המיקום שונה" wording the badge shows
        * (AGENTS.md §2.6): a dancer sharing a cancelled night should not
        * accidentally invite someone to a hall that is dark.
        */
@@ -658,14 +658,14 @@ export const he = {
     /** The badge for a dance marked women_only — dignified, not an afterthought. */
     womenOnly: "הרקדה לנשים בלבד",
     status: {
-      moved: "הועבר",
+      moved: "המיקום שונה",
       cancelled: "בוטל",
       /**
        * A night whose HOUR changed. Says the old time, not just "השתנה": a
        * dancer who already planned around 20:00 needs to recognise which
        * evening this is before they can act on it. The status stays
-       * "scheduled" in the database — docs/decisions/0003 reserves "הועבר"
-       * for a venue change — so this label is the only thing that tells them
+       * "scheduled" in the database — docs/decisions/0003 reserves the
+       * `moved` status for a venue change — so this label is the only thing that tells them
        * (AGENTS.md §2.6, §10).
        */
       retimedFrom: (time: string): string => `הועבר מ-${time}`,

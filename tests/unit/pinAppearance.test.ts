@@ -80,7 +80,7 @@ describe("pinSvg", () => {
   });
 
   it("dashes the moved pin's edge, the same convention the rings use", () => {
-    // danceStatusAppearance draws "הועבר" with border-dashed. A dancer who
+    // danceStatusAppearance draws "המיקום שונה" with border-dashed. A dancer who
     // learns the dashed edge on one screen must find it on the other.
     expect(pinSvg("moved", false)).toContain("stroke-dasharray");
     expect(pinSvg("scheduled", false)).not.toContain("stroke-dasharray");

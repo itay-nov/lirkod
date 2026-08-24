@@ -64,7 +64,7 @@ export interface MapDance {
   danceTitle: string;
   /** Drives the pin's silhouette. The client redraws from this, so it stays typed. */
   status: OccurrenceStatus;
-  /** "בוטל" / "הועבר", or null for a night with nothing to warn about. */
+  /** "בוטל" / "המיקום שונה", or null for a night with nothing to warn about. */
   statusLabel: string | null;
   /**
    * The three status classes come from `appearanceFor`, resolved here rather

@@ -55,7 +55,7 @@ test("states a moved or cancelled dance in words, not only in colour", async ({
   await page.goto("/");
   const list = page.getByRole("list", { name: he.home.listLabel });
 
-  await expect(list.getByText(he.dance.status.moved)).toBeVisible();
+  await expect(list.getByText("המיקום שונה")).toBeVisible();
   await expect(list.getByText(he.dance.status.cancelled)).toBeVisible();
 });
 
