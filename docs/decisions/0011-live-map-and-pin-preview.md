@@ -126,9 +126,9 @@ ordinary case in one path.
 
 - New env var `NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID`, documented in `.env.example`.
 - `tests/e2e/map.spec.ts` drives the real Maps library, so it needs the dev server on an
-  origin the API key's HTTP-referrer allowlist includes. That is the one point where
-  §12's "own PORT per worktree" collides with configuration outside this repo, and the
-  spec header says so.
+  origin the API key's HTTP-referrer allowlist includes. Port 3000 is the repository
+  default and its exact localhost origin is allowlisted. A deliberate `PORT` override
+  also needs its exact origin added to that allowlist.
 - **Two dances at one hall put two pins at identical coordinates, and the upper one
   takes every tap meant for the lower.** Keyboard reaches both — they are separate tab
   stops — but a pointer cannot. Clustering or fanning out co-located pins is its own

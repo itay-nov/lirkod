@@ -1,8 +1,9 @@
 import { defineConfig, devices } from "@playwright/test";
 
-// One git worktree per task (AGENTS.md §12) means several dev servers can be
-// running on this machine at once. Default to 3000, but let each worktree
-// override via PORT so Playwright never attaches to another branch's server.
+// Port 3000 is the shared default because it is the origin allowlisted for the
+// browser Maps key. PORT remains an explicit escape hatch for parallel worktrees;
+// reuseExistingServer=false makes an accidental collision fail instead of testing
+// whichever branch happened to start first.
 const port = process.env.PORT ? Number(process.env.PORT) : 3000;
 const baseURL = `http://localhost:${port}`;
 

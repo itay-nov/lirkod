@@ -253,9 +253,11 @@ than a confident wrong answer.
 
 - One task = one branch = one git worktree. Never switch branches inside a worktree
   another agent may be using.
-- Each worktree uses its own `PORT`; never share port 3000. A shared port lets a dev
-  server or `npm run test:e2e` in one worktree silently attach to another branch's
-  running server.
+- Use port 3000 by default for both `npm run dev` and `npm run test:e2e`; it is the
+  origin allowlisted for the browser Maps key. Playwright does not reuse an existing
+  server, so a collision fails instead of silently testing another worktree. Set
+  `PORT` explicitly only for deliberate parallel runs, and ensure that exact custom
+  origin is also allowlisted before running real-Maps E2E tests.
 - Branch naming: `feat/<short-slug>`, `fix/<short-slug>`, `chore/<short-slug>`.
 - Conventional commits: `feat(map): filter dances by radius`.
 - Never commit directly to `main`. Never force-push a shared branch.
