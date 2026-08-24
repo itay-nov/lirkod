@@ -152,6 +152,15 @@ export const he = {
      */
     profile: "אזור אישי",
   },
+  profileMenu: {
+    open: "פתיחת תפריט ניווט",
+    close: "סגירת תפריט ניווט",
+    title: "מעבר מהיר",
+    navigationLabel: "ניווט באזור האישי",
+    home: "ראשי",
+    myDances: "ההרקדות שלי",
+    createDance: "בניית הרקדה חדשה",
+  },
   /**
    * The DEMO_MODE toggle (AGENTS.md §13 Phase 4.0): one button in the header
    * that hides every dance from the map and the schedule, for showing the app
