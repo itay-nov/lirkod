@@ -22,6 +22,10 @@ export const PRIMARY_BUTTON_CLASS =
   "focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-secondary " +
   "disabled:opacity-70";
 
+export const SECONDARY_BUTTON_CLASS =
+  "min-h-12 w-full rounded-lg border-2 border-secondary bg-surface px-4 py-3 font-bold text-secondary " +
+  "focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-secondary disabled:opacity-70";
+
 export const LABEL_CLASS = "block pb-2 font-bold";
 
 /**

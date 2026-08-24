@@ -251,6 +251,69 @@ test("publishing a dance makes it visible to an anonymous visitor", async ({
   }
 });
 
+test("a flyer can be attached while publishing, replaced, removed, and read anonymously", async ({
+  page,
+  browser,
+}) => {
+  await signIn(page);
+  await setName(page);
+
+  const tinyPng = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2nQAAAABJRU5ErkJggg==",
+    "base64",
+  );
+  await page.getByLabel(he.publishDance.flyerLabel).setInputFiles({
+    name: "flyer.png",
+    mimeType: "image/png",
+    buffer: tinyPng,
+  });
+  await publish(page, dateInDays(13));
+  await expect(page.getByText(he.publishDance.published)).toBeVisible({ timeout: 20_000 });
+
+  const anonymous = await browser.newContext();
+  try {
+    const visitor = await anonymous.newPage();
+    await visitor.goto("/schedule");
+    await expect(visitor.getByAltText(he.dance.flyerAlt(PROFILE_NAME)).first()).toBeVisible({
+      timeout: 20_000,
+    });
+  } finally {
+    await anonymous.close();
+  }
+
+  const editor = page.getByRole("list", { name: he.manageFlyers.listLabel }).getByRole("listitem");
+  const originalEditorSrc = await editor.getByRole("img").getAttribute("src");
+  const replacementPng = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+    "base64",
+  );
+  await editor.locator('input[type="file"]').setInputFiles({
+    name: "replacement.png",
+    mimeType: "image/png",
+    buffer: replacementPng,
+  });
+  await editor.getByRole("button", { name: he.manageFlyers.save }).click();
+  await expect(editor.getByText(he.manageFlyers.saved)).toBeVisible();
+  await expect.poll(() => editor.getByRole("img").getAttribute("src")).not.toBe(originalEditorSrc);
+
+  await editor.getByRole("button", { name: he.manageFlyers.remove }).click();
+  await expect(editor.getByText(he.manageFlyers.removed)).toBeVisible();
+  await expect(editor.getByRole("img")).toHaveCount(0);
+
+  await page.evaluate(() => {
+    document.documentElement.style.fontSize = "32px";
+  });
+  expect(await page.evaluate(() => document.documentElement.dir)).toBe("rtl");
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth),
+  ).toBe(true);
+  for (const control of await editor.locator("input, button").all()) {
+    const box = await control.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box?.height ?? 0).toBeGreaterThanOrEqual(48);
+  }
+});
+
 test("the map/schedule filter (Phase 4.6b) narrows to a published dance's real level/type/women-only", async ({
   page,
   browser,
@@ -347,10 +410,10 @@ test("keyboard only: reach the venue list, the times, and the publish button", a
 
   // Sequential Tab, not .focus(): a control that is only reachable with a mouse
   // passes a programmatic focus test and fails this one (AGENTS.md §2.7).
-  for (let i = 0; i < 25 && (await focusedId()) !== "venue-search"; i++) {
+  for (let i = 0; i < 25 && (await focusedId()) !== "publish-venue-search"; i++) {
     await page.keyboard.press("Tab");
   }
-  expect(await focusedId()).toBe("venue-search");
+  expect(await focusedId()).toBe("publish-venue-search");
 
   // The radios follow the search box, and arrow keys move between them natively —
   // which is the reason this is a radio group and not a custom combobox.

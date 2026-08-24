@@ -33,6 +33,7 @@ function dance(status: OccurrenceStatus): NearbyDance {
     level: "intermediate",
     danceFormations: ["circle", "couples"],
     womenOnly: false,
+    flyerUrl: null,
   };
 }
 

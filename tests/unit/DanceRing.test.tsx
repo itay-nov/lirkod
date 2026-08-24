@@ -50,6 +50,7 @@ function dance(status: OccurrenceStatus): MapDance {
     level: "all_levels",
     danceFormations: [],
     womenOnly: false,
+    flyerUrl: null,
   });
 }
 

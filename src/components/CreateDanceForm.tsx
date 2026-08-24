@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   publishDanceAction,
@@ -25,6 +25,13 @@ import {
   RADIO_OPTION_CLASS,
 } from "./formStyles";
 import { he } from "@/lib/i18n/he";
+import { browserClient } from "@/lib/auth/browserClient";
+import {
+  DANCE_FLYER_MIME_TYPES,
+  MAX_DANCE_FLYER_BYTES,
+  saveDanceFlyer,
+  validateDanceFlyer,
+} from "@/lib/storage/danceFlyers";
 
 /**
  * Publishing a dance: where, when it starts, when it ends, and whether it comes
@@ -76,6 +83,7 @@ export function CreateDanceForm({
   needsInstructorName: boolean;
 }) {
   const router = useRouter();
+  const flyerInput = useRef<HTMLInputElement>(null);
 
   const [venueId, setVenueId] = useState("");
   const [publicName, setPublicName] = useState(instructorName);
@@ -87,6 +95,7 @@ export function CreateDanceForm({
   const [level, setLevel] = useState<DanceLevel>(DEFAULT_DANCE_LEVEL);
   const [danceFormations, setDanceFormations] = useState<DanceFormation[]>([]);
   const [womenOnly, setWomenOnly] = useState(false);
+  const [flyer, setFlyer] = useState<File | null>(null);
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -115,6 +124,19 @@ export function CreateDanceForm({
     setPublished(null);
     setBusy(true);
 
+    if (flyer !== null) {
+      const problem = validateDanceFlyer(flyer);
+      if (problem !== null) {
+        setError(
+          problem === "tooLarge"
+            ? he.publishDance.errors.flyerTooLarge
+            : he.publishDance.errors.flyerType,
+        );
+        setBusy(false);
+        return;
+      }
+    }
+
     try {
       const result = await publishDanceAction({
         venueId,
@@ -134,6 +156,15 @@ export function CreateDanceForm({
         return;
       }
 
+      let flyerFailed = false;
+      if (flyer !== null) {
+        try {
+          await saveDanceFlyer(browserClient(), result.eventId, flyer);
+        } catch {
+          flyerFailed = true;
+        }
+      }
+
       // The count is what tells an instructor the repeat actually took effect.
       // One night reads the same either way, so it keeps the single-night words.
       setPublished(
@@ -150,6 +181,9 @@ export function CreateDanceForm({
       setLevel(DEFAULT_DANCE_LEVEL);
       setDanceFormations([]);
       setWomenOnly(false);
+      setFlyer(null);
+      if (flyerInput.current !== null) flyerInput.current.value = "";
+      if (flyerFailed) setError(he.publishDance.errors.flyerUploadFailed);
       // The map and the schedule were revalidated server-side; this is what makes
       // the current screen reflect it too.
       router.refresh();
@@ -373,6 +407,37 @@ export function CreateDanceForm({
           />
           <span className="font-bold">{he.publishDance.womenOnlyLabel}</span>
         </label>
+
+        <div>
+          <label htmlFor="dance-flyer" className={LABEL_CLASS}>
+            {he.publishDance.flyerLabel}
+          </label>
+          <input
+            ref={flyerInput}
+            id="dance-flyer"
+            name="flyer"
+            type="file"
+            accept={DANCE_FLYER_MIME_TYPES.join(",")}
+            aria-describedby="dance-flyer-hint"
+            className={`${FIELD_CLASS} min-h-12 file:me-3 file:min-h-12 file:rounded-xl file:border-0 file:bg-secondary file:px-4 file:font-bold file:text-white`}
+            onChange={(event) => {
+              const selected = event.target.files?.[0] ?? null;
+              setFlyer(selected);
+              if (selected === null) return;
+              const problem = validateDanceFlyer(selected);
+              setError(
+                problem === null
+                  ? null
+                  : problem === "tooLarge"
+                    ? he.publishDance.errors.flyerTooLarge
+                    : he.publishDance.errors.flyerType,
+              );
+            }}
+          />
+          <p id="dance-flyer-hint" className={HINT_CLASS}>
+            {he.publishDance.flyerHint(MAX_DANCE_FLYER_BYTES / 1024 / 1024)}
+          </p>
+        </div>
 
         <button type="submit" disabled={busy} className={PRIMARY_BUTTON_CLASS}>
           {busy ? he.publishDance.submitting : he.publishDance.submit}

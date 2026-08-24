@@ -5,7 +5,7 @@ import {
 } from "@/lib/auth/instructorIntent";
 import { serverClient } from "@/lib/auth/serverClient";
 import { currentUser } from "@/lib/auth/session";
-import { findFavoriteNights } from "@/lib/db/dances";
+import { findFavoriteNights, findOwnDanceFlyers } from "@/lib/db/dances";
 import { findOwnFavoriteEventIds } from "@/lib/db/favorites";
 import { findOwnNights } from "@/lib/db/nights";
 import { findOwnInstructor, findOwnProfile } from "@/lib/db/publisher";
@@ -19,6 +19,7 @@ import { DemoSignIn } from "@/components/DemoSignIn";
 import { FavoriteButton } from "@/components/FavoriteButton";
 import { InstructorNameForm } from "@/components/InstructorNameForm";
 import { ManageNights } from "@/components/ManageNights";
+import { ManageDanceFlyers } from "@/components/ManageDanceFlyers";
 import { PhoneSignIn } from "@/components/PhoneSignIn";
 import { ProfileEditForm } from "@/components/ProfileEditForm";
 import { ProfileNameForm } from "@/components/ProfileNameForm";
@@ -217,6 +218,8 @@ async function SignedIn({ userId, phone }: { userId: string; phone: string | nul
     instructor === null
       ? []
       : toManageableNights(await findOwnNights(client, instructor.id));
+  const danceFlyers =
+    instructor === null ? [] : await findOwnDanceFlyers(client, instructor.id);
 
   return (
     <div className="flex flex-col gap-6 pt-4">
@@ -283,6 +286,7 @@ async function SignedIn({ userId, phone }: { userId: string; phone: string | nul
             recentVenues={recentVenues}
             mapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || null}
           />
+          <ManageDanceFlyers dances={danceFlyers} />
         </>
       ) : (
         // A רוקד gets an invitation in the same place, not an empty gap and not

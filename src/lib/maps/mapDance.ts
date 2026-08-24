@@ -97,6 +97,9 @@ export interface MapDance {
   level: DanceLevel;
   danceFormations: DanceFormation[];
   womenOnly: boolean;
+  /** Public poster image, already resolved from its Storage object path. */
+  flyerUrl: string | null;
+  flyerAlt: string;
   /**
    * The type/level tag the map preview card left unused (docs/decisions/0022)
    * — the formations' labels, then the level's, e.g. `["מעגלים", "זוגות",
@@ -185,6 +188,8 @@ export function toMapDance(dance: NearbyDance): MapDance {
     level: dance.level,
     danceFormations: dance.danceFormations,
     womenOnly: dance.womenOnly,
+    flyerUrl: dance.flyerUrl,
+    flyerAlt: he.dance.flyerAlt(dance.instructorDisplayName),
     attributeTags: [
       ...dance.danceFormations.map((formation) => he.dance.formation[formation]),
       he.dance.level[dance.level],

@@ -14,6 +14,7 @@ export type Database = {
           created_at: string
           dance_formations: Database["public"]["Enums"]["dance_formation"][]
           dance_types: string[]
+          flyer_path: string | null
           id: string
           instructor_id: string
           level: Database["public"]["Enums"]["dance_level"]
@@ -31,6 +32,7 @@ export type Database = {
           created_at?: string
           dance_formations?: Database["public"]["Enums"]["dance_formation"][]
           dance_types?: string[]
+          flyer_path?: string | null
           id?: string
           instructor_id: string
           level?: Database["public"]["Enums"]["dance_level"]
@@ -50,6 +52,7 @@ export type Database = {
           created_at?: string
           dance_formations?: Database["public"]["Enums"]["dance_formation"][]
           dance_types?: string[]
+          flyer_path?: string | null
           id?: string
           instructor_id?: string
           level?: Database["public"]["Enums"]["dance_level"]
