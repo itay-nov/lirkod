@@ -36,7 +36,7 @@ export interface ManageableNight {
    */
   whenText: string;
   venueName: string;
-  /** "בוטל" / "הועבר" / "הועבר מ-20:00", or null for an ordinary night. */
+  /** "בוטל" / "המיקום שונה" / "הועבר מ-20:00", or null for an ordinary night. */
   statusLabel: string | null;
   statusBadgeClassName: string;
   /**

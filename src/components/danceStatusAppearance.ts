@@ -15,7 +15,7 @@ export interface DanceStatusAppearance {
  * How a dance's status looks, for every component that draws one.
  *
  * Extracted from DanceRing when the schedule's compact row appeared: the two
- * differ only in layout, and the status convention — dashed for "הועבר", muted
+ * differ only in layout, and the status convention — dashed for "המיקום שונה", muted
  * and struck through for "בוטל", always with the word visible — is precisely
  * the part that must not drift between them. A dancer who learns what a dashed
  * ring means on the map has to find the same thing on the schedule.

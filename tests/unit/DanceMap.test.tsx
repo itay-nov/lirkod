@@ -483,6 +483,19 @@ describe("DanceMap preview — Phase 4.6c restyle", () => {
     ).toHaveTextContent("בוטל");
   });
 
+  it("states a moved dance with the location-change label", async () => {
+    renderMap({
+      dances: [mapDance({ status: "moved", statusLabel: "המיקום שונה" })],
+    });
+    const [marker] = await markers();
+
+    marker?.activate();
+
+    expect(
+      await screen.findByRole("region", { name: LABELS.previewLabel }),
+    ).toHaveTextContent("המיקום שונה");
+  });
+
   it("moves focus to the preview, so a keyboard user lands on what just opened", async () => {
     renderMap();
     const [marker] = await markers();

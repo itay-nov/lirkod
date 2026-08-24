@@ -5,7 +5,7 @@ import type { OccurrenceStatus } from "@/lib/db/dances";
  *
  * The sibling of `src/components/danceStatusAppearance.ts`, and deliberately
  * built on the same conventions rather than a second visual language: gold fill
- * with a dashed edge means "הועבר" here exactly as a dashed gold-badged ring
+ * with a dashed edge means "המיקום שונה" here exactly as a dashed gold-badged ring
  * does on the hero list and the schedule, and ink-with-paper means "בוטל" in
  * both places. A dancer who learns what a pin means should not have to learn it
  * again one screen down.
