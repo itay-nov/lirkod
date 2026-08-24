@@ -143,6 +143,9 @@ async function setName(page: Page): Promise<void> {
   await expect(page.getByText(he.profile.greeting(PROFILE_NAME))).toBeVisible({
     timeout: 20_000,
   });
+  await page.getByRole("link", { name: he.profileMenu.createDance }).click();
+  await expect(page).toHaveURL(/\/profile\/create-dance$/);
+  await expect(page.getByRole("heading", { name: he.profileMenu.createDance })).toBeVisible();
 }
 
 /** A date `days` out, as the native date input wants it. */

@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import Link from "next/link";
 import {
   INSTRUCTOR_INTENT_COOKIE,
   INSTRUCTOR_INTENT_VALUE,
@@ -13,7 +14,6 @@ import { findRecentOwnVenues, searchVenues } from "@/lib/db/venues";
 import { toManageableNights } from "@/lib/domain/manageNight";
 import { Avatar } from "@/components/Avatar";
 import { BecomeInstructor } from "@/components/BecomeInstructor";
-import { CreateDanceForm } from "@/components/CreateDanceForm";
 import { DanceRow } from "@/components/DanceRow";
 import { DemoSignIn } from "@/components/DemoSignIn";
 import { FavoriteButton } from "@/components/FavoriteButton";
@@ -25,6 +25,7 @@ import { ProfileEditForm } from "@/components/ProfileEditForm";
 import { ProfileNameForm } from "@/components/ProfileNameForm";
 import { ProfileNavDrawer } from "@/components/ProfileNavDrawer";
 import { SignOutButton } from "@/components/SignOutButton";
+import { PRIMARY_BUTTON_CLASS } from "@/components/formStyles";
 import { formatIsraeliPhone } from "@/lib/domain/phone";
 import { roleFor, showsInstructorTools } from "@/lib/domain/role";
 import { he } from "@/lib/i18n/he";
@@ -34,7 +35,7 @@ import { he } from "@/lib/i18n/he";
  *
  * Three states, all rendered INLINE in place of one another, none behind a
  * redirect: no session → sign in; session but no `profiles` row → set a name;
- * both → the profile, and the form that publishes a dance. AGENTS.md §2.2 only
+ * both → the personal area. AGENTS.md §2.2 only
  * requires auth for actions that need identity — this whole screen is identity,
  * but the route itself should still render for an anonymous visitor so it can
  * explain that and offer to sign in. A redirect would make the destination
@@ -247,6 +248,13 @@ async function SignedIn({ userId, phone }: { userId: string; phone: string | nul
 
       {showsInstructorTools(role) ? (
         <>
+          <Link
+            href="/profile/create-dance"
+            className={`${PRIMARY_BUTTON_CLASS} flex items-center justify-center`}
+          >
+            {he.profileMenu.createDance}
+          </Link>
+
           {/* The instructor's own PUBLIC name, editable independently of the
               private one above — Phase 4.3 pays the debt docs/decisions/0018
               recorded. `instructor` is non-null in this branch (that is what
@@ -255,31 +263,6 @@ async function SignedIn({ userId, phone }: { userId: string; phone: string | nul
             <InstructorNameForm initialDisplayName={instructor.displayName} />
           )}
 
-          {/*
-            The public name is prefilled from the private one but asked for
-            explicitly, because they are different things (docs/decisions/0004)
-            and promoting one to the other silently would publish a name nobody
-            agreed to show.
-
-            `needsInstructorName` is now always false here — this branch only
-            renders for somebody who already has an instructor row, so the row's
-            own name is authoritative. The prop stays because the form still
-            takes it; it is the role gate, not the form, that changed.
-          */}
-          <CreateDanceForm
-            venues={venues}
-            recentVenues={recentVenues}
-            mapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || null}
-            instructorName={instructor?.displayName ?? profile.displayName}
-            needsInstructorName={instructor === null}
-          />
-
-          {/*
-            Below the publish form, not above it. Publishing is what brings an
-            instructor to this screen the first time and stays the more common
-            errand; managing a night is what they come back for, and a list of
-            twelve nights between the greeting and the form would bury it.
-          */}
           <ManageNights
             nights={nights}
             venues={venues}
