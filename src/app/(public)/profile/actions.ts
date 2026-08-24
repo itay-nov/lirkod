@@ -10,7 +10,12 @@ import { serverClient } from "@/lib/auth/serverClient";
 import { currentUser } from "@/lib/auth/session";
 import type { Client } from "@/lib/db/client";
 import { publishDance, publishRecurringDance } from "@/lib/db/dances";
-import { cancelNight, findOwnNight, rescheduleNight } from "@/lib/db/nights";
+import {
+  cancelNight,
+  findOwnNight,
+  moveNightVenue,
+  rescheduleNight,
+} from "@/lib/db/nights";
 import {
   createOwnProfile,
   findOwnInstructor,
@@ -447,7 +452,7 @@ export async function addVenueAction(input: NewVenueInput): Promise<AddVenueResu
 export type ManageNightResult =
   | { ok: true }
   | { ok: false; reason: "signedOut" | "notInstructor" | "notYours" | "failed" }
-  | { ok: false; reason: "invalid"; field: NightTimesField };
+  | { ok: false; reason: "invalid"; field: NightTimesField | "venue" };
 
 /** Long enough for "תקלה במזגן באולם", short enough that it is not a notice board. */
 const MAX_REASON_LENGTH = 200;
@@ -455,7 +460,7 @@ const MAX_REASON_LENGTH = 200;
 /**
  * The instructor row the caller acts as, or null if they have not got one.
  *
- * Both per-night actions below start here rather than taking an instructor id.
+ * All per-night actions below start here rather than taking an instructor id.
  * A Server Action is a public HTTP endpoint with a generated name, so anything
  * in its parameters is client input (AGENTS.md §8) — `occurrenceId` is the only
  * thing a caller gets to choose, and it is checked against this before anything
@@ -563,6 +568,44 @@ export async function rescheduleNightAction(
     // decides what every dancer is told the night used to be (AGENTS.md §8).
     currentStartsAt: night.startsAt,
     currentOriginalStartsAt: night.originalStartsAt,
+  });
+
+  if (!result.ok) return { ok: false, reason: result.reason };
+
+  revalidateNightViews();
+  return { ok: true };
+}
+
+/**
+ * Moves one occurrence, not its recurring series, to another venue.
+ *
+ * `venueId` is the only location input accepted here. New Places are recorded
+ * first through `addVenueAction`/`find_or_create_venue`, so every referenced row
+ * has already passed the shared database CHECK constraints from migration 0008.
+ * The RPC is still the authority on ownership and on moved/scheduled status.
+ */
+export async function moveNightVenueAction(
+  occurrenceId: string,
+  venueId: string,
+): Promise<ManageNightResult> {
+  const user = await currentUser();
+  if (user === null) return { ok: false, reason: "signedOut" };
+
+  const selectedVenueId = venueId.trim();
+  if (selectedVenueId === "") {
+    return { ok: false, reason: "invalid", field: "venue" };
+  }
+
+  const client = await serverClient();
+  const instructorId = await ownInstructorId(client, user.id);
+  if (instructorId === null) return { ok: false, reason: "notInstructor" };
+
+  const night = await findOwnNight(client, instructorId, occurrenceId);
+  if (night === null) return { ok: false, reason: "notYours" };
+
+  const result = await moveNightVenue(client, {
+    occurrenceId: night.id,
+    venueId: selectedVenueId,
   });
 
   if (!result.ok) return { ok: false, reason: result.reason };

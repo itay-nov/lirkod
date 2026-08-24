@@ -192,6 +192,7 @@ export function CreateDanceForm({
           recentVenues={recentVenues}
           mapsApiKey={mapsApiKey}
           venueId={venueId}
+          idPrefix="publish"
           onVenueChange={setVenueId}
         />
 

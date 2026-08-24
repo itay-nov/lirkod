@@ -35,7 +35,9 @@ export interface ManageableNight {
    * screen reader user, and an unrecoverable mis-tap for everyone else.
    */
   whenText: string;
+  venueId: string;
   venueName: string;
+  venueAddress: string;
   /** "בוטל" / "המיקום שונה" / "הועבר מ-20:00", or null for an ordinary night. */
   statusLabel: string | null;
   statusBadgeClassName: string;
@@ -66,7 +68,9 @@ export function toManageableNight(night: OwnNight): ManageableNight {
     startTimeField: jerusalemTimeField(night.startsAt),
     endTimeField: jerusalemTimeField(night.endsAt),
     whenText: he.manageNights.whenText(dayText, time),
+    venueId: night.venueId,
     venueName: night.venueName,
+    venueAddress: night.venueAddress,
     statusLabel,
     statusBadgeClassName,
     cancelled,

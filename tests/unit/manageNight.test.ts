@@ -25,7 +25,9 @@ function night(overrides: Partial<OwnNight> = {}): OwnNight {
     cancellationReason: null,
     originalStartsAt: null,
     dateKey: "2025-06-02",
+    venueId: "b0000000-0000-0000-0000-000000000001",
     venueName: "היכל התרבות חולון",
+    venueAddress: "ויצמן 24, חולון",
     ...overrides,
   };
 }
@@ -106,5 +108,18 @@ describe("toManageableNight", () => {
     expect(toManageableNight(night({ venueName: "בית ציוני אמריקה" })).venueName).toBe(
       "בית ציוני אמריקה",
     );
+  });
+
+  it("carries the effective venue id and address into the edit picker", () => {
+    const view = toManageableNight(
+      night({
+        venueId: "b0000000-0000-0000-0000-000000000002",
+        venueName: "בית ציוני אמריקה",
+        venueAddress: "שדרות שאול המלך 26, תל אביב",
+      }),
+    );
+
+    expect(view.venueId).toBe("b0000000-0000-0000-0000-000000000002");
+    expect(view.venueAddress).toBe("שדרות שאול המלך 26, תל אביב");
   });
 });

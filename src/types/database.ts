@@ -330,6 +330,12 @@ export type Database = {
         Args: { p_event_id: string; p_horizon_days?: number }
         Returns: number
       }
+      move_occurrence_venue: {
+        Args: { p_occurrence_id: string; p_venue_id: string }
+        Returns: {
+          occurrence_id: string
+        }[]
+      }
       owns_event: { Args: { p_event_id: string }; Returns: boolean }
       owns_instructor: { Args: { p_instructor_id: string }; Returns: boolean }
       publish_dance: {

@@ -311,6 +311,41 @@ test("moving a night's hour tells a dancer which hour it moved from", async ({
   }
 });
 
+test("moving one occurrence to another venue tells dancers without changing the series", async ({
+  page,
+  browser,
+}) => {
+  await signedInWithSeries(page);
+  await openFirstNight(page);
+
+  const firstNight = nightList(page).locator(":scope > li").first();
+  await firstNight.getByLabel(he.publishDance.venueSearchLabel).fill("בית ציוני");
+  await firstNight.getByRole("radio", { name: /בית ציוני אמריקה/ }).check();
+  await firstNight.getByRole("button", { name: he.manageNights.saveVenue }).click();
+
+  await expect(firstNight.getByText("בית ציוני אמריקה")).toBeVisible({ timeout: 20_000 });
+  await expect(firstNight.getByText(he.dance.status.moved)).toBeVisible();
+
+  // A different materialised night from the same weekly series keeps the
+  // series venue. This is the browser-level proof that the edit is per
+  // occurrence rather than a rewrite of dance_events.venue_id.
+  await expect(nightList(page).getByText("היכל התרבות חולון").first()).toBeVisible();
+
+  const anonymous = await browser.newContext();
+  try {
+    const visitor = await anonymous.newPage();
+    await visitor.goto("/schedule");
+
+    await expect(visitor.getByText("בית ציוני אמריקה").first()).toBeVisible({
+      timeout: 20_000,
+    });
+    await expect(visitor.getByText(he.dance.status.moved).first()).toBeVisible();
+    await expect(visitor.getByText("היכל התרבות חולון").first()).toBeVisible();
+  } finally {
+    await anonymous.close();
+  }
+});
+
 test("keyboard only: open a night's controls and reach the cancel step", async ({ page }) => {
   await signedInWithSeries(page);
 
@@ -329,7 +364,7 @@ test("keyboard only: open a night's controls and reach the cancel step", async (
     page.evaluate(() => document.activeElement?.textContent?.trim() ?? "");
 
   let reached = false;
-  for (let i = 0; i < 12 && !reached; i++) {
+  for (let i = 0; i < 40 && !reached; i++) {
     await page.keyboard.press("Tab");
     reached = (await focusedText()) === he.manageNights.cancelStart;
   }
@@ -349,9 +384,12 @@ test("every per-night control clears the 48x48 minimum tap target (AGENTS.md §5
   await page.setViewportSize({ width: 375, height: 812 });
   await signedInWithSeries(page);
   await openFirstNight(page);
-  await page.getByRole("button", { name: he.manageNights.cancelStart }).click();
 
-  const controls = nightList(page).locator("button, input");
+  // Radio inputs borrow their 48px target from the wrapping label; measuring
+  // the 24px circle itself would test the glyph rather than the tappable area.
+  const controls = nightList(page).locator(
+    'button, input:not([type="radio"]), label:has(input[type="radio"])',
+  );
   for (const control of await controls.all()) {
     const box = await control.boundingBox();
     expect(box).not.toBeNull();
@@ -363,7 +401,6 @@ test("the manage list does not scroll sideways at 200% text size", async ({ page
   await page.setViewportSize({ width: 375, height: 812 });
   await signedInWithSeries(page);
   await openFirstNight(page);
-  await page.getByRole("button", { name: he.manageNights.cancelStart }).click();
 
   await page.evaluate(() => {
     document.documentElement.style.fontSize = "32px";

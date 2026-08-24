@@ -245,7 +245,7 @@ export const he = {
   },
   /**
    * Managing the nights you already published — cancelling one, or moving it to
-   * a different hour. One night at a time; changing the pattern of a whole
+   * a different hour or venue. One night at a time; changing the pattern of a whole
    * series is not something this screen offers.
    *
    * The words avoid "מופע", "אירוע" and "תזמון". A מרקיד says "הרקדה" and
@@ -254,7 +254,7 @@ export const he = {
    */
   manageNights: {
     heading: "ההרקדות שלי",
-    intro: "כאן אפשר לבטל הרקדה או לשנות את השעה שלה. הרוקדים יראו את השינוי מיד.",
+    intro: "כאן אפשר לבטל הרקדה או לשנות את השעה או המקום שלה. הרוקדים יראו את השינוי מיד.",
     /** Shown to an instructor whose dances are all behind them or not yet published. */
     empty: "אין הרקדות קרובות לנהל.",
     /** Names the list for a screen reader, and says what window it covers. */
@@ -273,6 +273,11 @@ export const he = {
     saveTime: "שמירת השעה",
     savingTime: "שומרים…",
     timeSaved: "השעה עודכנה. הרוקדים רואים אותה עכשיו.",
+
+    changeVenueHeading: "שינוי המקום",
+    saveVenue: "שמירת המקום",
+    savingVenue: "שומרים…",
+    venueSaved: "המקום עודכן. הרוקדים רואים אותו עכשיו.",
 
     /**
      * Two steps, on purpose. Cancelling is the one action here a dancer feels,
@@ -293,6 +298,7 @@ export const he = {
     errors: {
       startTime: "צריך לבחור שעת התחלה תקינה.",
       endTime: "צריך לבחור שעת סיום תקינה, אחרי שעת ההתחלה.",
+      venue: "צריך לבחור מקום להרקדה.",
       /** The stored date is unreadable — a server-side problem, not something to fix in the form. */
       date: "לא הצלחנו לקרוא את תאריך ההרקדה. אפשר לנסות שוב.",
       /** Somebody else's night, or one that no longer exists. */
