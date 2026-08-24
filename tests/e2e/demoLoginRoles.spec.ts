@@ -147,6 +147,12 @@ test("number 0 signs in as the מרקיד and gets the instructor surfaces", asy
   ).toHaveCount(0);
 
   await expectSharedNavigation(page);
+
+  const menuButton = page.getByRole("button", { name: he.profileMenu.open });
+  await menuButton.click();
+  await expect(
+    page.getByRole("link", { name: he.profileMenu.createDance }),
+  ).toBeVisible();
 });
 
 test("number 1 signs in as a רוקד and gets no instructor surfaces", async ({
@@ -173,6 +179,54 @@ test("number 1 signs in as a רוקד and gets no instructor surfaces", async ({
   ).toBeVisible();
 
   await expectSharedNavigation(page);
+
+  await page.getByRole("button", { name: he.profileMenu.open }).click();
+  await expect(
+    page.getByRole("link", { name: he.profileMenu.createDance }),
+  ).toHaveCount(0);
+});
+
+test("the personal menu traps focus, closes with Escape, and fits at 200%", async ({
+  page,
+}) => {
+  test.skip(
+    !(await demoSignIn(page, INSTRUCTOR_NUMBER)),
+    "no demo form: run this spec against a DEMO_LOGIN_ENABLED=true server",
+  );
+
+  await page.evaluate(() => {
+    document.documentElement.style.fontSize = "32px";
+  });
+
+  const opener = page.getByRole("button", { name: he.profileMenu.open });
+  const openerBox = await opener.boundingBox();
+  expect(openerBox?.width ?? 0).toBeGreaterThanOrEqual(48);
+  expect(openerBox?.height ?? 0).toBeGreaterThanOrEqual(48);
+  expect(openerBox?.x ?? 375).toBeLessThan(375 / 2);
+
+  await opener.click();
+  const drawer = page.getByRole("dialog");
+  const close = page.getByRole("button", { name: he.profileMenu.close });
+  await expect(close).toBeFocused();
+
+  const createLink = page.getByRole("link", { name: he.profileMenu.createDance });
+  await createLink.focus();
+  await page.keyboard.press("Tab");
+  await expect(close).toBeFocused();
+
+  const layout = await drawer.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    return {
+      left: rect.left,
+      overflows: element.scrollWidth > element.clientWidth,
+    };
+  });
+  expect(layout.left).toBe(0);
+  expect(layout.overflows).toBe(false);
+
+  await page.keyboard.press("Escape");
+  await expect(drawer).toHaveCount(0);
+  await expect(opener).toBeFocused();
 });
 
 test("a number naming nobody is refused, and nobody is signed in", async ({ page }) => {

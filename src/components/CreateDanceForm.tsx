@@ -158,7 +158,7 @@ export function CreateDanceForm({
   }
 
   return (
-    <section className="pt-8">
+    <section id="create-dance" className="scroll-mt-4 pt-8">
       <h2 className="font-display text-2xl font-black">{he.publishDance.heading}</h2>
       <p className="pt-4">{he.publishDance.intro}</p>
 

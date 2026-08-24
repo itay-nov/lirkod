@@ -22,6 +22,7 @@ import { ManageNights } from "@/components/ManageNights";
 import { PhoneSignIn } from "@/components/PhoneSignIn";
 import { ProfileEditForm } from "@/components/ProfileEditForm";
 import { ProfileNameForm } from "@/components/ProfileNameForm";
+import { ProfileNavDrawer } from "@/components/ProfileNavDrawer";
 import { SignOutButton } from "@/components/SignOutButton";
 import { formatIsraeliPhone } from "@/lib/domain/phone";
 import { roleFor, showsInstructorTools } from "@/lib/domain/role";
@@ -67,7 +68,7 @@ export default async function ProfilePage() {
   const demoLoginEnabled = process.env.DEMO_LOGIN_ENABLED === "true";
 
   return (
-    <div className="px-4 py-6">
+    <div className="relative px-4 py-6">
       <h1 className="font-display text-3xl font-black">{he.profile.heading}</h1>
       {user === null ? (
         // One sign-in surface per build, never both: a demo build shows the demo
@@ -214,6 +215,8 @@ async function SignedIn({ userId, phone }: { userId: string; phone: string | nul
 
   return (
     <div className="flex flex-col gap-6 pt-4">
+      <ProfileNavDrawer role={role} />
+
       {/*
         The avatar is PRIVATE, like the rest of `profiles` — it renders here
         and nowhere else. The public map and schedule read `instructors.
