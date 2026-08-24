@@ -187,6 +187,8 @@ async function signInAndName(page: Page): Promise<void> {
   await expect(name).toBeVisible({ timeout: 20_000 });
   await name.fill(PROFILE_NAME);
   await page.getByRole("button", { name: he.profileName.save }).click();
+  await page.getByRole("link", { name: he.profileMenu.createDance }).click();
+  await expect(page).toHaveURL(/\/profile\/create-dance$/);
   await expect(page.getByRole("heading", { name: he.publishDance.heading })).toBeVisible({
     timeout: 20_000,
   });

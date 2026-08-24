@@ -36,7 +36,7 @@ describe("ProfileNavDrawer", () => {
 
     expect(
       screen.getByRole("link", { name: he.profileMenu.createDance }),
-    ).toHaveAttribute("href", "/profile#create-dance");
+    ).toHaveAttribute("href", "/profile/create-dance");
   });
 
   it("moves focus into the drawer, traps Tab, and Escape closes back to the opener", async () => {

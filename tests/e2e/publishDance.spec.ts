@@ -126,15 +126,13 @@ async function resetTestUser(): Promise<void> {
 }
 
 /** Signs in through the real phone-OTP path — the only way in (AGENTS.md §2.3). */
-async function signIn(page: Page): Promise<void> {
+async function signIn(page: Page, asInstructor = true): Promise<void> {
   await page.goto("/profile");
   await page.getByLabel(he.signIn.phoneLabel).fill(PHONE_LOCAL);
-  // Declares the מרקיד role on the way in (Phase 4.2, docs/decisions/0018).
-  // Every test in this file publishes or manages a dance, and those surfaces are
-  // now offered to instructors only — so this box IS the flow under test, not
-  // setup around it. Before 4.2 the role was a side effect of publishing, which
-  // is why these helpers used not to need it.
-  await page.getByLabel(he.signIn.instructorLabel).check();
+  // Most tests declare the מרקיד role on the way in (Phase 4.2,
+  // docs/decisions/0018). The direct-route gate test deliberately leaves it
+  // unchecked so it exercises the dancer branch with a real session.
+  if (asInstructor) await page.getByLabel(he.signIn.instructorLabel).check();
   await page.getByRole("button", { name: he.signIn.sendCode }).click();
 
   const codeField = page.getByLabel(he.signIn.codeLabel);
@@ -143,7 +141,13 @@ async function signIn(page: Page): Promise<void> {
   await page.getByRole("button", { name: he.signIn.submitCode, exact: true }).click();
 }
 
-async function setName(page: Page): Promise<void> {
+async function openCreateDancePage(page: Page): Promise<void> {
+  await page.getByRole("link", { name: he.profileMenu.createDance }).click();
+  await expect(page).toHaveURL(/\/profile\/create-dance$/);
+  await expect(page.getByRole("heading", { name: he.profileMenu.createDance })).toBeVisible();
+}
+
+async function setName(page: Page, openCreatePage = true): Promise<void> {
   const nameField = page.getByLabel(he.profileName.label);
   await expect(nameField).toBeVisible({ timeout: 20_000 });
   await nameField.fill(PROFILE_NAME);
@@ -151,6 +155,7 @@ async function setName(page: Page): Promise<void> {
   await expect(page.getByText(he.profile.greeting(PROFILE_NAME))).toBeVisible({
     timeout: 20_000,
   });
+  if (openCreatePage) await openCreateDancePage(page);
 }
 
 /** A date inside the 60-day anon horizon, as the native date input wants it. */
@@ -198,10 +203,29 @@ test("a signed-in user with no profile is asked for a name, inline and not redir
   await expect(page.getByRole("heading", { name: he.publishDance.heading })).toHaveCount(0);
 });
 
-test("naming yourself unlocks the publish form", async ({ page }) => {
+test("the personal area links to the separate instructor-only publish page", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 375, height: 812 });
   await signIn(page);
-  await setName(page);
+  await setName(page, false);
 
+  await expect(page.getByRole("heading", { name: he.publishDance.heading })).toHaveCount(0);
+  const createLink = page.getByRole("link", { name: he.profileMenu.createDance });
+  await expect(createLink).toBeVisible();
+  expect(await createLink.getAttribute("href")).toBe("/profile/create-dance");
+
+  await page.evaluate(() => {
+    document.documentElement.style.fontSize = "32px";
+  });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+    ),
+  ).toBe(true);
+  expect((await createLink.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(48);
+
+  await openCreateDancePage(page);
   await expect(page.getByRole("heading", { name: he.publishDance.heading })).toBeVisible();
 
   // The public-name field is NOT here any more, and that is the intended change
@@ -212,6 +236,22 @@ test("naming yourself unlocks the publish form", async ({ page }) => {
   // promoted silently is honoured a step earlier instead: the name step discloses
   // that the name will also be public, which `setName` walks through.
   await expect(page.getByLabel(he.publishDance.instructorNameLabel)).toHaveCount(0);
+});
+
+test("a dancer cannot open the publish page directly", async ({ page }) => {
+  await signIn(page, false);
+
+  const nameField = page.getByLabel(he.profileName.label);
+  await expect(nameField).toBeVisible({ timeout: 20_000 });
+  await nameField.fill(PROFILE_NAME);
+  await page.getByRole("button", { name: he.profileName.save }).click();
+  await expect(page.getByText(he.profile.greeting(PROFILE_NAME))).toBeVisible({
+    timeout: 20_000,
+  });
+
+  await page.goto("/profile/create-dance");
+  await expect(page).toHaveURL(/\/profile$/);
+  await expect(page.getByRole("heading", { name: he.publishDance.heading })).toHaveCount(0);
 });
 
 test("the name step says the name will be public when the מרקיד box was ticked", async ({
@@ -281,6 +321,7 @@ test("a flyer can be attached while publishing, replaced, removed, and read anon
     await anonymous.close();
   }
 
+  await page.goto("/profile");
   const editor = page.getByRole("list", { name: he.manageFlyers.listLabel }).getByRole("listitem");
   const originalEditorSrc = await editor.getByRole("img").getAttribute("src");
   const replacementPng = Buffer.from(

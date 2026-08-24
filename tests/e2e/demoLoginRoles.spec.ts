@@ -134,9 +134,7 @@ test("number 0 signs in as the מרקיד and gets the instructor surfaces", asy
     "no demo form: run this spec against a DEMO_LOGIN_ENABLED=true server",
   );
 
-  await expect(
-    page.getByRole("heading", { name: he.publishDance.heading }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: he.publishDance.heading })).toHaveCount(0);
   await expect(
     page.getByRole("heading", { name: he.manageNights.heading }),
   ).toBeVisible();
@@ -153,6 +151,10 @@ test("number 0 signs in as the מרקיד and gets the instructor surfaces", asy
   await expect(
     page.getByRole("link", { name: he.profileMenu.createDance }),
   ).toBeVisible();
+
+  await page.getByRole("link", { name: he.profileMenu.createDance }).click();
+  await expect(page).toHaveURL(/\/profile\/create-dance$/);
+  await expect(page.getByRole("heading", { name: he.publishDance.heading })).toBeVisible();
 });
 
 test("number 1 signs in as a רוקד and gets no instructor surfaces", async ({
@@ -184,6 +186,9 @@ test("number 1 signs in as a רוקד and gets no instructor surfaces", async ({
   await expect(
     page.getByRole("link", { name: he.profileMenu.createDance }),
   ).toHaveCount(0);
+
+  await page.goto("/profile/create-dance");
+  await expect(page).toHaveURL(/\/profile$/);
 });
 
 test("the personal menu traps focus, closes with Escape, and fits at 200%", async ({
@@ -266,7 +271,7 @@ test.describe("becoming a מרקיד", () => {
     await page.getByRole("button", { name: he.profile.becomeInstructor.cta }).click();
 
     await expect(
-      page.getByRole("heading", { name: he.publishDance.heading }),
+      page.getByRole("link", { name: he.profileMenu.createDance }),
     ).toBeVisible();
     await expect(
       page.getByRole("heading", { name: he.profile.becomeInstructor.heading }),

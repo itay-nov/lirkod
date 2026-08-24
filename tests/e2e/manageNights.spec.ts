@@ -179,7 +179,10 @@ function nightList(page: Page) {
 async function signedInWithSeries(page: Page): Promise<void> {
   await signIn(page);
   await setName(page);
+  await page.getByRole("link", { name: he.profileMenu.createDance }).click();
+  await expect(page).toHaveURL(/\/profile\/create-dance$/);
   await publishSeries(page);
+  await page.goto("/profile");
   await expect(nightList(page)).toBeVisible({ timeout: 20_000 });
 }
 
