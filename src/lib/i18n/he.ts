@@ -137,6 +137,12 @@ export const he = {
         }\n${venue}, ${address}\nניווט: ${mapsUrl}`,
     },
   },
+  distanceFilter: {
+    legend: "מרחק לחיפוש",
+    option: (kilometers: number): string => `עד ${kilometers} ק״מ`,
+    updating: "מעדכנים את ההרקדות…",
+    updateFailed: "לא הצלחנו לעדכן את המרחק. אפשר לנסות שוב.",
+  },
   nav: {
     /** Names the <nav> landmark, so a screen reader can jump straight to it. */
     label: "ניווט ראשי",

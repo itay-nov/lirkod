@@ -94,10 +94,11 @@ every access log in between. It adds no exposure — `anon` may already call
 `find_dances_near` directly, bounded by migration 0003 — it is just the same query
 reached without writing someone's location into a URL.
 
-Once located the radius *narrows*, to `LOCATED_RADIUS_METERS` (10km) from the default
-15km. The wider default is padding around a guessed centre; when the centre is the
-person, spending that padding on distance would mean offering a 60-year-old dancer a
-hall 15km away as "לידי".
+The map and schedule now expose the same four radius choices: 5, 15, 30 and 50km.
+The current choice is preserved when location is granted, so the dancer — rather than
+the application — decides how far is reasonable. The precise position still travels
+only in the existing POST body and never in the URL. Migration 0003's independent
+50km clamp, 60-day horizon and 200-row cap remain the security boundary.
 
 ### The Maps type surface is hand-written
 

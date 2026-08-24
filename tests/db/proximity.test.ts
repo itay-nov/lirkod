@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { findDancesNear } from "@/lib/db/dances";
-import { anonClient, serviceClient } from "../rls/helpers";
+import { anonClient, runAsPostgres, serviceClient } from "../rls/helpers";
 
 /**
  * Runs against the seeded data (supabase/seed.sql), not fixtures created here — those
@@ -68,6 +68,24 @@ describe("findDancesNear — proximity filtering runs in Postgres (AGENTS.md §9
 });
 
 describe("find_dances_near bounds — an anonymous, unauthenticated RPC (migration 0003)", () => {
+  it("remains SECURITY INVOKER and executable only by the intended API roles", () => {
+    const metadata = runAsPostgres(`
+      select
+        p.prosecdef::text || '|' ||
+        pg_get_userbyid(p.proowner) || '|' ||
+        coalesce(array_to_string(p.proacl, ','), '')
+      from pg_proc p
+      where p.oid = 'public.find_dances_near(double precision,double precision,double precision)'::regprocedure;
+    `).trim();
+    const [securityDefiner, owner, acl = ""] = metadata.split("|");
+
+    expect(securityDefiner).toBe("false");
+    expect(owner).toBe("postgres");
+    expect(acl).toContain("anon=X/postgres");
+    expect(acl).toContain("authenticated=X/postgres");
+    expect(acl).not.toMatch(/(^|,)=[^,]*X/);
+  });
+
   it("clamps an oversized radius instead of returning the whole future table", async () => {
     const dances = await findDancesNear(anonClient(), HOLON_LAT, HOLON_LNG, 10_000_000);
     const venueNames = dances.map((d) => d.venueName);

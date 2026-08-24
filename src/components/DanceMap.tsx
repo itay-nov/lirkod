@@ -130,24 +130,25 @@ export function DanceMap({
   apiKey,
   mapId,
   center,
-  locatedRadiusMeters,
   labels,
-  onLocated,
+  onLocate,
+  onLocatePendingChange,
 }: {
   dances: MapDance[];
   apiKey: string;
   mapId: string;
   center: { lat: number; lng: number };
-  locatedRadiusMeters: number;
   labels: DanceMapLabels;
   /**
-   * Hands a successful "near me" result to the owner rather than keeping it.
+   * Hands the located point to the owner, which runs the shared proximity query.
    * The map used to hold these in its own state, and the ring list below it
    * went on rendering the server's default region — two views of one screen
-   * describing two different places. `NearbyDances` owns the array now; this
-   * component only draws what it is given.
+   * describing two different places. `NearbyDances` owns both the request order
+   * and the array now; this component only draws what it is given.
    */
-  onLocated: (dances: MapDance[], center: { lat: number; lng: number }) => void;
+  onLocate: (center: { lat: number; lng: number }) => Promise<boolean>;
+  /** Lets the query owner defer centre-dependent controls until locating settles. */
+  onLocatePendingChange: (pending: boolean) => void;
 }) {
   // Derived at first render rather than corrected by an effect: a build with no
   // key knows it has no map before it paints, so the honest message is in the
@@ -246,11 +247,15 @@ export function DanceMap({
     if (!mapReady || !api || !map) return;
 
     const markers = markersRef.current;
-    for (const dance of dances) {
+    for (const [index, dance] of dances.entries()) {
       const marker = new api.AdvancedMarkerElement({
         map,
         position: { lat: dance.lat, lng: dance.lng },
         content: pinElement(dance, false),
+        // Google otherwise chooses stacking from screen position, which can
+        // make a visually covered marker intercept taps meant for the pin on
+        // top. Keep DOM/order and hit-testing order deterministic.
+        zIndex: index + 1,
         // What a screen reader announces for the pin: the whole night in one
         // string, status word included (AGENTS.md §2.6 — never colour alone).
         title: dance.pinLabel,
@@ -296,7 +301,7 @@ export function DanceMap({
   // the document. Mutating in place leaves the node the library is holding
   // exactly where it put it.
   useEffect(() => {
-    for (const dance of dances) {
+    for (const [index, dance] of dances.entries()) {
       const marker = markersRef.current.get(dance.occurrenceId);
       const content = marker?.content;
       if (!marker || !(content instanceof HTMLElement)) continue;
@@ -306,7 +311,7 @@ export function DanceMap({
       applySelectionStyle(content, selected);
       // The chosen pin sits above its neighbours so its halo is never half
       // hidden under the pin next door.
-      marker.zIndex = selected ? 1 : null;
+      marker.zIndex = selected ? dances.length + 1 : index + 1;
 
       if (selected) {
         // The preview sits below the map rather than in a bubble on it, so
@@ -350,6 +355,7 @@ export function DanceMap({
     }
 
     setLocateState("locating");
+    onLocatePendingChange(true);
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const point = {
@@ -357,42 +363,31 @@ export function DanceMap({
           lng: position.coords.longitude,
         };
 
-        // POST, so the dancer's actual position never lands in a URL, browser
-        // history or an access log — see the note in the route handler.
-        void fetch("/api/dances/near", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ ...point, radiusMeters: locatedRadiusMeters }),
-        })
-          .then(async (response) => {
-            if (!response.ok) throw new Error(`near query failed: ${response.status}`);
-            const payload: unknown = await response.json();
-            if (
-              typeof payload !== "object" ||
-              payload === null ||
-              !Array.isArray((payload as { dances?: unknown }).dances)
-            ) {
-              throw new Error("near query returned an unexpected shape");
+        void onLocate(point)
+          .then((applied) => {
+            if (!applied) {
+              setLocateState("idle");
+              return;
             }
-            return (payload as { dances: MapDance[] }).dances;
-          })
-          .then((nearby) => {
             // Cleared before the new array arrives: the chosen pin almost
             // certainly is not in it, and a preview panel describing a dance
             // that is no longer on the map is worse than no panel.
             setSelectedId(null);
-            onLocated(nearby, point);
             setLocateState("located");
           })
-          .catch(() => setLocateState("failed"));
+          .catch(() => setLocateState("failed"))
+          .finally(() => onLocatePendingChange(false));
       },
       // Refusal, an unavailable sensor and a timeout are one message: they
       // differ only in a cause the dancer cannot act on, and the screen is
       // left working in all three.
-      () => setLocateState("failed"),
+      () => {
+        setLocateState("failed");
+        onLocatePendingChange(false);
+      },
       { enableHighAccuracy: false, timeout: GEOLOCATION_TIMEOUT_MS, maximumAge: 60_000 },
     );
-  }, [locateState, locatedRadiusMeters, onLocated]);
+  }, [locateState, onLocate, onLocatePendingChange]);
 
   const locateMessage =
     locateState === "locating"

@@ -1,12 +1,15 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { DanceMap, type DanceMapLabels } from "@/components/DanceMap";
+import { DistanceFilter, type DistanceFilterLabels } from "@/components/DistanceFilter";
 import { DanceFilters, type DanceFiltersLabels } from "@/components/DanceFilters";
 import { DanceRing } from "@/components/DanceRing";
 import { DanceRingScroller } from "@/components/DanceRingScroller";
 import { useDemoHidden } from "@/lib/demo/demoVisibility";
 import { EMPTY_DANCE_FILTER, filterDances, type DanceAttributeFilter } from "@/lib/domain/danceFilter";
+import type { DistanceRadiusMeters } from "@/lib/domain/distanceFilter";
+import { fetchDancesNear } from "@/lib/maps/fetchDancesNear";
 import type { MapDance } from "@/lib/maps/mapDance";
 
 export interface NearbyDancesLabels {
@@ -40,26 +43,28 @@ export interface NearbyDancesLabels {
  * the bundle; the labels below arrive as props for the same reason.
  *
  * The initial array still comes from the server render, so the first paint is
- * server HTML and nothing here runs before it (§2.9). State only ever changes
- * when a dancer asks to be located.
+ * server HTML and nothing here runs before it (§2.9). State changes only after
+ * a dancer chooses a different distance or explicitly asks to be located.
  */
 export function NearbyDances({
   initialDances,
   initialCenter,
+  initialRadiusMeters,
   apiKey,
   mapId,
-  locatedRadiusMeters,
   mapLabels,
+  distanceFilterLabels,
   filterLabels,
   labels,
   demoMode = false,
 }: {
   initialDances: MapDance[];
   initialCenter: { lat: number; lng: number };
+  initialRadiusMeters: DistanceRadiusMeters;
   apiKey: string;
   mapId: string;
-  locatedRadiusMeters: number;
   mapLabels: DanceMapLabels;
+  distanceFilterLabels: DistanceFilterLabels;
   filterLabels: DanceFiltersLabels;
   labels: NearbyDancesLabels;
   /** DEMO_MODE only (AGENTS.md §13 Phase 4.0) — see the note on `demoHidden` below. */
@@ -67,14 +72,108 @@ export function NearbyDances({
 }) {
   const [dances, setDances] = useState(initialDances);
   const [center, setCenter] = useState(initialCenter);
+  const [radiusMeters, setRadiusMeters] = useState(initialRadiusMeters);
+  const [radiusBusy, setRadiusBusy] = useState(false);
+  const [radiusFailed, setRadiusFailed] = useState(false);
   const [filter, setFilter] = useState<DanceAttributeFilter>(EMPTY_DANCE_FILTER);
+  const centerRef = useRef(initialCenter);
+  const selectedRadiusRef = useRef(initialRadiusMeters);
+  const appliedRadiusRef = useRef(initialRadiusMeters);
+  const queryRequestRef = useRef(0);
+  const locatePendingRef = useRef(false);
+  const queuedRadiusRef = useRef<DistanceRadiusMeters | null>(null);
 
-  const handleLocated = useCallback(
-    (located: MapDance[], locatedCenter: { lat: number; lng: number }) => {
-      setDances(located);
-      setCenter(locatedCenter);
+  const queryNear = useCallback(
+    async (queryCenter: { lat: number; lng: number }, queryRadius: DistanceRadiusMeters) => {
+      const requestId = queryRequestRef.current + 1;
+      queryRequestRef.current = requestId;
+
+      try {
+        const nearby = await fetchDancesNear(queryCenter, queryRadius);
+        if (queryRequestRef.current !== requestId) return false;
+
+        centerRef.current = queryCenter;
+        appliedRadiusRef.current = queryRadius;
+        setCenter(queryCenter);
+        setDances(nearby);
+        return true;
+      } catch (error: unknown) {
+        if (queryRequestRef.current !== requestId) return false;
+        throw error;
+      }
     },
     [],
+  );
+
+  const applyRadius = useCallback(
+    (queryCenter: { lat: number; lng: number }, next: DistanceRadiusMeters) => {
+      void queryNear(queryCenter, next).then(
+        (applied) => {
+          if (!applied) return;
+          setRadiusBusy(false);
+        },
+        () => {
+          selectedRadiusRef.current = appliedRadiusRef.current;
+          setRadiusMeters(appliedRadiusRef.current);
+          setRadiusBusy(false);
+          setRadiusFailed(true);
+        },
+      );
+    },
+    [queryNear],
+  );
+
+  const handleLocatePendingChange = useCallback(
+    (pending: boolean) => {
+      locatePendingRef.current = pending;
+      if (pending) return;
+
+      const queuedRadius = queuedRadiusRef.current;
+      if (queuedRadius === null) return;
+      queuedRadiusRef.current = null;
+      applyRadius(centerRef.current, queuedRadius);
+    },
+    [applyRadius],
+  );
+
+  const handleLocate = useCallback(
+    async (locatedCenter: { lat: number; lng: number }) => {
+      const queryRadius = selectedRadiusRef.current;
+      // A choice made while the browser was still resolving GPS is already
+      // included in this first located query. A later choice, made while this
+      // query awaits the server, will repopulate the queue and run afterwards.
+      queuedRadiusRef.current = null;
+      setRadiusFailed(false);
+      try {
+        const applied = await queryNear(locatedCenter, queryRadius);
+        if (applied && queuedRadiusRef.current === null) setRadiusBusy(false);
+        return applied;
+      } catch (error: unknown) {
+        queuedRadiusRef.current = null;
+        selectedRadiusRef.current = appliedRadiusRef.current;
+        setRadiusMeters(appliedRadiusRef.current);
+        setRadiusBusy(false);
+        throw error;
+      }
+    },
+    [queryNear],
+  );
+
+  const changeRadius = useCallback(
+    (next: DistanceRadiusMeters) => {
+      selectedRadiusRef.current = next;
+      setRadiusMeters(next);
+      setRadiusBusy(true);
+      setRadiusFailed(false);
+
+      if (locatePendingRef.current) {
+        queuedRadiusRef.current = next;
+        return;
+      }
+
+      applyRadius(centerRef.current, next);
+    },
+    [applyRadius],
   );
 
   // The DEMO_MODE toggle in AppHeader flips this via the shared store; `demoMode`
@@ -84,10 +183,9 @@ export function NearbyDances({
   // query result itself never changes.
   const demoHidden = useDemoHidden();
   const regionDances = demoMode && demoHidden ? [] : dances;
-  // Filtering runs on the set the server (or "near me") already queried —
-  // never a second query (docs/decisions/0005, and src/lib/domain/danceFilter.ts's
-  // own header on why client-side is fine for v1). No useMemo: the 200-row
-  // cap (migration 0003) bounds this to a cheap filter every render.
+  // Attribute filtering runs on the set the current proximity query returned.
+  // Distance changes re-run PostGIS; level/type/women-only remain a cheap
+  // client-side refinement of at most 200 rows (migration 0003).
   const visibleDances = filterDances(regionDances, filter);
 
   return (
@@ -106,6 +204,16 @@ export function NearbyDances({
         {labels.tagline}
       </p>
 
+      <div className="px-4 pb-3">
+        <DistanceFilter
+          radiusMeters={radiusMeters}
+          onChange={changeRadius}
+          labels={distanceFilterLabels}
+          busy={radiusBusy}
+          failed={radiusFailed}
+        />
+      </div>
+
       <div className="px-4 pb-2">
         <DanceFilters filter={filter} onChange={setFilter} labels={filterLabels} />
       </div>
@@ -115,9 +223,9 @@ export function NearbyDances({
         apiKey={apiKey}
         mapId={mapId}
         center={center}
-        locatedRadiusMeters={locatedRadiusMeters}
         labels={mapLabels}
-        onLocated={handleLocated}
+        onLocate={handleLocate}
+        onLocatePendingChange={handleLocatePendingChange}
       />
 
       <section className="mt-3 rounded-t-3xl bg-surface pb-8 pt-5 shadow-[0_-2px_12px_rgba(43,36,32,0.15)]">
