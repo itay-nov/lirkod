@@ -401,11 +401,12 @@ test("adds a hall from Google Places, publishes there, and a dancer with no acco
   await first.click();
 
   // Back on the picker, with the new hall selected — the instructor added it in
-  // order to use it, so it must not need finding again. Scoped to the venue
-  // radio group specifically (name="venueId") — Phase 4.6b added a second,
-  // always-checked radio group to this same form (level), so an unscoped
-  // "checked" query is no longer unique.
-  const chosen = page.getByRole("radio", { checked: true }).and(page.locator('[name="venueId"]'));
+  // order to use it, so it must not need finding again. Scope by the fieldset's
+  // accessible legend: the form has other checked radio groups, while the venue
+  // picker's generated input names intentionally vary between publish/edit flows.
+  const chosen = page
+    .getByRole("group", { name: he.publishDance.venueLabel })
+    .getByRole("radio", { checked: true });
   await expect(chosen).toBeVisible({ timeout: 25_000 });
   const venueName = (await chosen.locator("xpath=../span/span[1]").innerText()).trim();
   expect(venueName.length).toBeGreaterThan(0);
@@ -455,9 +456,10 @@ test("adding the same place twice does not create a second venue", async ({ page
     const list = page.getByRole("list", { name: he.publishDance.addVenueSuggestionsLabel });
     await expect(list).toBeVisible({ timeout: 25_000 });
     await list.getByRole("button").first().click();
-    // Scoped to the venue radio group — see the note on the identical
-    // pattern in the test above.
-    const chosen = page.getByRole("radio", { checked: true }).and(page.locator('[name="venueId"]'));
+    // Scoped to the venue fieldset — see the note on the identical pattern above.
+    const chosen = page
+      .getByRole("group", { name: he.publishDance.venueLabel })
+      .getByRole("radio", { checked: true });
     await expect(chosen).toBeVisible({ timeout: 25_000 });
     await recordVenuesCreatedSince(before);
     return (await chosen.locator("xpath=../span/span[1]").innerText()).trim();
@@ -484,10 +486,10 @@ test("keyboard only: reach the add-venue button and the suggestion list", async 
   await signInAndName(page);
 
   const focusedId = () => page.evaluate(() => document.activeElement?.id ?? "");
-  for (let i = 0; i < 25 && (await focusedId()) !== "venue-search"; i++) {
+  for (let i = 0; i < 25 && (await focusedId()) !== "publish-venue-search"; i++) {
     await page.keyboard.press("Tab");
   }
-  expect(await focusedId()).toBe("venue-search");
+  expect(await focusedId()).toBe("publish-venue-search");
 
   // Tab past the radios to the "add a venue" button and activate it with Enter.
   const isAddButton = () =>
