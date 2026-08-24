@@ -542,6 +542,9 @@ export const he = {
     levelLegend: "רמת ההרקדה",
     typeLegend: "סוג ההרקדה (אפשר לבחור יותר מאחד)",
     womenOnlyLabel: "הרקדה לנשים בלבד",
+    flyerLabel: "פלייר או מודעה (לא חובה)",
+    flyerHint: (maxMegabytes: number): string =>
+      `תמונה מסוג JPG, PNG או WebP, עד ${maxMegabytes} מגה־בייט.`,
     submit: "פרסום ההרקדה",
     submitting: "מפרסמים…",
     published: "ההרקדה פורסמה ומופיעה עכשיו במפה ובלוח.",
@@ -564,8 +567,29 @@ export const he = {
        * fields to look at, because those are the only two that can cause it.
        */
       noNights: "לא נמצאו תאריכים להרקדה הזאת. כדאי לבדוק את התאריך ואת התאריך האחרון.",
+      flyerType: "אפשר לצרף רק תמונה מסוג JPG, PNG או WebP.",
+      flyerTooLarge: "התמונה גדולה מדי. אפשר לצרף תמונה עד 5 מגה־בייט.",
+      flyerUploadFailed: "ההרקדה פורסמה, אבל לא הצלחנו לצרף את הפלייר. אפשר לנסות שוב מניהול ההרקדות.",
       failed: "לא הצלחנו לפרסם את ההרקדה. אפשר לנסות שוב.",
     },
+  },
+  manageFlyers: {
+    heading: "פליירים להרקדות",
+    intro: "אפשר להוסיף, להחליף או להסיר פלייר מכל הרקדה קרובה שלכם.",
+    listLabel: "עריכת פליירים להרקדות שלכם",
+    danceLabel: (venue: string, day: string, time: string): string =>
+      `${venue} — ${day} בשעה ${time}`,
+    numberedDanceLabel: (label: string, number: number): string =>
+      `${label} — הרקדה ${number}`,
+    currentAlt: (dance: string): string => `הפלייר הנוכחי להרקדה: ${dance}`,
+    choose: (dance: string): string => `בחירת פלייר להרקדה: ${dance}`,
+    save: "שמירת הפלייר",
+    saving: "שומרים…",
+    remove: "הסרת הפלייר",
+    saved: "הפלייר נשמר.",
+    savedWithCleanupWarning: "הפלייר החדש נשמר, אבל העותק הישן לא הוסר מהמערכת.",
+    removed: "הפלייר הוסר.",
+    failed: "לא הצלחנו לעדכן את הפלייר. אפשר לנסות שוב.",
   },
   /**
    * Phone OTP is the only way into this product (AGENTS.md §2.3), so these
@@ -679,6 +703,7 @@ export const he = {
     },
     /** The badge for a dance marked women_only — dignified, not an afterthought. */
     womenOnly: "הרקדה לנשים בלבד",
+    flyerAlt: (instructor: string): string => `פלייר להרקדה עם ${instructor}`,
     status: {
       moved: "המיקום שונה",
       cancelled: "בוטל",

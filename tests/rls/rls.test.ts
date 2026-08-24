@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { anonClient, serviceClient, signInAs, PHONE_INSTRUCTOR_A, PHONE_DANCER, type Client } from "./helpers";
+import { anonClient, serviceClient, signInAs, PHONE_INSTRUCTOR_A, PHONE_INSTRUCTOR_B, PHONE_DANCER, type Client } from "./helpers";
 import { setup, teardown, type Fixtures } from "./fixtures";
 
 /**
@@ -27,6 +27,7 @@ let fixtures: Fixtures;
 let service: Client;
 let anon: Client;
 let instructorA: Client;
+let instructorB: Client;
 let dancer: Client;
 
 beforeAll(async () => {
@@ -34,6 +35,7 @@ beforeAll(async () => {
   fixtures = await setup();
   anon = anonClient();
   instructorA = await signInAs(PHONE_INSTRUCTOR_A);
+  instructorB = await signInAs(PHONE_INSTRUCTOR_B);
   dancer = await signInAs(PHONE_DANCER);
 });
 
@@ -106,6 +108,79 @@ describe("venues — anonymous read is the product premise (AGENTS.md §2.1)", (
 });
 
 describe("dance_events — public read, owner-only write", () => {
+  it("enforces the flyer bucket's public-read, image-limit, and own-dance write boundary", async () => {
+    const bucket = await service.storage.getBucket("dance-flyers");
+    expect(bucket.error).toBeNull();
+    expect(bucket.data).toMatchObject({
+      public: true,
+      file_size_limit: 5 * 1024 * 1024,
+      allowed_mime_types: ["image/jpeg", "image/png", "image/webp"],
+    });
+
+    const ownPath = `${fixtures.eventAId}/flyer-rls-test`;
+    await service.storage.from("dance-flyers").remove([ownPath]);
+    const ownImage = new Blob(["owner-image"], { type: "image/png" });
+    const uploaded = await instructorA.storage
+      .from("dance-flyers")
+      .upload(ownPath, ownImage, { contentType: "image/png" });
+    expect(uploaded.error).toBeNull();
+
+    const attached = await instructorA
+      .from("dance_events")
+      .update({ flyer_path: ownPath })
+      .eq("id", fixtures.eventAId)
+      .select("flyer_path");
+    expect(attached.error).toBeNull();
+    expect(attached.data).toEqual([{ flyer_path: ownPath }]);
+
+    const publicRead = await anon.storage.from("dance-flyers").download(ownPath);
+    expect(publicRead.error).toBeNull();
+    expect(await publicRead.data?.text()).toBe("owner-image");
+
+    const anonymousList = await anon.storage.from("dance-flyers").list(fixtures.eventAId);
+    expect(anonymousList.error).toBeNull();
+    expect(anonymousList.data).toEqual([]);
+
+    const anonymousUpload = await anon.storage
+      .from("dance-flyers")
+      .upload(`${fixtures.eventBId}/flyer-anon`, new Blob(["anon"], { type: "image/png" }), {
+        contentType: "image/png",
+      });
+    expect(anonymousUpload.error).not.toBeNull();
+
+    const foreignOverwrite = await instructorB.storage
+      .from("dance-flyers")
+      .upload(ownPath, new Blob(["foreign"], { type: "image/png" }), {
+        contentType: "image/png",
+        upsert: true,
+      });
+    expect(foreignOverwrite.error).not.toBeNull();
+
+    const foreignDelete = await instructorB.storage.from("dance-flyers").remove([ownPath]);
+    expect(foreignDelete.error).toBeNull();
+    const afterForeignDelete = await anon.storage.from("dance-flyers").download(ownPath);
+    expect(afterForeignDelete.error).toBeNull();
+    expect(await afterForeignDelete.data?.text()).toBe("owner-image");
+
+    const badMime = await instructorA.storage
+      .from("dance-flyers")
+      .upload(`${fixtures.eventAId}/not-the-fixed-name`, new Blob(["pdf"], { type: "application/pdf" }), {
+        contentType: "application/pdf",
+      });
+    expect(badMime.error).not.toBeNull();
+
+    const tooLarge = await instructorA.storage
+      .from("dance-flyers")
+      .update(ownPath, new Blob([new Uint8Array(5 * 1024 * 1024 + 1)], { type: "image/png" }), {
+        contentType: "image/png",
+      });
+    expect(tooLarge.error).not.toBeNull();
+
+    const removed = await instructorA.storage.from("dance-flyers").remove([ownPath]);
+    expect(removed.error).toBeNull();
+    await service.from("dance_events").update({ flyer_path: null }).eq("id", fixtures.eventAId);
+  });
+
   it("lets a visitor with no account read every dance, including the price", async () => {
     const { data, error } = await anon
       .from("dance_events")

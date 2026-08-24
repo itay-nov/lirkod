@@ -41,6 +41,7 @@ function dance(status: OccurrenceStatus, originalStartsAt: string | null = null)
     level: "all_levels",
     danceFormations: [],
     womenOnly: false,
+    flyerUrl: null,
   };
 }
 

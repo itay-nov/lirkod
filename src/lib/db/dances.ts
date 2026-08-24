@@ -1,11 +1,64 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database";
 import type { Client } from "./client";
+import { publicDanceFlyerUrl } from "@/lib/storage/danceFlyers";
 
 export type OccurrenceStatus = Database["public"]["Enums"]["occurrence_status"];
 /** Phase 4.6b — see migration 0013. */
 export type DanceLevel = Database["public"]["Enums"]["dance_level"];
 export type DanceFormation = Database["public"]["Enums"]["dance_formation"];
+
+export interface OwnDanceFlyer {
+  eventId: string;
+  venueName: string;
+  nextStartsAt: string;
+  flyerUrl: string | null;
+}
+
+/**
+ * Owned dances with at least one upcoming night, ordered by that next night.
+ *
+ * Starting from occurrences avoids an arbitrary event cap: the recurrence
+ * generator already bounds the future horizon, and an old but still-running
+ * weekly dance remains visible until its final materialized night has passed.
+ */
+export async function findOwnDanceFlyers(
+  client: Client,
+  instructorId: string,
+): Promise<OwnDanceFlyer[]> {
+  const now = new Date().toISOString();
+  const pageSize = 200;
+  const dances = new Map<string, OwnDanceFlyer>();
+
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await client
+      .from("event_occurrences")
+      .select(
+        "event_id, starts_at, dance_events!inner(id, instructor_id, flyer_path, venues!inner(name))",
+      )
+      .eq("dance_events.instructor_id", instructorId)
+      .gte("starts_at", now)
+      .order("starts_at", { ascending: true })
+      .order("event_id", { ascending: true })
+      .range(from, from + pageSize - 1);
+
+    if (error) throw error;
+
+    for (const row of data) {
+      if (dances.has(row.event_id)) continue;
+      dances.set(row.event_id, {
+        eventId: row.event_id,
+        venueName: row.dance_events.venues.name,
+        nextStartsAt: row.starts_at,
+        flyerUrl: publicDanceFlyerUrl(client, row.dance_events.flyer_path),
+      });
+    }
+
+    if (data.length < pageSize) break;
+  }
+
+  return [...dances.values()];
+}
 
 export interface NearbyDance {
   /** The series this night belongs to — what a dancer favorites, not the occurrence. */
@@ -36,6 +89,7 @@ export interface NearbyDance {
   level: DanceLevel;
   danceFormations: DanceFormation[];
   womenOnly: boolean;
+  flyerUrl: string | null;
 }
 
 /**
@@ -86,13 +140,13 @@ function toNearbyDance(row: NearbyDanceRow): NearbyDance {
     level: row.level,
     danceFormations: row.dance_formations,
     womenOnly: row.women_only,
+    flyerUrl: null,
   };
 }
 
 /**
- * Fills in `venueAddress` and `endsAt`, neither of which find_dances_near or
- * find_favorite_nights return (both are RETURNS TABLE functions from earlier
- * migrations, and widening one needs a new migration this task does not carry).
+ * Fills in `venueAddress`, `endsAt` and the optional public flyer URL; none is
+ * returned by find_dances_near/find_favorite_nights.
  * Both columns are already public-readable through `venues` and
  * `event_occurrences` directly — `venues_select_public` and
  * `event_occurrences_select_anon_horizon`/`_select_authenticated` — so this is
@@ -110,23 +164,30 @@ async function attachNightDetails(
   const venueIds = [...new Set(dances.map((dance) => dance.venueId))];
   const occurrenceIds = dances.map((dance) => dance.occurrenceId);
 
-  const [venuesResult, occurrencesResult] = await Promise.all([
+  const eventIds = [...new Set(dances.map((dance) => dance.eventId))];
+  const [venuesResult, occurrencesResult, eventsResult] = await Promise.all([
     client.from("venues").select("id, address").in("id", venueIds),
     client.from("event_occurrences").select("id, ends_at").in("id", occurrenceIds),
+    client.from("dance_events").select("id, flyer_path").in("id", eventIds),
   ]);
 
   if (venuesResult.error) throw venuesResult.error;
   if (occurrencesResult.error) throw occurrencesResult.error;
+  if (eventsResult.error) throw eventsResult.error;
 
   const addressByVenueId = new Map(venuesResult.data.map((row) => [row.id, row.address]));
   const endsAtByOccurrenceId = new Map(
     occurrencesResult.data.map((row) => [row.id, row.ends_at]),
+  );
+  const flyerUrlByEventId = new Map(
+    eventsResult.data.map((row) => [row.id, publicDanceFlyerUrl(client, row.flyer_path)]),
   );
 
   return dances.map((dance) => ({
     ...dance,
     venueAddress: addressByVenueId.get(dance.venueId) ?? "",
     endsAt: endsAtByOccurrenceId.get(dance.occurrenceId) ?? dance.startsAt,
+    flyerUrl: flyerUrlByEventId.get(dance.eventId) ?? null,
   }));
 }
 

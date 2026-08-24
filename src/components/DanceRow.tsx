@@ -1,7 +1,9 @@
 import type { ReactNode } from "react";
+import Image from "next/image";
 import { appearanceFor } from "@/components/danceStatusAppearance";
 import type { NearbyDance } from "@/lib/db/dances";
 import { formatStartTime } from "@/lib/domain/occurrenceTime";
+import { he } from "@/lib/i18n/he";
 
 /**
  * One dance occurrence as a compact list row — the schedule's denser take on
@@ -62,6 +64,15 @@ export function DanceRow({ dance, action }: { dance: NearbyDance; action?: React
       // explain, found live rather than reasoned about in the abstract.
       className="flex w-full flex-wrap items-center gap-3 rounded-2xl p-2 text-start"
     >
+      {dance.flyerUrl !== null && (
+        <Image
+          src={dance.flyerUrl}
+          alt={he.dance.flyerAlt(dance.instructorDisplayName)}
+          width={80}
+          height={80}
+          className="size-20 shrink-0 rounded-xl object-cover"
+        />
+      )}
       <span
         // shrink-0 so the ring keeps its shape when a long venue name pushes
         // against it, and size in rem so it grows with the text at 200% (§2.4).

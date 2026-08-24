@@ -29,6 +29,7 @@ function danceAt(startsAt: string, occurrenceId = startsAt): NearbyDance {
     level: "all_levels",
     danceFormations: [],
     womenOnly: false,
+    flyerUrl: null,
   };
 }
 

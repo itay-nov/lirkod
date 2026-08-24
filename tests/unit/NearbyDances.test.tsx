@@ -172,6 +172,8 @@ function dance(venueName: string, overrides: Partial<MapDance> = {}): MapDance {
     womenOnly: false,
     attributeTags: ["כל הרמות"],
     womenOnlyLabel: null,
+    flyerUrl: null,
+    flyerAlt: "פלייר להרקדה עם רונית מרקידה",
     ...overrides,
   };
 }

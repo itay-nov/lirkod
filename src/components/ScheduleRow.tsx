@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import Image from "next/image";
 import type { MapDance } from "@/lib/maps/mapDance";
 
 /**
@@ -22,6 +23,15 @@ import type { MapDance } from "@/lib/maps/mapDance";
 export function ScheduleRow({ dance, action }: { dance: MapDance; action?: ReactNode }) {
   return (
     <div className="flex w-full flex-wrap items-center gap-3 rounded-2xl p-2 text-start">
+      {dance.flyerUrl !== null && (
+        <Image
+          src={dance.flyerUrl}
+          alt={dance.flyerAlt}
+          width={80}
+          height={80}
+          className="size-20 shrink-0 rounded-xl object-cover"
+        />
+      )}
       <span
         className={`flex size-16 shrink-0 items-center justify-center rounded-full border-4 ${dance.ringClassName}`}
       >

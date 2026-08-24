@@ -268,7 +268,7 @@ export async function updateInstructorNameAction(
 }
 
 export type PublishDanceResult =
-  | { ok: true; occurrenceCount: number }
+  | { ok: true; eventId: string; occurrenceCount: number }
   | { ok: false; reason: "signedOut" | "noProfile" | "noNights" | "failed" }
   | { ok: false; reason: "invalid"; problems: Array<{ field: RecurringField }> };
 
@@ -368,9 +368,10 @@ export async function publishDanceAction(
   // the two builders return without a second flag to keep in step with `repeat`.
   const command = built.command;
   let occurrenceCount = 1;
+  let eventId: string;
 
   if ("startsAtUtc" in command) {
-    await publishDance(client, {
+    const published = await publishDance(client, {
       instructorId: instructor.id,
       venueId: command.venueId,
       startsAtUtc: command.startsAtUtc,
@@ -379,6 +380,7 @@ export async function publishDanceAction(
       danceFormations,
       womenOnly: input.womenOnly,
     });
+    eventId = published.eventId;
   } else {
     const series = await publishRecurringDance(client, {
       instructorId: instructor.id,
@@ -396,6 +398,7 @@ export async function publishDanceAction(
     // Nothing was written — the whole RPC rolled back — so there is nothing to
     // revalidate and the instructor needs to change a date, not retry.
     if (!series.ok) return { ok: false, reason: series.reason };
+    eventId = series.eventId;
     occurrenceCount = series.occurrenceCount;
   }
 
@@ -405,7 +408,7 @@ export async function publishDanceAction(
   revalidatePath("/");
   revalidatePath("/schedule");
 
-  return { ok: true, occurrenceCount };
+  return { ok: true, eventId, occurrenceCount };
 }
 
 export type AddVenueResult =
