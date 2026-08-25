@@ -9,6 +9,91 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      credits: {
+        Row: {
+          amount_agorot: number
+          buyer_id: string
+          expires_at: string
+          id: string
+          instructor_id: string
+          issued_at: string
+          refund_requested_at: string | null
+          remaining_agorot: number
+          source_order_id: string
+          source_ticket_id: string | null
+          status: Database["public"]["Enums"]["credit_status"]
+        }
+        Insert: {
+          amount_agorot: number
+          buyer_id: string
+          expires_at?: string
+          id?: string
+          instructor_id: string
+          issued_at?: string
+          refund_requested_at?: string | null
+          remaining_agorot: number
+          source_order_id: string
+          source_ticket_id?: string | null
+          status?: Database["public"]["Enums"]["credit_status"]
+        }
+        Update: {
+          amount_agorot?: number
+          buyer_id?: string
+          expires_at?: string
+          id?: string
+          instructor_id?: string
+          issued_at?: string
+          refund_requested_at?: string | null
+          remaining_agorot?: number
+          source_order_id?: string
+          source_ticket_id?: string | null
+          status?: Database["public"]["Enums"]["credit_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credits_instructor_id_fkey"
+            columns: ["instructor_id"]
+            isOneToOne: false
+            referencedRelation: "instructors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credits_source_order_buyer_fkey"
+            columns: ["source_order_id", "buyer_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id", "buyer_id"]
+          },
+          {
+            foreignKeyName: "credits_source_order_id_fkey"
+            columns: ["source_order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credits_source_order_instructor_fkey"
+            columns: ["source_order_id", "instructor_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id", "instructor_id"]
+          },
+          {
+            foreignKeyName: "credits_source_ticket_buyer_fkey"
+            columns: ["source_ticket_id", "buyer_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id", "buyer_id"]
+          },
+          {
+            foreignKeyName: "credits_source_ticket_id_fkey"
+            columns: ["source_ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dance_events: {
         Row: {
           created_at: string
@@ -203,6 +288,75 @@ export type Database = {
           },
         ]
       }
+      orders: {
+        Row: {
+          applied_credit_id: string | null
+          buyer_id: string
+          charged_amount_agorot: number | null
+          created_at: string
+          credit_applied_agorot: number
+          gross_amount_agorot: number
+          id: string
+          instructor_id: string
+          instructor_payout_agorot: number | null
+          kind: Database["public"]["Enums"]["order_kind"]
+          platform_fee_agorot: number
+          provider_confirmed_at: string | null
+          provider_fee_agorot: number
+          provider_transaction_id: string | null
+          status: Database["public"]["Enums"]["order_status"]
+        }
+        Insert: {
+          applied_credit_id?: string | null
+          buyer_id: string
+          charged_amount_agorot?: number | null
+          created_at?: string
+          credit_applied_agorot?: number
+          gross_amount_agorot: number
+          id?: string
+          instructor_id: string
+          instructor_payout_agorot?: number | null
+          kind: Database["public"]["Enums"]["order_kind"]
+          platform_fee_agorot?: number
+          provider_confirmed_at?: string | null
+          provider_fee_agorot?: number
+          provider_transaction_id?: string | null
+          status?: Database["public"]["Enums"]["order_status"]
+        }
+        Update: {
+          applied_credit_id?: string | null
+          buyer_id?: string
+          charged_amount_agorot?: number | null
+          created_at?: string
+          credit_applied_agorot?: number
+          gross_amount_agorot?: number
+          id?: string
+          instructor_id?: string
+          instructor_payout_agorot?: number | null
+          kind?: Database["public"]["Enums"]["order_kind"]
+          platform_fee_agorot?: number
+          provider_confirmed_at?: string | null
+          provider_fee_agorot?: number
+          provider_transaction_id?: string | null
+          status?: Database["public"]["Enums"]["order_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_applied_credit_fkey"
+            columns: ["applied_credit_id", "buyer_id", "instructor_id"]
+            isOneToOne: false
+            referencedRelation: "credits"
+            referencedColumns: ["id", "buyer_id", "instructor_id"]
+          },
+          {
+            foreignKeyName: "orders_instructor_id_fkey"
+            columns: ["instructor_id"]
+            isOneToOne: false
+            referencedRelation: "instructors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_id: Database["public"]["Enums"]["avatar_choice"]
@@ -229,6 +383,212 @@ export type Database = {
           phone?: string
         }
         Relationships: []
+      }
+      punch_cards: {
+        Row: {
+          buyer_id: string
+          expires_at: string | null
+          id: string
+          instructor_id: string
+          issued_at: string
+          order_id: string
+          remaining_uses: number
+          status: Database["public"]["Enums"]["punch_card_status"]
+          total_uses: number
+        }
+        Insert: {
+          buyer_id: string
+          expires_at?: string | null
+          id?: string
+          instructor_id: string
+          issued_at?: string
+          order_id: string
+          remaining_uses: number
+          status?: Database["public"]["Enums"]["punch_card_status"]
+          total_uses: number
+        }
+        Update: {
+          buyer_id?: string
+          expires_at?: string | null
+          id?: string
+          instructor_id?: string
+          issued_at?: string
+          order_id?: string
+          remaining_uses?: number
+          status?: Database["public"]["Enums"]["punch_card_status"]
+          total_uses?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "punch_cards_instructor_id_fkey"
+            columns: ["instructor_id"]
+            isOneToOne: false
+            referencedRelation: "instructors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "punch_cards_order_buyer_fkey"
+            columns: ["order_id", "buyer_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id", "buyer_id"]
+          },
+          {
+            foreignKeyName: "punch_cards_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "punch_cards_order_instructor_fkey"
+            columns: ["order_id", "instructor_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id", "instructor_id"]
+          },
+        ]
+      }
+      sponsored_promotions: {
+        Row: {
+          area: string
+          cancelled_at: string | null
+          created_at: string
+          ends_at: string
+          event_id: string
+          id: string
+          instructor_id: string
+          order_id: string
+          starts_at: string
+        }
+        Insert: {
+          area: string
+          cancelled_at?: string | null
+          created_at?: string
+          ends_at: string
+          event_id: string
+          id?: string
+          instructor_id: string
+          order_id: string
+          starts_at: string
+        }
+        Update: {
+          area?: string
+          cancelled_at?: string | null
+          created_at?: string
+          ends_at?: string
+          event_id?: string
+          id?: string
+          instructor_id?: string
+          order_id?: string
+          starts_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sponsored_promotions_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "dance_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sponsored_promotions_event_instructor_fkey"
+            columns: ["event_id", "instructor_id"]
+            isOneToOne: false
+            referencedRelation: "dance_events"
+            referencedColumns: ["id", "instructor_id"]
+          },
+          {
+            foreignKeyName: "sponsored_promotions_instructor_id_fkey"
+            columns: ["instructor_id"]
+            isOneToOne: false
+            referencedRelation: "instructors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sponsored_promotions_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sponsored_promotions_order_instructor_fkey"
+            columns: ["order_id", "instructor_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id", "instructor_id"]
+          },
+        ]
+      }
+      tickets: {
+        Row: {
+          buyer_id: string
+          id: string
+          issued_at: string
+          occurrence_id: string
+          order_id: string | null
+          punch_card_id: string | null
+          status: Database["public"]["Enums"]["ticket_status"]
+          used_at: string | null
+        }
+        Insert: {
+          buyer_id: string
+          id?: string
+          issued_at?: string
+          occurrence_id: string
+          order_id?: string | null
+          punch_card_id?: string | null
+          status?: Database["public"]["Enums"]["ticket_status"]
+          used_at?: string | null
+        }
+        Update: {
+          buyer_id?: string
+          id?: string
+          issued_at?: string
+          occurrence_id?: string
+          order_id?: string | null
+          punch_card_id?: string | null
+          status?: Database["public"]["Enums"]["ticket_status"]
+          used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tickets_occurrence_id_fkey"
+            columns: ["occurrence_id"]
+            isOneToOne: false
+            referencedRelation: "event_occurrences"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tickets_order_buyer_fkey"
+            columns: ["order_id", "buyer_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id", "buyer_id"]
+          },
+          {
+            foreignKeyName: "tickets_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tickets_punch_card_buyer_fkey"
+            columns: ["punch_card_id", "buyer_id"]
+            isOneToOne: false
+            referencedRelation: "punch_cards"
+            referencedColumns: ["id", "buyer_id"]
+          },
+          {
+            foreignKeyName: "tickets_punch_card_id_fkey"
+            columns: ["punch_card_id"]
+            isOneToOne: false
+            referencedRelation: "punch_cards"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       venues: {
         Row: {
@@ -341,6 +701,7 @@ export type Database = {
       }
       owns_event: { Args: { p_event_id: string }; Returns: boolean }
       owns_instructor: { Args: { p_instructor_id: string }; Returns: boolean }
+      owns_occurrence: { Args: { p_occurrence_id: string }; Returns: boolean }
       publish_dance: {
         Args: {
           p_dance_formations?: Database["public"]["Enums"]["dance_formation"][]
@@ -374,6 +735,24 @@ export type Database = {
           occurrence_count: number
         }[]
       }
+      redeem_credit_for_ticket: {
+        Args: { p_credit_id: string; p_occurrence_id: string }
+        Returns: {
+          credit_applied_agorot: number
+          credit_remaining_agorot: number
+          order_id: string
+          ticket_id: string
+        }[]
+      }
+      request_credit_refund: {
+        Args: { p_credit_id: string }
+        Returns: {
+          credit_id: string
+          instructor_absorbed_fee_agorot: number
+          refund_amount_agorot: number
+          requested_at: string
+        }[]
+      }
     }
     Enums: {
       avatar_choice:
@@ -389,10 +768,20 @@ export type Database = {
         | "circle_dance"
         | "pomegranate"
         | "musical_notes"
+      credit_status: "active" | "redeemed" | "expired" | "refunded"
       dance_formation: "circle" | "couples" | "line" | "mixed"
       dance_level: "beginner" | "intermediate" | "advanced" | "all_levels"
       occurrence_status: "scheduled" | "cancelled" | "moved"
+      order_kind: "ticket" | "punch_card" | "sponsored_promotion"
+      order_status:
+        | "pending_provider_confirmation"
+        | "paid"
+        | "failed"
+        | "cancelled"
+        | "refunded"
+      punch_card_status: "active" | "exhausted" | "expired" | "cancelled"
       recurrence_freq: "weekly" | "biweekly"
+      ticket_status: "valid" | "used" | "cancelled" | "credited"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -534,10 +923,21 @@ export const Constants = {
         "pomegranate",
         "musical_notes",
       ],
+      credit_status: ["active", "redeemed", "expired", "refunded"],
       dance_formation: ["circle", "couples", "line", "mixed"],
       dance_level: ["beginner", "intermediate", "advanced", "all_levels"],
       occurrence_status: ["scheduled", "cancelled", "moved"],
+      order_kind: ["ticket", "punch_card", "sponsored_promotion"],
+      order_status: [
+        "pending_provider_confirmation",
+        "paid",
+        "failed",
+        "cancelled",
+        "refunded",
+      ],
+      punch_card_status: ["active", "exhausted", "expired", "cancelled"],
       recurrence_freq: ["weekly", "biweekly"],
+      ticket_status: ["valid", "used", "cancelled", "credited"],
     },
   },
 } as const
