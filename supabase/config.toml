@@ -410,6 +410,15 @@ max_frequency = "60s"
 972500000022 = "123456"
 # tests/e2e/favorites.spec.ts — the browser walk through the heart toggle.
 972500000023 = "123456"
+# tests/rls/payments.test.ts — two instructors and two dancers, so every
+# cross-party read and write on the payments tables can be attempted and
+# refused (migration 0016): a buyer who owns the order, a stranger who must not
+# see it, the instructor who is owed the money, and a second instructor who is
+# not.
+972500000024 = "123456"
+972500000025 = "123456"
+972500000026 = "123456"
+972500000027 = "123456"
 # ---------------------------------------------------------------------------
 # Demo-login accounts (Phase 4.2, docs/decisions/0018). A deliberately separate
 # 9000-range so they read as "the demo cast", not as one more test fixture.
