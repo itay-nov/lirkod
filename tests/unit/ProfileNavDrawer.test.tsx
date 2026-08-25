@@ -21,7 +21,7 @@ describe("ProfileNavDrawer", () => {
       "href",
       "/",
     );
-    expect(screen.getByRole("link", { name: he.profileMenu.myDances })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: he.profileMenu.myArea })).toHaveAttribute(
       "href",
       "/profile",
     );

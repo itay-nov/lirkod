@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { showsInstructorTools, type UserRole } from "@/lib/domain/role";
+import { isActiveTab } from "@/lib/domain/navigation";
 import { he } from "@/lib/i18n/he";
 
 const FOCUSABLE = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -106,7 +108,7 @@ export function ProfileNavDrawer({ role }: { role: UserRole }) {
           role={role}
           drawerRef={drawerRef}
           close={closeAndRestoreFocus}
-          onNavigate={() => setOpen(false)}
+          onNavigate={() => setTimeout(() => setOpen(false), 0)}
         />
       ) : null}
     </>
@@ -166,27 +168,29 @@ function DrawerNavigation({
   role: UserRole;
   onNavigate: () => void;
 }) {
+  const pathname = usePathname() ?? "";
+
   return (
     <nav aria-label={he.profileMenu.navigationLabel} className="pt-6">
       <ul className="flex flex-col gap-3">
         <li>
-          <DrawerLink href="/" onNavigate={onNavigate}>
+          <DrawerLink href="/" active={isActiveTab(pathname, "/")} onNavigate={onNavigate}>
             {he.profileMenu.home}
           </DrawerLink>
         </li>
         <li>
-          <DrawerLink href="/profile" onNavigate={onNavigate}>
-            {he.profileMenu.myDances}
+          <DrawerLink href="/profile" active={pathname === "/profile"} onNavigate={onNavigate}>
+            {he.profileMenu.myArea}
           </DrawerLink>
         </li>
         <li>
-          <DrawerLink href="/profile/purchases" onNavigate={onNavigate}>
+          <DrawerLink href="/profile/purchases" active={isActiveTab(pathname, "/profile/purchases")} onNavigate={onNavigate}>
             {he.profileMenu.purchases}
           </DrawerLink>
         </li>
         {showsInstructorTools(role) ? (
           <li>
-            <DrawerLink href="/profile/create-dance" onNavigate={onNavigate}>
+            <DrawerLink href="/profile/create-dance" active={isActiveTab(pathname, "/profile/create-dance")} onNavigate={onNavigate}>
               {he.profileMenu.createDance}
             </DrawerLink>
           </li>
@@ -198,10 +202,12 @@ function DrawerNavigation({
 
 function DrawerLink({
   href,
+  active,
   onNavigate,
   children,
 }: {
   href: string;
+  active: boolean;
   onNavigate: () => void;
   children: React.ReactNode;
 }) {
@@ -209,7 +215,12 @@ function DrawerLink({
     <Link
       href={href}
       onClick={onNavigate}
-      className="flex min-h-12 items-center rounded-2xl border-2 border-muted/50 bg-surface px-4 py-3 font-display text-xl font-bold text-ink focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-secondary"
+      aria-current={active ? "page" : undefined}
+      className={`flex min-h-12 items-center rounded-2xl border-2 px-4 py-3 font-display text-xl focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-secondary ${
+        active 
+          ? "border-accent bg-accent/10 font-black text-accent" 
+          : "border-muted/50 bg-surface font-bold text-ink"
+      }`}
     >
       {children}
     </Link>
