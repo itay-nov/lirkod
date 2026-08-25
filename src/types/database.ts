@@ -693,6 +693,12 @@ export type Database = {
         Args: { p_event_id: string; p_horizon_days?: number }
         Returns: number
       }
+      get_active_promoted_event_ids: {
+        Args: { p_area?: string }
+        Returns: {
+          event_id: string
+        }[]
+      }
       move_occurrence_venue: {
         Args: { p_occurrence_id: string; p_venue_id: string }
         Returns: {

@@ -3,11 +3,13 @@ import { ScheduleDistanceFilter } from "@/components/ScheduleDistanceFilter";
 import { ScheduleList, type ScheduleDayGroup } from "@/components/ScheduleList";
 import { anonClient } from "@/lib/db/client";
 import { findDancesNear } from "@/lib/db/dances";
+import { findActivePromotedEventIds } from "@/lib/db/promotions";
 import { DEFAULT_LAT, DEFAULT_LNG } from "@/lib/domain/defaultRegion";
 import { danceFiltersLabels } from "@/lib/domain/danceFiltersLabels";
 import { distanceRadiusFromSearchParam } from "@/lib/domain/distanceFilter";
 import { distanceFilterLabels } from "@/lib/domain/distanceFilterLabels";
 import { formatDayHeading } from "@/lib/domain/occurrenceTime";
+import { boostPromotedWithinDay } from "@/lib/domain/promotedBoost";
 import { groupDancesByDay } from "@/lib/domain/scheduleDays";
 import { he } from "@/lib/i18n/he";
 import { toMapDances } from "@/lib/maps/mapDance";
@@ -34,14 +36,17 @@ export default async function SchedulePage({
   searchParams: Promise<{ radius?: string | string[] }>;
 }) {
   const radiusMeters = distanceRadiusFromSearchParam((await searchParams).radius);
+  const client = anonClient();
+
   // Errors are not caught here on purpose — a failed read must surface, not
-  // render as an empty schedule (AGENTS.md §6).
-  const dances = await findDancesNear(
-    anonClient(),
-    DEFAULT_LAT,
-    DEFAULT_LNG,
-    radiusMeters,
-  );
+  // render as an empty schedule (AGENTS.md §6). That applies to the promotions
+  // read too: it is one extra round trip, so the two are issued together rather
+  // than in series, and a failure of either is a failed page rather than a
+  // schedule that quietly loses its ordering.
+  const [dances, promotedEventIds] = await Promise.all([
+    findDancesNear(client, DEFAULT_LAT, DEFAULT_LNG, radiusMeters),
+    findActivePromotedEventIds(client),
+  ]);
 
   const days = groupDancesByDay(dances);
   const demoMode = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
@@ -52,13 +57,29 @@ export default async function SchedulePage({
   // see its own note) — ScheduleList (Phase 4.6b) only filters and renders
   // the already-complete MapDance[] this produces, the same discipline
   // toMapDances/MapDance follow for the map (docs/decisions/0007).
+  //
+  // The promotion boost is applied HERE, and only here.
+  //
+  // Not in find_dances_near: the map calls the same RPC ((public)/page.tsx and
+  // the "near me" route handler), and the confirmed product decision is that
+  // the map's order does not change. Pushing the boost into the shared query
+  // would move both, with nothing at either call site to say so.
+  //
+  // Not before grouping either: a dance sorted ninety minutes earlier could
+  // cross midnight into the previous day's group and render under yesterday's
+  // heading. Boosting inside the group bounds it to the day it belongs to.
+  //
+  // The heading still reads `day.dances[0]` — the group BEFORE the boost, whose
+  // first entry is the earliest night of that day. A heading is a date either
+  // way, but taking it from the unreordered tuple keeps it independent of who
+  // paid for placement.
   const dayGroups: ScheduleDayGroup[] = days.map((day) => {
     const heading = formatDayHeading(day.dances[0].startsAt);
     return {
       dayKey: day.dayKey,
       heading,
       dayListLabel: he.schedule.dayListLabel(heading),
-      dances: toMapDances(day.dances),
+      dances: toMapDances(boostPromotedWithinDay(day.dances, promotedEventIds)),
     };
   });
 

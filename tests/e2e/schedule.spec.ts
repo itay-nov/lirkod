@@ -210,3 +210,23 @@ test("tabbing lands only on a row's heart, never anywhere else inside it (Phase 
     if (focused.inRow) expect(focused.isHeart).toBe(true);
   }
 });
+
+/**
+ * Sponsored promotions boost a dance's position in this list (migration 0017,
+ * docs/decisions/0026) and are confirmed to carry NO visual marker — the whole
+ * mechanism is a nudge in sort order, and a label would turn it into the
+ * advertisement the product decision rules out.
+ *
+ * Asserted here rather than in a unit test because the claim is about the
+ * rendered page: no component, no i18n string, and no future copy edit may put
+ * one of these words on the schedule. It needs no promoted fixture — the point
+ * is that the word never appears, whether or not anything is promoted.
+ */
+test("never labels a dance as sponsored", async ({ page }) => {
+  await page.goto("/schedule");
+  const body = await page.locator("main").innerText();
+
+  for (const word of ["ממומן", "ממומנת", "מקודם", "בחסות", "sponsored", "promoted"]) {
+    expect(body.toLowerCase()).not.toContain(word.toLowerCase());
+  }
+});

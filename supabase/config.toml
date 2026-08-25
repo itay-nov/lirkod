@@ -419,6 +419,11 @@ max_frequency = "60s"
 972500000025 = "123456"
 972500000026 = "123456"
 972500000027 = "123456"
+# tests/rls/promotedBoost.test.ts — one signed-in dancer, to prove
+# get_active_promoted_event_ids (migration 0017) is granted to `authenticated`
+# as well as `anon`. The instructor who owns the promoted dance is
+# admin-created and never signs in, so it needs no number here.
+972500000028 = "123456"
 # ---------------------------------------------------------------------------
 # Demo-login accounts (Phase 4.2, docs/decisions/0018). A deliberately separate
 # 9000-range so they read as "the demo cast", not as one more test fixture.
