@@ -424,6 +424,20 @@ max_frequency = "60s"
 # as well as `anon`. The instructor who owns the promoted dance is
 # admin-created and never signs in, so it needs no number here.
 972500000028 = "123456"
+# tests/e2e/purchases.spec.ts — the dancer who buys a ticket and later checks
+# "my purchases", plus the instructor-sees-no-leak case (the P1 fix this file
+# exists to prove closed). Registered here because it was missing: without an
+# entry in this table GoTrue refuses "123456" for the number, and the sign-in
+# helper's own OTP-code field never appears.
+972500000045 = "123456"
+# tests/e2e/purchases.spec.ts — the instructor whose own dance the dancer
+# above buys into, for the "Instructor sees no leak" case. A throwaway
+# identity this file creates and tears down itself via admin.createUser, the
+# pattern every other e2e/RLS suite in this repo uses — NOT the seeded
+# baseline instructor from supabase/seed.sql, whose phone is stored with a
+# leading "+" and does not round-trip through a real browser sign-in (see the
+# spec file's own header comment).
+972500000046 = "123456"
 # ---------------------------------------------------------------------------
 # Demo-login accounts (Phase 4.2, docs/decisions/0018). A deliberately separate
 # 9000-range so they read as "the demo cast", not as one more test fixture.

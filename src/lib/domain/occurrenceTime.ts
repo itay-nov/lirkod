@@ -132,6 +132,19 @@ const dayHeadingFormatter = new Intl.DateTimeFormat(LOCALE, {
 });
 
 /** "יום שני, 2 ביוני" — the visible header above one day's dances. */
+
+const numericDateFormatter = new Intl.DateTimeFormat(LOCALE, {
+  timeZone: TIMEZONE,
+  day: "numeric",
+  month: "numeric",
+  year: "numeric",
+});
+
+/** "18.8.2026" — numeric date display */
+export function formatNumericDate(startsAt: string): string {
+  return numericDateFormatter.format(parse(startsAt));
+}
+
 export function formatDayHeading(startsAt: string): string {
   return dayHeadingFormatter.format(parse(startsAt));
 }

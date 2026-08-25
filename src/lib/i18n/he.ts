@@ -166,6 +166,7 @@ export const he = {
     home: "ראשי",
     myDances: "ההרקדות שלי",
     createDance: "בניית הרקדה חדשה",
+    purchases: "הרכישות שלי",
   },
   /**
    * The DEMO_MODE toggle (AGENTS.md §13 Phase 4.0): one button in the header
@@ -313,6 +314,36 @@ export const he = {
     },
   },
   /** Now a section inside /profile, not its own route or tab — see docs/decisions/0008. */
+
+  purchases: {
+    heading: "הרכישות שלי",
+    ticketsHeading: "כרטיסים",
+    punchCardsHeading: "כרטיסיות",
+    creditsHeading: "זיכויים",
+    noPurchases: "אין רכישות",
+    noTickets: "אין כרטיסים פעילים.",
+    noPunchCards: "אין כרטיסיות פעילות.",
+    noCredits: "אין זיכויים פעילים.",
+    useCredit: "לנצל את הזיכוי",
+    requestRefund: "בקשת החזר כספי",
+    refundRequested: "הוגשה בקשה להחזר",
+    selectDanceLabel: "בחירת הרקדה",
+    redeemButton: "מימוש",
+    redeemSuccess: "הזיכוי מומש בהצלחה.",
+    refundSuccess: "בקשת ההחזר נשלחה.",
+    creditAmount: (amount: number) => `₪${amount}`,
+    expiresAt: (date: string) => `בתוקף עד ${date}`,
+    remainingUses: (rem: number, total: number) => `${rem} מתוך ${total} כניסות`,
+    cancelRedeem: "ביטול",
+
+    ticketStatuses: {
+      valid: "פעיל",
+      used: "מומש",
+      cancelled: "בוטל",
+      credited: "זוכה",
+    },
+    ticketStatusLabel: (status: string) => `סטטוס: ${status}`,
+  },
   favorites: {
     heading: "מועדפים",
     /**
