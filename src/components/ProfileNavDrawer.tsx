@@ -179,6 +179,11 @@ function DrawerNavigation({
             {he.profileMenu.myDances}
           </DrawerLink>
         </li>
+        <li>
+          <DrawerLink href="/profile/purchases" onNavigate={onNavigate}>
+            {he.profileMenu.purchases}
+          </DrawerLink>
+        </li>
         {showsInstructorTools(role) ? (
           <li>
             <DrawerLink href="/profile/create-dance" onNavigate={onNavigate}>
