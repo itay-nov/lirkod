@@ -163,7 +163,7 @@ export const he = {
     close: "סגירת תפריט ניווט",
     title: "מעבר מהיר",
     navigationLabel: "ניווט באזור האישי",
-    home: "ראשי",
+    home: "מפה",
     myArea: "אזור אישי",
     backToProfile: "חזרה לאזור האישי",
     createDance: "בניית הרקדה חדשה",
