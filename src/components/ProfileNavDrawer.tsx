@@ -69,6 +69,7 @@ export function ProfileNavDrawer({ role }: { role: UserRole }) {
   const [open, setOpen] = useState(false);
   const openerRef = useRef<HTMLButtonElement>(null);
   const drawerRef = useRef<HTMLDivElement>(null);
+  const pathname = usePathname();
 
   const closeAndRestoreFocus = useCallback(() => {
     setOpen(false);
@@ -76,6 +77,16 @@ export function ProfileNavDrawer({ role }: { role: UserRole }) {
   }, []);
 
   useDrawerFocusTrap({ open, drawerRef, close: closeAndRestoreFocus });
+
+  // Close the drawer automatically when the user successfully navigates to a new route.
+  // This avoids race conditions with Next.js router unmounting the component during a click
+  // and provides better UX by keeping the drawer open until the new page actually arrives.
+  useEffect(() => {
+    // The timeout satisfies the `react-hooks/set-state-in-effect` lint rule which forbids
+    // synchronous setState inside an effect body.
+    const t = setTimeout(() => setOpen(false), 0);
+    return () => clearTimeout(t);
+  }, [pathname]);
 
   return (
     <>
@@ -108,7 +119,6 @@ export function ProfileNavDrawer({ role }: { role: UserRole }) {
           role={role}
           drawerRef={drawerRef}
           close={closeAndRestoreFocus}
-          onNavigate={() => setTimeout(() => setOpen(false), 0)}
         />
       ) : null}
     </>
@@ -119,12 +129,10 @@ function Drawer({
   role,
   drawerRef,
   close,
-  onNavigate,
 }: {
   role: UserRole;
   drawerRef: RefObject<HTMLDivElement | null>;
   close: () => void;
-  onNavigate: () => void;
 }) {
   return (
     <div
@@ -155,42 +163,36 @@ function Drawer({
           </button>
         </div>
 
-        <DrawerNavigation role={role} onNavigate={onNavigate} />
+        <DrawerNavigation role={role} />
       </div>
     </div>
   );
 }
 
-function DrawerNavigation({
-  role,
-  onNavigate,
-}: {
-  role: UserRole;
-  onNavigate: () => void;
-}) {
+function DrawerNavigation({ role }: { role: UserRole }) {
   const pathname = usePathname() ?? "";
 
   return (
     <nav aria-label={he.profileMenu.navigationLabel} className="pt-6">
       <ul className="flex flex-col gap-3">
         <li>
-          <DrawerLink href="/" active={isActiveTab(pathname, "/")} onNavigate={onNavigate}>
+          <DrawerLink href="/" active={isActiveTab(pathname, "/")}>
             {he.profileMenu.home}
           </DrawerLink>
         </li>
         <li>
-          <DrawerLink href="/profile" active={pathname === "/profile"} onNavigate={onNavigate}>
+          <DrawerLink href="/profile" active={pathname === "/profile"}>
             {he.profileMenu.myArea}
           </DrawerLink>
         </li>
         <li>
-          <DrawerLink href="/profile/purchases" active={isActiveTab(pathname, "/profile/purchases")} onNavigate={onNavigate}>
+          <DrawerLink href="/profile/purchases" active={isActiveTab(pathname, "/profile/purchases")}>
             {he.profileMenu.purchases}
           </DrawerLink>
         </li>
         {showsInstructorTools(role) ? (
           <li>
-            <DrawerLink href="/profile/create-dance" active={isActiveTab(pathname, "/profile/create-dance")} onNavigate={onNavigate}>
+            <DrawerLink href="/profile/create-dance" active={isActiveTab(pathname, "/profile/create-dance")}>
               {he.profileMenu.createDance}
             </DrawerLink>
           </li>
@@ -203,18 +205,15 @@ function DrawerNavigation({
 function DrawerLink({
   href,
   active,
-  onNavigate,
   children,
 }: {
   href: string;
   active: boolean;
-  onNavigate: () => void;
   children: React.ReactNode;
 }) {
   return (
     <Link
       href={href}
-      onClick={onNavigate}
       aria-current={active ? "page" : undefined}
       className={`flex min-h-12 items-center rounded-2xl border-2 px-4 py-3 font-display text-xl focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-secondary ${
         active 
