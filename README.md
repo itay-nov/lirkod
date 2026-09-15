@@ -1,90 +1,102 @@
 # Lirkod (לרקוד)
 
-A platform for the Israeli folk-dancing (ריקודי עם) community. See `AGENTS.md` for
-the full product context, constraints, and coding standards — read it before making
-changes.
+Lirkod is a Hebrew-first web platform for Israel's folk-dancing community. It brings dance events, schedule changes, venue information, and instructor tools into one accessible place instead of scattering them across WhatsApp groups, Facebook pages, and separate websites.
 
-The schema for the core read path exists (migrations `0001`–`0003`), and the home
-screen renders real nearby dances as ring buttons. The map itself is still a flat
-placeholder — Google Maps is not wired up yet.
+[Live demo](https://lirkod-ten.vercel.app)
 
-## Setup
+## Current capabilities
+
+- Browse upcoming folk-dance events without creating an account
+- Explore events on an interactive Google Map or in a schedule view
+- Search by distance using a PostGIS proximity query
+- See cancelled events and one-off venue changes without losing the original event
+- Sign in with phone OTP for identity-dependent actions
+- Save favorite dances and manage a personal profile
+- Create recurring dances as an instructor
+- Manage individual nights, venues, dance attributes, and event flyers
+- Use role-aware interfaces for dancers and instructors
+- Store purchase and promotion data behind restrictive database policies
+
+Payment processing, push notifications, carpooling, and instructor analytics remain future work.
+
+## Technology
+
+| Area | Stack |
+|---|---|
+| Frontend | Next.js App Router, React, TypeScript |
+| Backend | Next.js Route Handlers and Server Actions |
+| Database | Supabase, PostgreSQL, PostGIS |
+| Authentication | Supabase Auth with phone OTP |
+| Maps | Google Maps JavaScript API and Google Places |
+| Security | Row Level Security, Cloudflare Turnstile, bounded public queries |
+| Testing | Vitest, Testing Library, Playwright, PostgreSQL/RLS integration tests |
+| Hosting | Vercel |
+
+## Engineering highlights
+
+### Spatial search in PostgreSQL
+
+Nearby events are queried in Postgres with PostGIS and `ST_DWithin`. The application sends only the requested location and radius, while the database applies distance, time-window, and row-count bounds. The API uses `POST` for precise user coordinates so they do not appear in URLs, browser history, or referrer headers.
+
+### Recurring events with per-night overrides
+
+Recurring dances are materialized as event-occurrence rows. A specific night can be cancelled, rescheduled, or moved to another venue without changing the entire series. This keeps schedule history explicit and makes exceptional nights visible to anonymous visitors.
+
+### Authorization tested at the database boundary
+
+Every application table uses Row Level Security. Dedicated integration tests verify anonymous read access, role restrictions, instructor ownership, favorites, purchases, venue management, recurring-event publishing, and other policy-sensitive flows.
+
+### Accessible Hebrew-first interface
+
+The interface is RTL-first and designed for an audience that includes older and less technical users. Core browsing requires no login. The project enforces large tap targets, relative font sizing, keyboard-accessible map markers, plain Hebrew labels, and visible status text instead of color-only indicators.
+
+### Documented agent-assisted workflow
+
+The repository includes explicit engineering constraints, architectural decision records, and separate unit, end-to-end, and RLS test suites. Coding agents are used within these documented boundaries, while changes remain reviewable through small commits, typed interfaces, database migrations, and automated tests.
+
+## Project structure
+
+```text
+src/app/              Next.js routes, Route Handlers, and Server Actions
+src/components/       UI components
+src/lib/domain/       Framework-independent business logic
+src/lib/db/           Typed Supabase queries
+src/lib/maps/         Map adapters and location utilities
+supabase/migrations/  Versioned schema, functions, grants, and RLS policies
+tests/unit/            Unit and component tests
+tests/e2e/             Playwright browser tests
+tests/rls/             Database authorization tests
+docs/decisions/        Architectural decision records
+```
+
+## Local setup
+
+Requirements:
+
+- Node.js
+- A container runtime such as Docker Desktop, Colima, or OrbStack
+- Supabase CLI
 
 ```bash
 npm install
-cp .env.example .env.local   # fill in real values
+cp .env.example .env.local
+npm run db:start
+npm run db:reset
+npm run db:types
+npm run dev
 ```
 
-The local Supabase stack runs in containers, so you need a container runtime. Any of
-Colima, Docker Desktop, or OrbStack works — with Colima:
+The local Supabase command prints the URL and keys required in `.env.local`. See `.env.example` for the complete configuration and safe placeholders.
+
+## Quality checks
 
 ```bash
-brew install colima docker
-colima start --cpu 4 --memory 8 --disk 60   # once per machine; re-run after a reboot
+npm run typecheck
+npm run lint
+npm test
+npm run test:rls
+npm run test:e2e
+npm run build
 ```
 
-Then:
-
-```bash
-npm run db:start     # supabase start — prints the local API URL and keys
-npm run db:types     # regenerate src/types/database.ts from the running schema
-```
-
-Copy the `API_URL` and `anon key` it prints into `.env.local`.
-
-## Commands
-
-```bash
-npm run dev          # local dev server
-npm run build        # production build
-npm run lint         # eslint
-npm run typecheck    # tsc --noEmit
-npm test             # vitest (unit) — hermetic, no database needed
-npm run test:e2e     # playwright (e2e) — starts the dev server automatically
-npm run test:rls     # RLS + domain-query tests — needs the local stack freshly reset
-npm run db:start     # start the local Supabase stack
-npm run db:stop      # stop it
-npm run db:reset     # drop, recreate, and re-apply every migration
-npm run db:types     # regenerate src/types/database.ts
-```
-
-`npm run test:e2e` uses Chromium, installed via `npx playwright install chromium`.
-
-`npm run dev` and `npm run test:e2e` both need `.env.local` and a running, recently
-reset local stack: the home page is a Server Component that queries `find_dances_near`,
-and its e2e assertions read the seeded moved/cancelled occurrences. `npm run build`
-does **not** need a database — the home route is never prerendered
-(docs/decisions/0006).
-
-## Database
-
-`npm run test:rls` is deliberately **not** part of `npm test`. It needs a running
-Postgres, and `npm test` should stay hermetic and fast. Run it after any change to a
-migration, a policy, or a grant — it is the only thing that proves an anonymous
-visitor can still read the map (AGENTS.md §2.2) and that one instructor still cannot
-cancel another instructor's dance.
-
-After any schema change: write a **new** migration (never edit an applied one),
-then `npm run db:reset && npm run db:types && npm run test:rls`, and commit the
-regenerated types alongside the migration.
-
-`tests/db/**` (e.g. the proximity query tests) assert against rows from
-`supabase/seed.sql`, not fixtures they create themselves — so they need a **recent**
-`npm run db:reset`, not just a running stack. Seeded occurrences are only a few days
-in the future; if one of these tests starts failing and nothing relevant changed,
-reset first before assuming it's a real regression.
-
-## Ports across worktrees
-
-Both `npm run dev` and `npm run test:e2e` use port 3000 by default. Keep that
-default for ordinary work: it is the origin allowlisted for the browser Maps
-key, and Playwright refuses to reuse a server from another worktree.
-
-Only override `PORT` when two worktrees deliberately need to run at the same
-time. The exact custom origin must also be added to the Maps key's HTTP-referrer
-allowlist or the real-map tests will fail with `RefererNotAllowedMapError`.
-
-```bash
-PORT=3001 npm run dev
-PORT=3001 npm run test:e2e
-```
+Database and RLS tests require a running, recently reset local Supabase stack. Playwright requires Chromium, which can be installed with `npx playwright install chromium`.
